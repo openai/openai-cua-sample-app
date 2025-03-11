@@ -58,6 +58,8 @@ class BasePlaywrightComputer:
         self._playwright = sync_playwright().start()
         self._browser, self._page = self._get_browser_and_page()
 
+        self._listen_for_new_page(self._browser)
+
         # Set up network interception to flag URLs matching domains in BLOCKED_DOMAINS
         def handle_route(route, request):
 
@@ -145,6 +147,12 @@ class BasePlaywrightComputer:
 
     def forward(self) -> None:
         self._page.go_forward()
+
+    def _listen_for_new_page(self, browser: Browser) -> None:
+        def handle_new_page(page: Page):
+            self._page = page
+
+        browser.contexts[-1].on("page", handle_new_page)
 
     # --- Subclass hook ---
     def _get_browser_and_page(self) -> tuple[Browser, Page]:
