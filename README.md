@@ -26,6 +26,7 @@ Other included sample [computer environments](#computer-environments):
 - [Docker](https://docker.com/) (containerized desktop)
 - [Browserbase](https://www.browserbase.com/) (remote browser, requires account)
 - [Scrapybara](https://scrapybara.com) (remote browser or computer, requires account)
+- [Pig](https://pig.dev) (your own windows computer, requires free account)
 - ...or implement your own `Computer`!
 
 ## Overview
@@ -91,6 +92,7 @@ This sample app provides a set of implemented `Computer` examples, but feel free
 | `LocalPlaywright`   | local-playwright   | `browser` | Local browser window              | [Playwright SDK](https://playwright.dev/)                        |
 | `Docker`            | docker             | `linux`   | Docker container environment      | [Docker](https://docs.docker.com/engine/install/) running        |
 | `Browserbase`       | browserbase        | `browser` | Remote browser environment        | [Browserbase](https://www.browserbase.com/) API key in `.env`    |
+| `PigWindows`        | pig-windows        | `windows` | Your own Windows computer         | [Pig](https://pig.dev) API and Machine ID in `.env`              |
 | `ScrapybaraBrowser` | scrapybara-browser | `browser` | Remote browser environment        | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
 | `ScrapybaraUbuntu`  | scrapybara-ubuntu  | `linux`   | Remote Ubuntu desktop environment | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
 
