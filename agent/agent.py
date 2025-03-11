@@ -19,7 +19,7 @@ class Agent:
 
     def __init__(
         self,
-        model="computer-use-preview-2025-02-04",
+        model="computer-use-preview",
         computer: Computer = None,
         tools: list[dict] = [],
         acknowledge_safety_check_callback: Callable = lambda: False,
