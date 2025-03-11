@@ -15,7 +15,8 @@ cua_e2b_key_mapping = {
 
 class E2BDesktop:
     """
-    E2B Desktop is a desktop environment in the cloud.
+    E2B Desktop is an open-source desktop environment for AI Agents.
+    You can get started for free at https://e2b.dev or read our docs at https://docs.e2b.dev
     """
 
     def __init__(self):
