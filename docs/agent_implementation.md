@@ -25,6 +25,9 @@ class Agent:
         computer: Computer = None,
         tools: list[dict] = [],
         acknowledge_safety_check_callback: Callable = lambda: False,
+        use_octotools: bool = False,
+        octotools_engine: str = "gpt-4o",
+        octotools_tools: List[str] = None,
     ):
         self.model = model
         self.computer = computer
@@ -43,6 +46,16 @@ class Agent:
                     "environment": computer.environment,
                 },
             ]
+            
+        # Octotools integration
+        self.use_octotools = use_octotools
+        if use_octotools:
+            self.octotools = OctotoolsWrapper(
+                llm_engine=octotools_engine,
+                enabled_tools=octotools_tools
+            )
+        else:
+            self.octotools = None
 ```
 
 ## Key Methods
@@ -56,6 +69,10 @@ The `run_full_turn()` method is the main entry point for running a complete inte
 3. Processes any actions in the response
 4. Continues calling the model until a final response is reached
 
+With Octotools integration, it can also:
+5. Detect queries that need complex reasoning
+6. Leverage specialized tools for enhanced problem-solving
+
 ```python
 def run_full_turn(
     self, input_items, print_steps=True, debug=False, show_images=False
@@ -63,6 +80,12 @@ def run_full_turn(
     self.print_steps = print_steps
     self.debug = debug
     self.show_images = show_images
+    
+    # Check if we should use Octotools for complex reasoning
+    if self.use_octotools and self._needs_complex_reasoning(input_items):
+        return self._handle_with_octotools(input_items)
+    
+    # Standard CUA processing
     new_items = []
 
     # keep looping until we get a final response
@@ -86,6 +109,86 @@ def run_full_turn(
                 new_items += self.handle_item(item)
 
     return new_items
+```
+
+### `_needs_complex_reasoning()`
+
+When Octotools integration is enabled, this method determines if a query requires complex reasoning:
+
+```python
+def _needs_complex_reasoning(self, input_items):
+    """
+    Determine if the query needs complex reasoning that would benefit from Octotools.
+    This is a basic heuristic and can be enhanced based on specific requirements.
+    """
+    # Extract the latest user message
+    latest_user_message = None
+    for item in reversed(input_items):
+        if item.get("role") == "user":
+            latest_user_message = item.get("content", "")
+            break
+    
+    if not latest_user_message:
+        return False
+    
+    # Simple heuristic: check for keywords that might suggest complex reasoning
+    complex_keywords = [
+        "analyze", "compare", "calculate", "extract data", "search for", 
+        "find information", "summarize", "visual analysis", 
+        "collect data", "research", "solve"
+    ]
+    
+    return any(keyword in latest_user_message.lower() for keyword in complex_keywords)
+```
+
+### `_handle_with_octotools()`
+
+This method processes queries using Octotools when complex reasoning is needed:
+
+```python
+def _handle_with_octotools(self, input_items):
+    """
+    Handle a query using Octotools for complex reasoning.
+    """
+    # Extract the latest user message and any screenshots
+    latest_user_message = None
+    latest_screenshot = None
+    
+    for item in reversed(input_items):
+        if item.get("role") == "user" and not latest_user_message:
+            latest_user_message = item.get("content", "")
+        
+        # Look for the most recent screenshot
+        if not latest_screenshot and item.get("type") == "computer_call_output":
+            output = item.get("output", {})
+            if output.get("type") == "input_image":
+                image_url = output.get("image_url", "")
+                if image_url.startswith("data:image/png;base64,"):
+                    latest_screenshot = image_url
+    
+    if not latest_user_message:
+        return []
+    
+    # Get the current URL for context if in browser environment
+    current_url = None
+    if self.computer and self.computer.environment == "browser":
+        try:
+            current_url = self.computer.get_current_url()
+        except:
+            pass
+    
+    # Build context
+    context = f"Current URL: {current_url}" if current_url else ""
+    
+    # Solve using Octotools
+    result = self.octotools.solve(
+        query=latest_user_message,
+        image_data=latest_screenshot.split("base64,")[1] if latest_screenshot else None,
+        context=context
+    )
+    
+    # Return as a message from the assistant
+    return [{"role": "assistant", "content": result.get("answer", "")}]
 ```
 
 ### `handle_item()`
@@ -174,9 +277,13 @@ def handle_item(self, item):
 | `computer` | The Computer implementation to use | `None` |
 | `tools` | A list of additional tools to provide to the model | `[]` |
 | `acknowledge_safety_check_callback` | A callback function for handling safety checks | `lambda: False` |
+| `use_octotools` | Whether to use Octotools integration | `False` |
+| `octotools_engine` | The LLM engine to use for Octotools | `"gpt-4o"` |
+| `octotools_tools` | List of Octotools tools to enable | `None` |
 
 ## Agent Workflow Diagram
 
+### Standard Workflow
 ```
 ┌─────────────────┐
 │                 │
@@ -246,6 +353,59 @@ def handle_item(self, item):
             │ Return Output   │
             │                 │
             └─────────────────┘
+```
+
+### Octotools-Enhanced Workflow
+```
+┌─────────────────┐
+│                 │
+│   User Input    │
+│                 │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│                 │
+│  run_full_turn  │
+│                 │
+└────────┬────────┘
+         │
+         ▼
+┌──────────────────────┐
+│                      │
+│ _needs_complex_      │
+│    reasoning?        │
+│                      │
+└──────────┬───────────┘
+           │
+           ▼
+      ┌────/\────┐
+      │   Yes    │
+      └────┬─────┘            ┌────/\────┐
+           │                  │    No    │
+           │                  └─────┬────┘
+           ▼                        │
+┌─────────────────┐                 │
+│                 │                 │
+│ _handle_with_   │                 │
+│   octotools     │                 │
+│                 │                 │
+└────────┬────────┘                 │
+         │                          │
+         ▼                          │
+┌─────────────────┐                 │
+│                 │                 │
+│   Octotools     │◀────────────────┘
+│    Solver       │   (Standard Workflow)
+│                 │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│                 │
+│ Return Response │
+│                 │
+└─────────────────┘
 ```
 
 ## Using the Agent

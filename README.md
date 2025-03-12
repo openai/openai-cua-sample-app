@@ -34,6 +34,25 @@ The computer use tool and model are available via the [Responses API](https://pl
 
 You can learn more about this tool in the [Computer use guide](https://platform.openai.com/docs/guides/tools-computer-use).
 
+## Feature Highlights
+
+- **Multiple Computer Environments**: Support for various environments including local browsers, Docker containers, and remote services
+- **Safety Measures**: URL blocklisting and safety check acknowledgments
+- **Function Calling**: Define and use custom functions in your agent
+- **Extensible Design**: Easily add new Computer implementations
+- **Octotools Integration**: Enhanced reasoning and specialized tools through the [Octotools](https://github.com/OctoTools/OctoTools) framework
+
+### Octotools Integration
+
+The CUA Sample App includes integration with the Octotools framework for enhanced reasoning and specialized tool access:
+
+```shell
+# Run with Octotools integration
+python main.py --use-octotools
+```
+
+For more details, see the [Octotools Integration Guide](docs/octotools_integration_guide.md) and [README_OCTOTOOLS.md](README_OCTOTOOLS.md).
+
 ## Abstractions
 
 This repository defines two lightweight abstractions to make interacting with CUA agents more ergonomic. Everything works without them, but they provide a convenient separation of concerns.
