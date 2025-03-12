@@ -12,22 +12,11 @@ load_dotenv()
 class SteelBrowser(BasePlaywrightComputer):
     """
     Steel is an open-source browser API purpose-built for AI agents.
-    It provides a simple API for controlling browsers remotely, with features like:
-    - Session recording and replay
-    - Built-in proxy support with residential IPs
-    - Anti-bot protection
-    - Browser context management
-
-    To get started:
-    1. Sign up at https://steel.dev
-    2. Get your API key from the dashboard
-    3. Add STEEL_API_KEY to your .env file
+    Head to https://app.steel.dev to get started.
 
     If you're running Steel locally or self-hosted, add the following to your .env file:
     STEEL_API_KEY=your_api_key
-    STEEL_API_URL=http://localhost:3000 (or your self-hosted URL)
-
-    For more information, visit: https://docs.steel.dev
+    STEEL_BASE_URL=http://localhost:3000 (or your self-hosted URL)
 
     IMPORTANT: The `goto` tool, as defined in playwright_with_custom_functions.py, is strongly recommended when using the Steel computer.
     Make sure to include this tool in your configuration when using the Steel computer.
@@ -60,7 +49,10 @@ class SteelBrowser(BasePlaywrightComputer):
         super().__init__()
 
         # Initialize Steel client
-        self.client = Steel(steel_api_key=os.getenv("STEEL_API_KEY"))
+        self.client = Steel(
+            steel_api_key=os.getenv("STEEL_API_KEY"), 
+            base_url=os.getenv("STEEL_BASE_URL") if os.getenv("STEEL_BASE_URL") else "https://api.steel.dev"
+        )
         self.dimensions = (width, height)
         self.proxy = proxy
         self.solve_captcha = solve_captcha
