@@ -1,131 +1,182 @@
-# Octotools Integration for CUA-SAMPLE-APP
+# 🛠️ Octotools Integration for CUA Sample App
 
-This integration enhances the CUA-SAMPLE-APP framework with Octotools capabilities for improved reasoning and problem-solving.
+This integration enhances the CUA Sample App with [Octotools](https://github.com/OctoTools/OctoTools) capabilities, providing advanced reasoning, problem-solving, and specialized tool access for AI agents.
 
-## Components
+## 📋 Overview
 
-The integration consists of the following components:
+The Octotools integration enables CUA Sample App to:
+- Perform complex multi-step reasoning
+- Access specialized tools for different tasks
+- Enhance browser automation with content analysis
+- Generate code and analyze data
+- Search for and extract information from the web
 
-1. **SimpleOctotoolsWrapper** (`simple_octotools_wrapper.py`) - A lightweight wrapper that provides Octotools-like functionality using direct OpenAI API calls.
+## 🧩 Components
 
-2. **OctotoolsIntegration** (`cua_octotools_integration_simple.py`) - A bridge component for connecting CUA-SAMPLE-APP with Octotools.
+The integration consists of the following key components:
 
-3. **OctotoolsAgent** (`octotools_agent.py`) - An enhanced agent that extends the base CUA Agent with Octotools reasoning capabilities.
+1. **OctotoolsWrapper** (`octotools_wrapper.py`) - Core wrapper for Octotools functionality.
 
-4. **Test Scripts** - Multiple test scripts to verify different aspects of the integration.
+2. **OctotoolsAgent** (`octotools_agent.py`) - Enhanced agent extending the base CUA Agent with Octotools capabilities.
 
-## Setup
+3. **SimpleOctotoolsWrapper** (`simple_octotools_wrapper.py`) - Lightweight wrapper using direct API calls for environments without full Octotools.
+
+4. **CompleteOctotoolsWrapper** (`complete_octotools_wrapper.py`) - Full-featured wrapper with all Octotools capabilities.
+
+5. **Integration Scripts** - Various scripts to demonstrate different integration patterns.
+
+## ⚙️ Setup
 
 ### Prerequisites
 
 - Python 3.10 or higher
-- CUA-SAMPLE-APP installed and working
+- CUA Sample App installed and working
 - An OpenAI API key with access to GPT-4o or similar model
 
-### Installation
+### Quick Installation
 
-1. Clone the Octotools repository (optional for minimal integration):
+1. **Clone the repository with submodules**:
    ```bash
-   git clone https://github.com/OctoTools/OctoTools.git octotools
+   git clone https://github.com/jmanhype/openai-cua-sample-app.git
+   cd openai-cua-sample-app
    ```
 
-2. Set up environment variables:
+2. **Set up environment**:
    ```bash
-   echo "OPENAI_API_KEY=your-api-key" > .env
+   python setup_octotools.py
    ```
-
-3. Install dependencies:
+   
+3. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-## Usage
+### Manual Setup
 
-### Simple Integration
+If you prefer manual setup:
 
-For a basic integration that doesn't require the full Octotools repository:
+1. **Create `.env` file**:
+   ```bash
+   echo "OPENAI_API_KEY=your-api-key-here" > .env
+   echo "OCTOTOOLS_MODEL=gpt-4o" >> .env
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## 🚀 Usage
+
+### Basic Integration
+
+Run the CUA Sample App with Octotools enabled:
 
 ```bash
-python cua_octotools_integration_simple.py --query "Explain the concept of recursion" --debug
+python main.py --use-octotools --debug
 ```
 
-### Advanced Integration
+### Advanced Usage
 
-For a full integration that extends the CUA Agent:
+Use the dedicated OctotoolsAgent with specific tools:
 
 ```bash
-python octotools_agent.py
+python run_octotools_agent.py --tools "Python_Code_Generator_Tool,Text_Detector_Tool,URL_Text_Extractor_Tool,Nature_News_Fetcher_Tool"
 ```
 
-This will start an interactive session using the OctotoolsAgent with browser automation.
+### Available Tools
 
-### Standalone Testing
+The integration supports multiple tools:
 
-To test the SimpleOctotoolsWrapper independently:
+| Tool | Description | Usage Example |
+|------|-------------|---------------|
+| `Generalist_Solution_Generator_Tool` | General problem-solving | Complex reasoning tasks |
+| `Python_Code_Generator_Tool` | Generates Python code | "Write a script to parse CSV files" |
+| `Text_Detector_Tool` | Analyzes text for key information | Extract entities from documents |
+| `URL_Text_Extractor_Tool` | Extracts text from webpages | "Summarize this webpage" |
+| `Nature_News_Fetcher_Tool` | Fetches news from Nature | "What's new in quantum computing?" |
+
+## 🧪 Testing
+
+Run tests to verify the integration:
 
 ```bash
+# Test basic integration
+python test_octotools.py
+
+# Test simple wrapper
 python test_simple_octotools.py
+
+# Test full integration
+python test_full_octotools.py
 ```
 
-## Integration Architecture
+## 🔍 Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                  CUA-SAMPLE-APP                         │
+│                  CUA Sample App                         │
 │                                                         │
 │  ┌───────────────┐           ┌───────────────────────┐  │
 │  │ Regular Agent │           │ OctotoolsAgent        │  │
 │  └───────┬───────┘           └───────────┬───────────┘  │
 │          │                               │              │
 │          │                   ┌───────────┴───────────┐  │
-│          │                   │ SimpleOctotoolsWrapper│  │
+│          │                   │  OctotoolsWrapper     │  │
 │          │                   └───────────────────────┘  │
 │          │                               │              │
 │   ┌──────┴───────────────────────────────┴─────────┐    │
 │   │                  Computer                      │    │
 │   └──────────────────────────────────────────────┐ │    │
 └────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                     ┌─────────────────┐
+                     │  Octotools      │
+                     │  Framework      │
+                     └─────────────────┘
 ```
 
-## Troubleshooting
+## 📚 Documentation
 
-Common issues and solutions:
+For more detailed documentation:
+
+- **Integration Guide**: See `docs/octotools_integration_guide.md` for a comprehensive guide.
+- **API Reference**: Check `octotools_wrapper.py` and `octotools_agent.py` for inline documentation.
+- **Examples**: The `examples/` directory contains example usage patterns.
+
+## ❓ Troubleshooting
 
 ### API Key Problems
 
-If you see errors related to the API key, ensure that:
-- The `.env` file exists and contains `OPENAI_API_KEY=your-api-key`
-- The API key is valid and has access to the required models
+If you see errors related to the API key:
+- Ensure that the `.env` file contains `OPENAI_API_KEY=your-api-key`
+- Verify your API key has access to the required models
 
 ### Import Errors
 
 If you encounter import errors:
-- Ensure you're running the scripts from the project root directory
-- Check that all dependencies are properly installed
-- Make sure the CUA-SAMPLE-APP is correctly installed
+- Ensure all dependencies are properly installed
+- Run from the project root directory
+- Check that the octotools directory is correctly placed
 
-### Integration Issues
+### Performance Issues
 
-If the integration doesn't work as expected:
-- Try the simple integration first to isolate issues
-- Enable debug mode to see more detailed information
-- Check the test scripts to verify component functionality
+If reasoning tasks are slow:
+- Use a more powerful model like GPT-4o
+- Reduce the number of enabled tools
+- Set a lower max_steps value to limit iteration
 
-## Future Improvements
+## 👥 Contributing
 
-This integration could be enhanced in the following ways:
+Contributions are welcome! To contribute to this integration:
 
-1. Add more sophisticated detection for when to use Octotools vs. standard CUA behavior
-2. Implement a more accurate simulation of all Octotools tools
-3. Better error handling and fallback mechanisms
-4. Add support for more advanced Octotools features
+1. Fork the repository
+2. Create a feature branch
+3. Implement your changes
+4. Add tests
+5. Submit a pull request
 
-## License
+## 📄 License
 
-This integration is subject to the same license as the CUA-SAMPLE-APP.
-
-## Acknowledgements
-
-This integration builds upon:
-- [CUA-SAMPLE-APP](https://github.com/openai/openai-cua-sample-app) by OpenAI
-- [Octotools](https://github.com/OctoTools/OctoTools) framework 
+This integration is subject to the same license as the CUA Sample App. 
