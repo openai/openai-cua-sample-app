@@ -6,6 +6,7 @@ from computers import (
     ScrapybaraUbuntu,
     LocalPlaywrightComputer,
     DockerComputer,
+    AnchorBrowser,
 )
 
 
@@ -26,6 +27,7 @@ def main():
             "local-playwright",
             "docker",
             "browserbase",
+            "anchorbrowser",
             "scrapybara-browser",
             "scrapybara-ubuntu",
         ],
@@ -60,6 +62,7 @@ def main():
         "local-playwright": LocalPlaywrightComputer,
         "docker": DockerComputer,
         "browserbase": BrowserbaseBrowser,
+        "anchorbrowser": AnchorBrowser,
         "scrapybara-browser": ScrapybaraBrowser,
         "scrapybara-ubuntu": ScrapybaraUbuntu,
     }
