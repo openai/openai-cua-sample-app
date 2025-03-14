@@ -117,9 +117,11 @@ class BasePlaywrightComputer:
         self._page.mouse.move(x, y)
 
     def keypress(self, keys: List[str]) -> None:
-        for key in keys:
-            mapped_key = CUA_KEY_TO_PLAYWRIGHT_KEY.get(key.lower(), key)
-            self._page.keyboard.press(mapped_key)
+        mapped_keys = [CUA_KEY_TO_PLAYWRIGHT_KEY.get(key.lower(), key) for key in keys]
+        for key in mapped_keys:
+            self._page.keyboard.down(key)
+        for key in reversed(mapped_keys):
+            self._page.keyboard.up(key)
 
     def drag(self, path: List[Dict[str, int]]) -> None:
         if not path:
