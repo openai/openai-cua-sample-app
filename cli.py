@@ -8,7 +8,6 @@ from computers import (
     DockerComputer,
 )
 
-
 def acknowledge_safety_check_callback(message: str) -> bool:
     response = input(
         f"Safety Check Warning: {message}\nDo you want to acknowledge and proceed? (y/n): "
@@ -74,7 +73,13 @@ def main():
         items = []
 
         while True:
-            user_input = args.input or input("> ")
+            try:
+                user_input = args.input or input("> ")
+                if user_input == 'exit':
+                    break
+            except EOFError as e:
+                print(f"An error occurred: {e}")
+                break
             items.append({"role": "user", "content": user_input})
             output_items = agent.run_full_turn(
                 items,

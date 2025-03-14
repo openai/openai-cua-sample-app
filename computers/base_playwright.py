@@ -130,9 +130,6 @@ class BasePlaywrightComputer:
             self._page.mouse.move(point["x"], point["y"])
         self._page.mouse.up()
 
-    def get_current_url(self) -> str:
-        return self._page.url
-
     # --- Extra browser-oriented actions ---
     def goto(self, url: str) -> None:
         try:
