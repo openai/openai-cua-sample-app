@@ -1,18 +1,6 @@
 import base64
 from e2b_desktop import Sandbox
 
-cua_e2b_key_mapping = {
-    "ENTER": "Return",
-    "LEFT": "Left",
-    "RIGHT": "Right",
-    "UP": "Up",
-    "DOWN": "Down",
-    "ESC": "Escape",
-    "SPACE": "space",
-    "BACKSPACE": "BackSpace",
-    "TAB": "Tab",
-}
-
 class E2BDesktop:
     """
     E2B Desktop is an open-source desktop environment for AI Agents.
@@ -77,9 +65,7 @@ class E2BDesktop:
         self.sandbox.move_mouse(x, y)
 
     def keypress(self, keys: list[str]) -> None:
-        # convert keys to e2b desktop keys
-        mapped_keys = [cua_e2b_key_mapping.get(key, key) for key in keys]
-        self.sandbox.press(mapped_keys)
+        self.sandbox.press(keys)
 
     def drag(self, path: list[dict[str, int]]) -> None:
         if not path:
