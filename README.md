@@ -28,6 +28,7 @@ Other included sample [computer environments](#computer-environments):
 
 - [Docker](https://docker.com/) (containerized desktop)
 - [Browserbase](https://www.browserbase.com/) (remote browser, requires account)
+- [E2B](https://e2b.dev) (remote computer, open-source, requires account)
 - [Scrapybara](https://scrapybara.com) (remote browser or computer, requires account)
 - ...or implement your own `Computer`!
 
@@ -94,6 +95,7 @@ This sample app provides a set of implemented `Computer` examples, but feel free
 | `LocalPlaywright`   | local-playwright   | `browser` | Local browser window              | [Playwright SDK](https://playwright.dev/)                        |
 | `Docker`            | docker             | `linux`   | Docker container environment      | [Docker](https://docs.docker.com/engine/install/) running        |
 | `Browserbase`       | browserbase        | `browser` | Remote browser environment        | [Browserbase](https://www.browserbase.com/) API key in `.env`    |
+| `E2B`               | e2b                | `linux`   | Open-source desktop environment   | [E2B](https://e2b.dev) API key in `.env`                         |
 | `ScrapybaraBrowser` | scrapybara-browser | `browser` | Remote browser environment        | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
 | `ScrapybaraUbuntu`  | scrapybara-ubuntu  | `linux`   | Remote Ubuntu desktop environment | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
 
