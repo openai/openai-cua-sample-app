@@ -1,5 +1,6 @@
-from .computer import Computer
 from .browserbase import BrowserbaseBrowser
-from .local_playwright import LocalPlaywrightComputer
+from .computer import Computer
 from .docker import DockerComputer
+from .hyperbrowser import HyperbrowserBrowser
+from .local_playwright import LocalPlaywrightComputer
 from .scrapybara import ScrapybaraBrowser, ScrapybaraUbuntu
