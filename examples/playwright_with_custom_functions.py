@@ -33,7 +33,7 @@ def main():
         items = [
             {
                 "role": "developer",
-                "content": "Use the additional back() and goto() functions to navigate the browser. If you see nothing, trying going to Google.",
+                "content": "Use the additional back() and goto() functions to navigate the browser. If you see nothing, try going to Google.",
             }
         ]
         while True:
