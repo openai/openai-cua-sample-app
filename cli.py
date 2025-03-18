@@ -2,6 +2,7 @@ import argparse
 from agent.agent import Agent
 from computers import (
     BrowserbaseBrowser,
+    E2BDesktop,
     ScrapybaraBrowser,
     ScrapybaraUbuntu,
     LocalPlaywrightComputer,
@@ -25,6 +26,7 @@ def main():
             "local-playwright",
             "docker",
             "browserbase",
+            "e2b",
             "scrapybara-browser",
             "scrapybara-ubuntu",
         ],
@@ -59,6 +61,7 @@ def main():
         "local-playwright": LocalPlaywrightComputer,
         "docker": DockerComputer,
         "browserbase": BrowserbaseBrowser,
+        "e2b": E2BDesktop,
         "scrapybara-browser": ScrapybaraBrowser,
         "scrapybara-ubuntu": ScrapybaraUbuntu,
     }
