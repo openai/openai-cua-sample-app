@@ -6,6 +6,7 @@ from computers import (
     ScrapybaraUbuntu,
     LocalPlaywrightComputer,
     DockerComputer,
+    SteelBrowser
 )
 
 def acknowledge_safety_check_callback(message: str) -> bool:
@@ -27,6 +28,7 @@ def main():
             "browserbase",
             "scrapybara-browser",
             "scrapybara-ubuntu",
+            "steel"
         ],
         help="Choose the computer environment to use.",
         default="local-playwright",
@@ -61,6 +63,7 @@ def main():
         "browserbase": BrowserbaseBrowser,
         "scrapybara-browser": ScrapybaraBrowser,
         "scrapybara-ubuntu": ScrapybaraUbuntu,
+        "steel": SteelBrowser
     }
 
     ComputerClass = computer_mapping[args.computer]
