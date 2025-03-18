@@ -38,18 +38,14 @@ class E2BDesktop:
     def click(self, x: int, y: int, button: str = "left") -> None:
         match button:
             case "left":
-                self.sandbox.move_mouse(x, y)
-                self.sandbox.left_click()
+                self.sandbox.left_click(x, y)
             case "right":
-                self.sandbox.move_mouse(x, y)
-                self.sandbox.right_click()
+                self.sandbox.right_click(x, y)
             case "middle":
-                self.sandbox.move_mouse(x, y)
-                self.sandbox.middle_click()
+                self.sandbox.middle_click(x, y)
 
     def double_click(self, x: int, y: int) -> None:
-        self.sandbox.move_mouse(x, y)
-        self.sandbox.double_click()
+        self.sandbox.double_click(x, y)
 
     def scroll(self, x: int, y: int, scroll_x: int, scroll_y: int) -> None:
         self.sandbox.move_mouse(x, y)
