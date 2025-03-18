@@ -96,6 +96,7 @@ This sample app provides a set of implemented `Computer` examples, but feel free
 | `Browserbase`       | browserbase        | `browser` | Remote browser environment        | [Browserbase](https://www.browserbase.com/) API key in `.env`    |
 | `ScrapybaraBrowser` | scrapybara-browser | `browser` | Remote browser environment        | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
 | `ScrapybaraUbuntu`  | scrapybara-ubuntu  | `linux`   | Remote Ubuntu desktop environment | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
+| `Hyperbrowser`      | hyperbrowser       | `browser` | Remote browser environment        | [Hyperbrowser](https://www.hyperbrowser.ai/) API key in `.env`   |
 
 Using the CLI, you can run the sample app with different computer environments using the options listed above:
 

@@ -1,13 +1,14 @@
-from computers import Computer
-from utils import (
-    create_response,
-    show_image,
-    pp,
-    sanitize_message,
-    check_blocklisted_url,
-)
 import json
 from typing import Callable
+
+from computers import Computer
+from utils import (
+    check_blocklisted_url,
+    create_response,
+    pp,
+    sanitize_message,
+    show_image,
+)
 
 
 class Agent:
@@ -35,7 +36,7 @@ class Agent:
         if computer:
             self.tools += [
                 {
-                    "type": "computer-preview",
+                    "type": "computer_use_preview",
                     "display_width": computer.dimensions[0],
                     "display_height": computer.dimensions[1],
                     "environment": computer.environment,
