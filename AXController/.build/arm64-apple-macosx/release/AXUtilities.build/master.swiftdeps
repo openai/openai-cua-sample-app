@@ -1,0 +1,6 @@
+version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
+options: "b61f86f7cabc7983b1181d00d911207408226daf80360e2d979277142c83abc3"
+build_start_time: [1742074966, 729493000]
+build_end_time: [1742074966, 851305000]
+inputs:
+  "/Users/molly/ax/tmp/AXUtilities/Sources/AXUtilities/AXParameterizedAttributeDescriptor.swift": [1742074966, 120515513]

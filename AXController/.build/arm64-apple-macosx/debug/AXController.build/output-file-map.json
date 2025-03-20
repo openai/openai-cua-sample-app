@@ -1,0 +1,17 @@
+{
+  "": {
+    "swift-dependencies": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/debug/AXController.build/master.swiftdeps"
+  },
+  "/Users/molly/ax/AXController/Sources/KeyboardUtils.swift": {
+    "dependencies": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/debug/AXController.build/KeyboardUtils.d",
+    "object": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/debug/AXController.build/KeyboardUtils.swift.o",
+    "swiftmodule": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/debug/AXController.build/KeyboardUtils~partial.swiftmodule",
+    "swift-dependencies": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/debug/AXController.build/KeyboardUtils.swiftdeps"
+  },
+  "/Users/molly/ax/AXController/Sources/main.swift": {
+    "dependencies": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/debug/AXController.build/main.d",
+    "object": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/debug/AXController.build/main.swift.o",
+    "swiftmodule": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/debug/AXController.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/debug/AXController.build/main.swiftdeps"
+  }
+}

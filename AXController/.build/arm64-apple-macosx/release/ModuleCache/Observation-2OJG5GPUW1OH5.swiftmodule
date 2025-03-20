@@ -1,0 +1,16 @@
+---
+path:            '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/15.2/Observation.swiftmodule/arm64e-apple-macos.swiftmodule'
+dependencies:
+  - mtime:           1733472198000000000
+    path:            '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/15.2/Observation.swiftmodule/arm64e-apple-macos.swiftmodule'
+    size:            23092
+  - mtime:           1731214757000000000
+    path:            'usr/lib/swift/Swift.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            2050798
+    sdk_relative:    true
+  - mtime:           1731216337000000000
+    path:            'usr/lib/swift/Observation.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            3778
+    sdk_relative:    true
+version:         1
+...

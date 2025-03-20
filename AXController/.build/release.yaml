@@ -1,0 +1,66 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "AXController-arm64-apple-macosx15.0-release.exe": ["<AXController-arm64-apple-macosx15.0-release.exe>"]
+  "AXController-arm64-apple-macosx15.0-release.module": ["<AXController-arm64-apple-macosx15.0-release.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<AXController-arm64-apple-macosx15.0-release.exe>","<AXController-arm64-apple-macosx15.0-release.module>"]
+  "test": ["<AXController-arm64-apple-macosx15.0-release.exe>","<AXController-arm64-apple-macosx15.0-release.module>"]
+default: "main"
+nodes:
+  "/Users/molly/ax/AXController/Sources/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/molly/ax/AXController/Sources/KeyboardUtils.swift","/Users/molly/ax/AXController/Sources/main.swift"]
+    outputs: ["/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/sources"]
+    description: "Write auxiliary file /Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/sources"
+
+  "/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/KeyboardUtils.swift.o","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/main.swift.o"]
+    outputs: ["/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.product/Objects.LinkFileList"
+
+  "/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"]
+    outputs: ["/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/molly/ax/AXController/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+
+  "<AXController-arm64-apple-macosx15.0-release.exe>":
+    tool: phony
+    inputs: ["/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController"]
+    outputs: ["<AXController-arm64-apple-macosx15.0-release.exe>"]
+
+  "<AXController-arm64-apple-macosx15.0-release.module>":
+    tool: phony
+    inputs: ["/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/KeyboardUtils.swift.o","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/main.swift.o","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/Modules/AXController.swiftmodule"]
+    outputs: ["<AXController-arm64-apple-macosx15.0-release.module>"]
+
+  "C.AXController-arm64-apple-macosx15.0-release.exe":
+    tool: shell
+    inputs: ["/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/KeyboardUtils.swift.o","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/main.swift.o","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.product/Objects.LinkFileList"]
+    outputs: ["/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController"]
+    description: "Linking ./.build/arm64-apple-macosx/release/AXController"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-L","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release","-o","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController","-module-name","AXController","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-dead_strip","-Xlinker","-alias","-Xlinker","_AXController_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.product/Objects.LinkFileList","-Xlinker","-rpath","-Xlinker","/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.5/macosx","-target","arm64-apple-macosx10.15","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g"]
+
+  "C.AXController-arm64-apple-macosx15.0-release.module":
+    tool: shell
+    inputs: ["/Users/molly/ax/AXController/Sources/KeyboardUtils.swift","/Users/molly/ax/AXController/Sources/main.swift","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/sources"]
+    outputs: ["/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/KeyboardUtils.swift.o","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/main.swift.o","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/Modules/AXController.swiftmodule"]
+    description: "Compiling Swift Module 'AXController' (2 sources)"
+    args: ["/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc","-module-name","AXController","-emit-dependencies","-emit-module","-emit-module-path","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/Modules/AXController.swiftmodule","-output-file-map","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/output-file-map.json","-whole-module-optimization","-num-threads","14","-c","@/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXController.build/sources","-I","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/Modules","-target","arm64-apple-macosx10.15","-O","-j14","-DSWIFT_PACKAGE","-module-cache-path","/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","AXController_main","-color-diagnostics","-swift-version","5","-Xfrontend","-disable-debugger-shadow-copies","-sdk","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk","-F","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-I","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-L","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib","-g","-Xcc","-isysroot","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk","-Xcc","-F","-Xcc","/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks","-Xcc","-fPIC","-Xcc","-g","-disable-sandbox"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/molly/ax/AXController/Sources/","/Users/molly/ax/AXController/Package.swift","/Users/molly/ax/AXController/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

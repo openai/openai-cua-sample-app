@@ -1,0 +1,12 @@
+{
+  "": {
+    "dependencies": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXUtilities.build/AXUtilities.d",
+    "object": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXUtilities.build/AXUtilities.o",
+    "swift-dependencies": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXUtilities.build/master.swiftdeps"
+  },
+  "/Users/molly/ax/tmp/AXUtilities/Sources/AXUtilities/AXParameterizedAttributeDescriptor.swift": {
+    "object": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXUtilities.build/AXParameterizedAttributeDescriptor.swift.o",
+    "swiftmodule": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXUtilities.build/AXParameterizedAttributeDescriptor~partial.swiftmodule",
+    "swift-dependencies": "/Users/molly/ax/AXController/.build/arm64-apple-macosx/release/AXUtilities.build/AXParameterizedAttributeDescriptor.swiftdeps"
+  }
+}

@@ -1,0 +1,4 @@
+module AXUtilities {
+    header "/Users/molly/ax/AXController/.build/arm64-apple-macosx/debug/AXUtilities.build/AXUtilities-Swift.h"
+    requires objc
+}

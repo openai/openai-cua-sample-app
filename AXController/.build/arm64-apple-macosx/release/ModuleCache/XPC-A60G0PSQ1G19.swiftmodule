@@ -1,0 +1,88 @@
+---
+path:            '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/15.2/XPC.swiftmodule/arm64e-apple-macos.swiftmodule'
+dependencies:
+  - mtime:           1733472243000000000
+    path:            '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/15.2/XPC.swiftmodule/arm64e-apple-macos.swiftmodule'
+    size:            94852
+  - mtime:           1731214757000000000
+    path:            'usr/lib/swift/Swift.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            2050798
+    sdk_relative:    true
+  - mtime:           1731215502000000000
+    path:            'usr/include/_time.apinotes'
+    size:            1132
+    sdk_relative:    true
+  - mtime:           1731227095000000000
+    path:            'usr/include/ObjectiveC.apinotes'
+    size:            11147
+    sdk_relative:    true
+  - mtime:           1731199229000000000
+    path:            'usr/include/Dispatch.apinotes'
+    size:            19
+    sdk_relative:    true
+  - mtime:           1731199540000000000
+    path:            'usr/include/XPC.apinotes'
+    size:            123
+    sdk_relative:    true
+  - mtime:           1731215914000000000
+    path:            'usr/lib/swift/_errno.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            3749
+    sdk_relative:    true
+  - mtime:           1731215935000000000
+    path:            'usr/lib/swift/_time.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            998
+    sdk_relative:    true
+  - mtime:           1731215945000000000
+    path:            'usr/lib/swift/_signal.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            1034
+    sdk_relative:    true
+  - mtime:           1731215950000000000
+    path:            'usr/lib/swift/sys_time.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            1035
+    sdk_relative:    true
+  - mtime:           1731215937000000000
+    path:            'usr/lib/swift/_stdio.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            1460
+    sdk_relative:    true
+  - mtime:           1731215958000000000
+    path:            'usr/lib/swift/unistd.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            730
+    sdk_relative:    true
+  - mtime:           1731215915000000000
+    path:            'usr/lib/swift/_math.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            16141
+    sdk_relative:    true
+  - mtime:           1731214922000000000
+    path:            'usr/lib/swift/_Builtin_float.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            4236
+    sdk_relative:    true
+  - mtime:           1731215978000000000
+    path:            'usr/lib/swift/Darwin.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            19812
+    sdk_relative:    true
+  - mtime:           1731216314000000000
+    path:            'usr/lib/swift/_Concurrency.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            248725
+    sdk_relative:    true
+  - mtime:           1731216795000000000
+    path:            'usr/lib/swift/_StringProcessing.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            22702
+    sdk_relative:    true
+  - mtime:           1731217513000000000
+    path:            'System/Library/Frameworks/Combine.framework/Modules/Combine.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            172351
+    sdk_relative:    true
+  - mtime:           1731217449000000000
+    path:            'usr/lib/swift/ObjectiveC.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            6466
+    sdk_relative:    true
+  - mtime:           1731217641000000000
+    path:            'usr/lib/swift/Dispatch.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            56615
+    sdk_relative:    true
+  - mtime:           1731217818000000000
+    path:            'usr/lib/swift/XPC.swiftmodule/arm64e-apple-macos.swiftinterface'
+    size:            33190
+    sdk_relative:    true
+version:         1
+...
