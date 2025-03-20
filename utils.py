@@ -10,16 +10,6 @@ from urllib.parse import urlparse
 
 load_dotenv(override=True)
 
-BLOCKED_DOMAINS = [
-    "maliciousbook.com",
-    "evilvideos.com",
-    "darkwebforum.com",
-    "shadytok.com",
-    "suspiciouspins.com",
-    "ilanbigio.com",
-]
-
-
 def pp(obj):
     print(json.dumps(obj, indent=4))
 
@@ -64,13 +54,3 @@ def create_response(**kwargs):
         print(f"Error: {response.status_code} {response.text}")
 
     return response.json()
-
-
-def check_blocklisted_url(url: str) -> None:
-    """Raise ValueError if the given URL (including subdomains) is in the blocklist."""
-    hostname = urlparse(url).hostname or ""
-    if any(
-        hostname == blocked or hostname.endswith(f".{blocked}")
-        for blocked in BLOCKED_DOMAINS
-    ):
-        raise ValueError(f"Blocked URL: {url}")

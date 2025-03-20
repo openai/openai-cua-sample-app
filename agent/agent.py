@@ -4,7 +4,6 @@ from utils import (
     show_image,
     pp,
     sanitize_message,
-    check_blocklisted_url,
 )
 import json
 from typing import Callable
@@ -100,12 +99,6 @@ class Agent:
                     "image_url": f"data:image/png;base64,{screenshot_base64}",
                 },
             }
-
-            # additional URL safety checks for browser environments
-            if self.computer.environment == "browser":
-                current_url = self.computer.get_current_url()
-                check_blocklisted_url(current_url)
-                call_output["output"]["current_url"] = current_url
 
             return [call_output]
         return []

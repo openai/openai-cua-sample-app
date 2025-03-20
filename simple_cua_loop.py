@@ -1,6 +1,6 @@
 from computers import Computer
 from computers import LocalPlaywrightComputer
-from utils import create_response, check_blocklisted_url
+from utils import create_response
 
 
 def acknowledge_safety_check_callback(message: str) -> bool:
@@ -46,7 +46,6 @@ def handle_item(item, computer: Computer):
         if computer.environment == "browser":
             current_url = computer.get_current_url()
             call_output["output"]["current_url"] = current_url
-            check_blocklisted_url(current_url)
 
         return [call_output]
 
