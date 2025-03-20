@@ -14,14 +14,14 @@ mkdir -p .build
 
 # Directly compile the Swift files using swiftc
 echo "Compiling Swift files..."
-swiftc -O -o ax_controller \
-    AXController/Sources/main.swift \
-    AXController/Sources/KeyboardUtils.swift
+swiftc -O -o macos_ax \
+    macos-support/ax/Sources/main.swift \
+    macos-support/ax/Sources/KeyboardUtils.swift
 
 echo "Making binary executable..."
-chmod +x ax_controller
+chmod +x macos_ax
 
 echo "Testing AX controller..."
-./ax_controller help
+./macos_ax help
 
 echo "AX controller built successfully!" 
