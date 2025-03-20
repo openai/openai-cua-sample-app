@@ -32,8 +32,28 @@ def main():
     args = parser.parse_args()
 
     with MacOSComputer() as computer:
+        # tools = [
+        #     {
+        #         "type": "function",
+        #         "name": "open_app",
+        #         "description": "Open an app",
+        #         "parameters": {
+        #             "type": "object",
+        #             "properties": {
+        #                 "app_name": {
+        #                     "type": "string",
+        #                     "description": "The name of the app to open",
+        #                 },
+        #             },
+        #             "additionalProperties": False,
+        #             "required": ["app_name"],
+        #         },
+        #     }
+        # ]
+
         agent = Agent(
             computer=computer,
+            # tools=tools,
             acknowledge_safety_check_callback=acknowledge_safety_check_callback,
         )
         items = []

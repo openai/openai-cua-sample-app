@@ -48,5 +48,6 @@ def create_response(**kwargs):
 
     if response.status_code != 200:
         print(f"Error: {response.status_code} {response.text}")
+        print(f"Stemming from kwargs: {kwargs}")
 
     return response.json()

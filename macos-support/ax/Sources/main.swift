@@ -247,35 +247,20 @@ func doubleClick(at position: CGPoint) -> Bool {
         // Continue anyway as we might be clicking on a secondary screen
     }
     
-    // Add a small delay before starting to ensure system is ready
-    usleep(50000) // 50ms
+    usleep(50000)
     
-    // Move the mouse to the position
     let moveEvent = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: position, mouseButton: .left)
     moveEvent?.post(tap: .cgSessionEventTap)
     
-    // Add a small delay between move and click
-    usleep(100000) // 100ms
+    usleep(100000)
     
-    // First click
     let event = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: position, mouseButton: .left)
+    event?.setIntegerValueField(.mouseEventClickState, value: 2)
+    event?.post(tap: .cgSessionEventTap)
+    event?.type = .leftMouseUp
     event?.post(tap: .cgSessionEventTap)
     
-    let upEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: position, mouseButton: .left)
-    upEvent?.post(tap: .cgSessionEventTap)
-    
-    // Small delay between clicks
-    usleep(50000) // 50ms
-    
-    // Second click
-    let event2 = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: position, mouseButton: .left)
-    event2?.post(tap: .cgSessionEventTap)
-    
-    let upEvent2 = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, mouseCursorPosition: position, mouseButton: .left)
-    upEvent2?.post(tap: .cgSessionEventTap)
-    
-    // Add a final delay to ensure the double-click is processed
-    usleep(50000) // 50ms
+    usleep(50000)
     
     return true
 }
@@ -283,7 +268,7 @@ func doubleClick(at position: CGPoint) -> Bool {
 /// Type text using keyboard events
 func typeText(_ text: String) -> Bool {
     // Create a more reliable event source that works without an active application
-    guard let source = CGEventSource(stateID: .combinedSessionState) else {
+    guard let source = CGEventSource(stateID: .hidSystemState) else {
         print("Error: Failed to create event source")
         return false
     }
@@ -420,6 +405,105 @@ func screenshot(region: CGRect? = nil) -> String? {
     return nil
 }
 
+/// Perform a drag operation along a specified path
+func drag(path: [[String: Int]]) -> Bool {
+    // Need at least one point to start the drag
+    guard !path.isEmpty else {
+        print("Error: Drag path is empty")
+        return false
+    }
+    
+    // Create a more reliable event source that works without an active application
+    guard let source = CGEventSource(stateID: .combinedSessionState) else {
+        print("Error: Failed to create event source")
+        return false
+    }
+    
+    // Get the starting point
+    guard let startX = path[0]["x"], let startY = path[0]["y"] else {
+        print("Error: Invalid starting point format")
+        return false
+    }
+    
+    let startPosition = CGPoint(x: startX, y: startY)
+    
+    // Validate position is within screen bounds
+    guard let mainScreen = NSScreen.main else {
+        print("Error: Could not get main screen")
+        return false
+    }
+    
+    let screenFrame = mainScreen.frame
+    if startPosition.x < 0 || startPosition.x > screenFrame.width || 
+       startPosition.y < 0 || startPosition.y > screenFrame.height {
+        print("Warning: Position \(startPosition.x),\(startPosition.y) is outside screen bounds \(screenFrame.width)x\(screenFrame.height)")
+        // Continue anyway as we might be dragging on a secondary screen
+    }
+    
+    // Add a small delay before starting to ensure system is ready
+    usleep(50000) // 50ms
+    
+    // Move the mouse to the starting position
+    let moveEvent = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, 
+                           mouseCursorPosition: startPosition, mouseButton: .left)
+    moveEvent?.post(tap: .cgSessionEventTap)
+    
+    // Add a small delay between move and mouse down
+    usleep(100000) // 100ms
+    
+    // Mouse down at the starting position
+    let mouseDownEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, 
+                                mouseCursorPosition: startPosition, mouseButton: .left)
+    mouseDownEvent?.post(tap: .cgSessionEventTap)
+    
+    // Small delay
+    usleep(50000) // 50ms
+    
+    // Move through each point in the path
+    for (index, point) in path.enumerated() {
+        // Skip the first point since we already moved there
+        if index == 0 {
+            continue
+        }
+        
+        // Get the next point coordinates
+        guard let x = point["x"], let y = point["y"] else {
+            print("Error: Invalid point format at index \(index)")
+            // Release the mouse to avoid getting stuck in drag mode
+            let currentPosition = CGPoint(x: CGFloat(path[index-1]["x"] ?? 0), 
+                                        y: CGFloat(path[index-1]["y"] ?? 0))
+            let mouseUpEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, 
+                                      mouseCursorPosition: currentPosition, mouseButton: .left)
+            mouseUpEvent?.post(tap: .cgSessionEventTap)
+            return false
+        }
+        
+        let position = CGPoint(x: x, y: y)
+        
+        // Create a mouse dragged event
+        let mouseDraggedEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseDragged, 
+                                       mouseCursorPosition: position, mouseButton: .left)
+        mouseDraggedEvent?.post(tap: .cgSessionEventTap)
+        
+        // Small delay between drag points
+        usleep(10000) // 10ms
+    }
+    
+    // Get the final position
+    let lastPoint = path.last!
+    let finalPosition = CGPoint(x: lastPoint["x"]!, y: lastPoint["y"]!)
+    
+    // Mouse up at the final position
+    let mouseUpEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, 
+                              mouseCursorPosition: finalPosition, mouseButton: .left)
+    mouseUpEvent?.post(tap: .cgSessionEventTap)
+    
+    // Add a final delay to ensure the drag is processed
+    usleep(50000) // 50ms
+    
+    return true
+}
+
 // MARK: - Command Line Processing
 
 /// Parse command line arguments into a dictionary
@@ -473,6 +557,9 @@ func printUsage() {
       
       double_click      Double-click at coordinates or on a UI element
                         Example: ax_controller double_click --position 100,200
+
+      drag              Drag from one point to another
+                        Example: ax_controller drag --path 100,200,300,400
       
       type              Type text using the keyboard
                         Example: ax_controller type --text "Hello, world!"
@@ -628,6 +715,19 @@ func main() {
             exit(1)
         }
         
+    case "drag":
+        print("Dragging not supported yet")
+        // if let pathStr = attributes["path"] {
+        //     let path = pathStr.split(separator: ",").compactMap { Int(String($0)) }
+        //     let success = drag(path: path)
+        //     if success {
+        //         print("Dragged from \(path[0]),\(path[1]) to \(path[2]),\(path[3])")
+        //     }
+        // } else {
+        //     print("Error: No path specified")
+        //     exit(1)
+        // }
+
     case "type":
         if let text = attributes["text"] {
             let success = typeText(text)

@@ -47,7 +47,7 @@ class MacOSComputer:
             raise Exception(f"Error clicking at coordinates using controller: {result.stderr}")
 
     def double_click(self, x: int, y: int) -> None:
-        result = subprocess.run(['./macos_ax', 'doubleclick', "--position", f"{x},{y}"], check=True, timeout=5)
+        result = subprocess.run(['./macos_ax', 'double_click', "--position", f"{x},{y}"], check=True, timeout=5)
         if result.returncode != 0:
             raise Exception(f"Error double-clicking at coordinates using controller: {result.stderr}")
 
@@ -57,10 +57,9 @@ class MacOSComputer:
             raise Exception(f"Error scrolling at coordinates using controller: {result.stderr}")
 
     def type(self, text: str) -> None:
-        for char in text:
-            result = subprocess.run(['./macos_ax', 'type', "--text", f"\"{char}\""], check=True, timeout=5)
-            if result.returncode != 0:
-                raise Exception(f"Error typing character '{char}' using controller: {result.stderr}")
+        result = subprocess.run(['./macos_ax', 'type', "--text", text], check=True, timeout=5)
+        if result.returncode != 0:
+            raise Exception(f"Error typing text using controller: {result.stderr}")
 
     def wait(self, ms: int = 1000) -> None:
         time.sleep(ms / 1000)
@@ -74,14 +73,15 @@ class MacOSComputer:
             raise Exception(f"Error keypressing using controller: {result.stderr}")
 
     def drag(self, path: List[Dict[str, int]]) -> None:
-        # if not path:
-        #     return
-        # self._page.mouse.move(path[0]["x"], path[0]["y"])
-        # self._page.mouse.down()
-        # for point in path[1:]:
-        #     self._page.mouse.move(point["x"], point["y"])
-        # self._page.mouse.up()
-        # path_string = ",".join([f"{x},{y}" for x, y in path])
-        # result = subprocess.run(['./macos_ax', 'drag', path_string, "1"], check=True, timeout=5)
-        # if result.returncode != 0:
-        #     raise Exception(f"Error dragging at coordinates using controller: {result.stderr}")
+        path_string = ",".join([f"{x},{y}" for x, y in path])
+        result = subprocess.run(['./macos_ax', 'drag', "--path", path_string], check=True, timeout=5)
+        if result.returncode != 0:
+            raise Exception(f"Error dragging at coordinates using controller: {result.stderr}")
+
+    # Custom Actions
+
+    def open_app(self, app_name: str) -> None:
+        # use osascript to open the app
+        result = subprocess.run(['open', '-a', app_name], check=True, timeout=5)
+        if result.returncode != 0:
+            raise Exception(f"Error opening app using controller: {result.stderr}")
