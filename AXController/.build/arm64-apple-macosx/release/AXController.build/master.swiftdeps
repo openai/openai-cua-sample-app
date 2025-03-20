@@ -1,7 +1,0 @@
-version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
-options: "f20a343ebc9c6bb7cfaedb62e3be95c217007b3f4edc7ffe392b78d1fb7cd311"
-build_start_time: [1742074993, 907916000]
-build_end_time: [1742074995, 236783000]
-inputs:
-  "/Users/molly/ax/AXController/Sources/KeyboardUtils.swift": [1742071395, 5415272]
-  "/Users/molly/ax/AXController/Sources/main.swift": [1742074986, 805012759]

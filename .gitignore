@@ -1,3 +1,5 @@
 __pycache__/
 .env
 .venv/
+macos-support/ax/.build/
+.DS_Store
