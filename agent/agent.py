@@ -30,11 +30,12 @@ class Agent:
         self.acknowledge_safety_check_callback = acknowledge_safety_check_callback
 
         if computer:
+            dimensions = computer.get_dimensions()
             self.tools += [
                 {
                     "type": "computer-preview",
-                    "display_width": computer.dimensions[0],
-                    "display_height": computer.dimensions[1],
+                    "display_width": dimensions[0],
+                    "display_height": dimensions[1],
                     "environment": computer.environment,
                 },
             ]

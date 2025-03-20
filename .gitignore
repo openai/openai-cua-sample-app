@@ -4,3 +4,4 @@ __pycache__/
 macos-support/ax/.build/
 .DS_Store
 macos_ax
+tmp/

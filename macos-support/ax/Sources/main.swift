@@ -495,6 +495,9 @@ func printUsage() {
                         Example: ax_controller dump_ui
                         Example: ax_controller dump_ui --max_depth 5
                         Example: ax_controller dump_ui --app "Safari"
+
+      scale_factor      Get the scale factor of the main screen
+                        Example: ax_controller scale_factor
       
       screen_dimensions Get the dimensions of the main screen
                         Example: ax_controller screen_dimensions
@@ -844,6 +847,18 @@ func main() {
             printError("Could not get main screen")
             return
         }
+
+    case "scale_factor":
+        // Get scale factor from the main screen
+        if let screen = NSScreen.main {
+            let scale = screen.backingScaleFactor
+            print(scale)
+            return
+        } else {
+            printError("Could not get main screen")
+            return
+        }
+        
         
     default:
         printError("Unknown command: \(command)")
