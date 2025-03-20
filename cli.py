@@ -1,12 +1,6 @@
 import argparse
 from agent.agent import Agent
-from computers import (
-    BrowserbaseBrowser,
-    ScrapybaraBrowser,
-    ScrapybaraUbuntu,
-    LocalPlaywrightComputer,
-    DockerComputer,
-)
+from computers import MacOSComputer
 
 def acknowledge_safety_check_callback(message: str) -> bool:
     response = input(
@@ -18,18 +12,6 @@ def acknowledge_safety_check_callback(message: str) -> bool:
 def main():
     parser = argparse.ArgumentParser(
         description="Select a computer environment from the available options."
-    )
-    parser.add_argument(
-        "--computer",
-        choices=[
-            "local-playwright",
-            "docker",
-            "browserbase",
-            "scrapybara-browser",
-            "scrapybara-ubuntu",
-        ],
-        help="Choose the computer environment to use.",
-        default="local-playwright",
     )
     parser.add_argument(
         "--input",
@@ -47,36 +29,14 @@ def main():
         action="store_true",
         help="Show images during the execution.",
     )
-    parser.add_argument(
-        "--start-url",
-        type=str,
-        help="Start the browsing session with a specific URL (only for browser environments).",
-        default="https://bing.com",
-    )
     args = parser.parse_args()
 
-    computer_mapping = {
-        "local-playwright": LocalPlaywrightComputer,
-        "docker": DockerComputer,
-        "browserbase": BrowserbaseBrowser,
-        "scrapybara-browser": ScrapybaraBrowser,
-        "scrapybara-ubuntu": ScrapybaraUbuntu,
-    }
-
-    ComputerClass = computer_mapping[args.computer]
-
-    with ComputerClass() as computer:
+    with MacOSComputer() as computer:
         agent = Agent(
             computer=computer,
             acknowledge_safety_check_callback=acknowledge_safety_check_callback,
         )
         items = []
-
-
-        if args.computer in ["browserbase", "local-playwright"]:
-            if not args.start_url.startswith("http"):
-                args.start_url = "https://" + args.start_url
-            agent.computer.goto(args.start_url)
 
         while True:
             try:
@@ -95,7 +55,6 @@ def main():
             )
             items += output_items
             args.input = None
-
 
 if __name__ == "__main__":
     main()

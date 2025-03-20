@@ -12,8 +12,6 @@ from typing import Callable
 class Agent:
     """
     A sample agent class that can be used to interact with a computer.
-
-    (See simple_cua_loop.py for a simple example without an agent.)
     """
 
     def __init__(
