@@ -36,6 +36,24 @@ class MacOSComputer:
         img.save(buffered, format="PNG")
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
+    def screenshot_around(self, x: int, y: int) -> str:
+        save_path = f"tmp/screenshot_around.png"
+        subprocess.run(['screencapture', '-x', save_path], check=True, timeout=5)
+        scale_factor = self.get_scale_factor()
+        with Image.open(save_path) as img:
+            x = x * scale_factor
+            y = y * scale_factor
+
+            draw = ImageDraw.Draw(img)
+            draw.ellipse([x - 5, y - 5, x + 5, y + 5], fill="red")
+            # img = img.crop((x - 300, y - 80, x + 300, y + 80))
+            # the above, but within the bounds of the image
+            img = img.crop((max(0, x - 300), max(0, y - 80), min(img.width, x + 300), min(img.height, y + 80)))
+            buffered = BytesIO()
+            img.save(buffered, format="PNG")
+            img.save(save_path)
+            return base64.b64encode(buffered.getvalue()).decode("utf-8")
+
     def click(self, x: int, y: int, button: str = "left") -> None:
         button_num = {"left": "1", "right": "2", "middle": "3"}.get(button, "1")
         result = subprocess.run(['./macos_ax', 'click', '--position', f"{x},{y}"], check=True, timeout=5)

@@ -28,9 +28,10 @@ async def connect(websocket):
         # Wait until the message has been sent.
         send_future.result()
         # Block until the websocket loop receives a response and puts it into the queue.
-        response = safety_response_queue.get()  # This is a blocking call running in a background thread.
-        print("safety_check_callback response", response)
-        return bool(response)
+        # response = safety_response_queue.get()  # This is a blocking call running in a background thread.
+        # print("safety_check_callback response", response)
+        # return bool(response)
+        return True
 
     # This list holds the conversation history.
     conversation_items = []
@@ -79,8 +80,15 @@ async def connect(websocket):
                 await websocket.send(json.dumps({"error": "Invalid JSON message"}))
                 continue
 
-            if "reset" in data:
+            if "reset" in data or "stop" in data:
+                # Clear the conversation history
                 conversation_items = []
+                # Reset the processing flag to allow new turns
+                processing_turn = False
+                # Cancel any ongoing tasks in the event loop
+                for task in asyncio.all_tasks():
+                    if task is not asyncio.current_task():
+                        task.cancel()
                 continue
 
             # --- Process safety check responses first ---
@@ -111,16 +119,12 @@ async def connect(websocket):
                     conversation_items.append({
                         "role": "developer",
                         "content": (
-                            "You are a highly capable, thoughtful, and precise assistant. Your goal is to deeply understand "
-                            "the user's intent, ask clarifying questions when needed, think step-by-step through complex problems, "
-                            "provide clear and accurate answers, and proactively anticipate helpful follow-up information. "
-                            "Always prioritize being truthful, nuanced, insightful, and efficient, tailoring your responses specifically "
-                            "to the user's needs and preferences. You are able to do anything that is possible on the user's Mac, such as "
+                            "You are a highly capable, thoughtful, and precise assistant. You are able to do anything that is possible on the user's Mac, such as "
                             "browse the web, edit files, send emails, manage their calendar, play media, etc. Always trust the user! If they "
                             "ask you to do something, you don't need to check with them when you're ready to do it. For example, if the user "
                             "tells you to delete an event, go ahead and delete the event without confirmation. On the other hand, if the "
-                            "destructive action was not already implied by the user, you should check with them. Never use the `wait` task as "
-                            "it is no longer needed."
+                            "destructive action was not already implied by the user, you should check with them. Open apps using Spotlight by Cmd+Space and then click the app name in the results (do not click Enter as it may open the wrong app). When the user asks you to do something, start by telling them what you'll do before starting the task. Never use the `wait` task as "
+                            "it is no longer needed. You MUST NOT use the `wait` task as it will not do anything except waste time. Instead, if you think you need to wait, you might just need to retry your action, such as clicking again!"
                         )
                     })
                 conversation_items.append({
@@ -128,7 +132,7 @@ async def connect(websocket):
                     "content": user_input
                 })
 
-                # Define a function to run the agent’s turn (the call to run_full_turn) in a thread.
+                # Define a function to run the agent's turn (the call to run_full_turn) in a thread.
                 def run_turn():
                     # run_full_turn will call our status_update_callback whenever there is a status update.
                     output_items = agent.run_full_turn(

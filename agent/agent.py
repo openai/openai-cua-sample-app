@@ -43,28 +43,34 @@ class Agent:
         if self.debug:
             pp(*args)
 
-    @staticmethod
-    def format_status_message(action: str, args: dict) -> dict:
+    def format_status_message(self, action: str, args: dict) -> dict:
         """
         Converts a method call such as open_app with its arguments into a JSON message.
         For example, for open_app it returns:
           { "action": { "type": "open_app", "description": "Opened <app name>" } }
         """
+        has_screenshot = False
         if action == "open_app":
             description = f"Opened `{args.get('app_name')}`"
         elif action == "click":
             description = f"Clicked at `({args.get('x')}, {args.get('y')})`"
+            screenshot = self.computer.screenshot_around(args.get('x'), args.get('y'))
+            has_screenshot = True
         elif action == "double_click":
             description = f"Double clicked at `({args.get('x')}, {args.get('y')})`"
+            screenshot = self.computer.screenshot_around(args.get('x'), args.get('y'))
+            has_screenshot = True
         elif action == "scroll":
             direction = "up" if args.get('scroll_y') < 0 else "down"
-            description = f"Scrolled {direction} at `({args.get('x')}, {args.get('y')})`"
+            description = f"Scrolled `{direction}`"
         elif action == "type":
             description = f"Typed `{args.get('text')}`"
         # elif action == "wait":
         #     description = f"Waited for {args.get('ms', 1000)} ms"
         elif action == "move":
             description = f"Moved to `({args.get('x')}, {args.get('y')})`"
+            screenshot = self.computer.screenshot_around(args.get('x'), args.get('y'))
+            has_screenshot = True
         elif action == "keypress":
             keys = args.get('keys', [])
             description = f"Pressed `{'+'.join(keys)}`"
@@ -75,7 +81,10 @@ class Agent:
             description = "Took a screenshot"
         else:
             description = "Performed action"
-        return {"action": {"type": action, "description": description}}
+        if has_screenshot:
+            return {"action": {"type": action, "description": description, "screenshot": screenshot}}
+        else:
+            return {"action": {"type": action, "description": description, "screenshot": None}}
 
     def handle_item(self, item, status_callback: Callable[[dict], None] = None):
         """Handle each item; may cause a computer action plus (optional) status callback messages."""
@@ -91,7 +100,7 @@ class Agent:
             args = json.loads(item["arguments"])
             # Call the status callback (if provided) with a formatted message.
             if status_callback and name != "wait":
-                status_callback(Agent.format_status_message(name, args))
+                status_callback(self.format_status_message(name, args))
             if self.print_steps:
                 print(f"{name}({args})")
             if hasattr(self.computer, name):  # if function exists on computer, call it
@@ -107,13 +116,18 @@ class Agent:
                 }
             ]
 
+        if item["type"] == "reasoning":
+            print(item["summary"][0]["text"])
+            status_callback({"reasoning": item["summary"][0]["text"]})
+            return []
+
         if item["type"] == "computer_call":
             action = item["action"]
             action_type = action["type"]
             action_args = {k: v for k, v in action.items() if k != "type"}
             # Call the status callback (if provided) with a formatted message.
             if status_callback and action_type != "wait":
-                status_callback(Agent.format_status_message(action_type, action_args))
+                status_callback(self.format_status_message(action_type, action_args))
             if self.print_steps:
                 print(f"{action_type}({action_args})")
             method = getattr(self.computer, action_type)
@@ -170,6 +184,9 @@ class Agent:
                 input=input_items + new_items,
                 tools=self.tools,
                 truncation="auto",
+                reasoning={
+                    "generate_summary": "concise",
+                },
             )
             self.debug_print(response)
 
