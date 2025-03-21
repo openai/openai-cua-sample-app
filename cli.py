@@ -69,7 +69,7 @@ def main():
 
         agent = Agent(
             computer=computer,
-            # tools=tools,
+            tools=tools,
             acknowledge_safety_check_callback=acknowledge_safety_check_callback,
         )
         items = []

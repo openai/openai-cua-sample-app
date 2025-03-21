@@ -592,9 +592,7 @@ func main() {
         if let positionStr = attributes["position"] {
             let position = pointFromString(positionStr)
             let success = click(at: position, button: attributes["button"] ?? "left")
-            if success {
-                print("Clicked at \(Int(position.x)),\(Int(position.y))")
-            } else {
+            if !success {
                 print("Warning: May have encountered issues clicking at position, but continuing anyway")
                 // Note: We still return exit code 0 to prevent fallback to AppleScript
             }
@@ -630,7 +628,7 @@ func main() {
             let position = pointFromString(positionStr)
             let success = doubleClick(at: position)
             if success {
-                print("Double-clicked at \(Int(position.x)),\(Int(position.y))")
+                
             } else {
                 print("Warning: May have encountered issues double-clicking at position, but continuing anyway")
                 // Note: We still return exit code 0 to prevent fallback to AppleScript
@@ -678,7 +676,6 @@ func main() {
         if let text = attributes["text"] {
             let success = typeText(text)
             if success {
-                print("Typed text: \(text)")
             } else {
                 print("Warning: May have encountered issues typing text, but continuing anyway")
                 // Note: We still return exit code 0 to prevent fallback to AppleScript
@@ -697,7 +694,6 @@ func main() {
                 // Send keypress to specific application PID
                 success = KeyboardUtils.pressKeyCombinationToPID(keys, pid: pid)
                 if success {
-                    print("Pressed keys: \(keys) to application with PID: \(pid)")
                 } else {
                     print("Warning: May have encountered issues pressing keys: \(keys) to application with PID: \(pid), but continuing anyway")
                 }
@@ -705,7 +701,6 @@ func main() {
                 // Send keypress system-wide
                 success = KeyboardUtils.pressKeyCombination(keys)
                 if success {
-                    print("Pressed keys: \(keys) system-wide")
                 } else {
                     print("Warning: May have encountered issues pressing keys: \(keys), but continuing anyway")
                 }
@@ -725,7 +720,7 @@ func main() {
             
             if let element = findElement(withAttributes: elementAttributes) {
                 if setTextForElement(element, text: text) {
-                    print("Set text for element: \(text)")
+                    
                 } else {
                     print("Error: Failed to set text for element")
                     exit(1)
@@ -746,7 +741,6 @@ func main() {
             let deltaY = Int32(attributes["delta_y"] ?? "0") ?? 0
             
             if scroll(at: position, deltaX: deltaX, deltaY: deltaY) {
-                print("Scrolled at \(Int(position.x)),\(Int(position.y)) with delta (\(deltaX),\(deltaY))")
             } else {
                 print("Failed to scroll")
                 exit(1)
@@ -904,6 +898,43 @@ func main() {
             printError("Could not get main screen")
             return
         }
+
+    case "dock_bounding_box":
+        let fullFrame = NSScreen.main!.frame
+        let visibleFrame = NSScreen.main!.visibleFrame
+
+        let leftDiff   = visibleFrame.origin.x - fullFrame.origin.x
+        let rightDiff  = (fullFrame.origin.x + fullFrame.size.width) - (visibleFrame.origin.x + visibleFrame.size.width)
+        let bottomDiff = visibleFrame.origin.y - fullFrame.origin.y
+        
+        var dockFrame = NSRect.zero
+
+        if bottomDiff > 0 {
+            // If there’s a gap at the bottom, the dock is at the bottom.
+            dockFrame = NSRect(x: fullFrame.origin.x,
+                            y: fullFrame.origin.y,
+                            width: fullFrame.size.width,
+                            height: bottomDiff)
+        } else if leftDiff > 0 {
+            // Otherwise, if there’s a gap on the left, the dock is on the left.
+            dockFrame = NSRect(x: fullFrame.origin.x,
+                            y: fullFrame.origin.y,
+                            width: leftDiff,
+                            height: fullFrame.size.height)
+        } else if rightDiff > 0 {
+            // Or if there’s a gap on the right, the dock is on the right.
+            dockFrame = NSRect(x: visibleFrame.origin.x + visibleFrame.size.width,
+                            y: fullFrame.origin.y,
+                            width: rightDiff,
+                            height: fullFrame.size.height)
+        }
+        // print(dockFrame)
+        printJson(["success": true, "bounding_box": [
+            "x": dockFrame.origin.x,
+            "y": dockFrame.origin.y,
+            "width": dockFrame.size.width,
+            "height": dockFrame.size.height
+        ]])
         
         
     default:

@@ -1,9 +1,10 @@
 import time
 import base64
 from typing import List, Dict, Literal
-from PIL import ImageGrab, Image
+from PIL import ImageGrab, Image, ImageDraw
 import subprocess
 from io import BytesIO
+import json
 
 class MacOSComputer:
     environment: Literal["mac"] = "mac"
@@ -92,12 +93,25 @@ class MacOSComputer:
 
     # Private
 
+    def dock_bounding_box(self) -> Dict[str, int]:
+        result = subprocess.run(['./macos_ax', 'dock_bounding_box'], check=True, timeout=5, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise Exception(f"Error getting dock bounding box using controller: {result.stderr}")
+        return json.loads(result.stdout).get("bounding_box")
+
     def screenshot_raw(self) -> str:
         save_path = f"tmp/screenshot.png"
         subprocess.run(['screencapture', '-x', save_path], check=True, timeout=5)
         scale_factor = self.get_scale_factor()
         with Image.open(save_path) as img:
-            img = img.quantize(colors=256, method=2)
             img = img.resize((int(img.width / scale_factor), int(img.height / scale_factor)))
+
+            # draw black box over dock
+            dock_bounding_box = self.dock_bounding_box()
+            draw = ImageDraw.Draw(img)
+            draw.rectangle([dock_bounding_box["x"], dock_bounding_box["y"], dock_bounding_box["x"] + dock_bounding_box["width"], dock_bounding_box["y"] + dock_bounding_box["height"]], fill="black")
+
+            img = img.quantize(colors=256, method=2)
+
             img.save(save_path)
             return img
