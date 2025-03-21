@@ -255,28 +255,14 @@ func typeText(_ text: String) -> Bool {
         return false
     }
     
-    // For each character in the text, create and post a key event
     for unicodeScalar in text.unicodeScalars {
-        // Create a key down event for a dummy key code
-        let keyDownEvent = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
-        
-        // Convert to UInt16 for UniChar (required by keyboardSetUnicodeString)
+        let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
         var utf16Value: UniChar = UniChar(unicodeScalar.value)
-        
-        // Set the UTF-16 code units
-        keyDownEvent?.keyboardSetUnicodeString(stringLength: 1, unicodeString: &utf16Value)
-        
-        // Post the event using session event tap to bypass System Events
-        keyDownEvent?.post(tap: .cgSessionEventTap)
-        
-        // Create a key up event
-        let keyUpEvent = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
-        
-        // Set the UTF-16 code units
-        keyUpEvent?.keyboardSetUnicodeString(stringLength: 1, unicodeString: &utf16Value)
-        
-        // Post the event using session event tap to bypass System Events
-        keyUpEvent?.post(tap: .cgSessionEventTap)
+        event?.keyboardSetUnicodeString(stringLength: 1, unicodeString: &utf16Value)
+        event?.post(tap: .cgSessionEventTap)
+        event?.type = .keyUp
+        event?.post(tap: .cgSessionEventTap)
+        usleep(50000)
     }
     
     return true
