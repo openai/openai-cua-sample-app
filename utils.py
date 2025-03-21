@@ -7,6 +7,7 @@ from PIL import Image
 from io import BytesIO
 import io
 from urllib.parse import urlparse
+import time
 
 load_dotenv(override=True)
 
