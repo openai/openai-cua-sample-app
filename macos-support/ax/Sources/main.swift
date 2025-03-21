@@ -912,7 +912,7 @@ func main() {
         if bottomDiff > 0 {
             // If there’s a gap at the bottom, the dock is at the bottom.
             dockFrame = NSRect(x: fullFrame.origin.x,
-                            y: fullFrame.origin.y,
+                            y: fullFrame.size.height - bottomDiff,
                             width: fullFrame.size.width,
                             height: bottomDiff)
         } else if leftDiff > 0 {
