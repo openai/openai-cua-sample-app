@@ -51,8 +51,6 @@ def create_response(**kwargs):
         response = requests.post(url, headers=headers, json=kwargs)
         if response.status_code == 200:
             return response.json()
-        # print(f"Failed and backing off waiting {2 ** i} seconds")
-        # time.sleep(2 ** i)
         if i == 4 and response.status_code != 200:
             print(f"Error: {response.status_code} {response.text}")
             print(f"Stemming from kwargs: {kwargs}")
