@@ -20,9 +20,8 @@ class MacOSComputer:
     # --- Common "Computer" actions ---
 
     def get_dimensions(self) -> tuple[int, int]:
-        screenshot = self.screenshot()
-        with Image.open(BytesIO(base64.b64decode(screenshot))) as img:
-            return img.size
+        img = self.screenshot_raw()
+        return img.size
 
     def get_scale_factor(self) -> float:
         result = subprocess.run(['./macos_ax', 'scale_factor'], check=True, capture_output=True, text=True)
@@ -31,14 +30,10 @@ class MacOSComputer:
         return float(result.stdout)
 
     def screenshot(self) -> str:
-        save_path = f"tmp/screenshot.png"
-        subprocess.run(['screencapture', '-x', save_path], check=True, timeout=5)
-        scale_factor = self.get_scale_factor()
-        with Image.open(save_path) as img:
-            img = img.resize((int(img.width / scale_factor), int(img.height / scale_factor)))
-            buffered = BytesIO()
-            img.save(buffered, format="PNG")
-            return base64.b64encode(buffered.getvalue()).decode("utf-8")
+        img = self.screenshot_raw()
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
     def click(self, x: int, y: int, button: str = "left") -> None:
         button_num = {"left": "1", "right": "2", "middle": "3"}.get(button, "1")
@@ -94,3 +89,15 @@ class MacOSComputer:
         if filter:
             apps = [app for app in apps if any(filter_item in app for filter_item in filter)]
         return apps
+
+    # Private
+
+    def screenshot_raw(self) -> str:
+        save_path = f"tmp/screenshot.png"
+        subprocess.run(['screencapture', '-x', save_path], check=True, timeout=5)
+        scale_factor = self.get_scale_factor()
+        with Image.open(save_path) as img:
+            img = img.quantize(colors=256, method=2)
+            img = img.resize((int(img.width / scale_factor), int(img.height / scale_factor)))
+            img.save(save_path)
+            return img

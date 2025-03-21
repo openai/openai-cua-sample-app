@@ -199,18 +199,20 @@ func click(at position: CGPoint, button: String = "left") -> Bool {
         print("Warning: Position \(position.x),\(position.y) is outside screen bounds \(screenFrame.width)x\(screenFrame.height)")
         // Continue anyway as we might be clicking on a secondary screen
     }
+
+    usleep(10000)
     
-    // Move the mouse to the position
     let moveEvent = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: position, mouseButton: buttonType)
     moveEvent?.post(tap: .cgSessionEventTap)
     
-    // Click down
-    let downEvent = CGEvent(mouseEventSource: source, mouseType: (buttonType == .left) ? .leftMouseDown : .rightMouseDown, mouseCursorPosition: position, mouseButton: buttonType)
-    downEvent?.post(tap: .cgSessionEventTap)
+    usleep(10000)
+
+    let event = CGEvent(mouseEventSource: source, mouseType: (buttonType == .left) ? .leftMouseDown : .rightMouseDown, mouseCursorPosition: position, mouseButton: buttonType)
+    event?.post(tap: .cgSessionEventTap)
+    event?.type = buttonType == .left ? .leftMouseUp : .rightMouseUp
+    event?.post(tap: .cgSessionEventTap)
     
-    // Click up
-    let upEvent = CGEvent(mouseEventSource: source, mouseType: (buttonType == .left) ? .leftMouseUp : .rightMouseUp, mouseCursorPosition: position, mouseButton: buttonType)
-    upEvent?.post(tap: .cgSessionEventTap)
+    usleep(10000)
     
     return true
 }
@@ -234,15 +236,21 @@ func doubleClick(at position: CGPoint) -> Bool {
         print("Warning: Position \(position.x),\(position.y) is outside screen bounds \(screenFrame.width)x\(screenFrame.height)")
         // Continue anyway as we might be clicking on a secondary screen
     }
+
+    usleep(10000)
     
     let moveEvent = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: position, mouseButton: .left)
     moveEvent?.post(tap: .cgSessionEventTap)
     
+    usleep(10000)
+
     let event = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: position, mouseButton: .left)
     event?.setIntegerValueField(.mouseEventClickState, value: 2)
     event?.post(tap: .cgSessionEventTap)
     event?.type = .leftMouseUp
     event?.post(tap: .cgSessionEventTap)
+
+    usleep(10000)
     
     return true
 }
@@ -294,11 +302,13 @@ func scroll(at position: CGPoint, deltaX: Int32, deltaY: Int32) -> Bool {
         // Continue anyway as we might be clicking on a secondary screen
     }
     
-    // Move mouse to position first
+    usleep(10000)
+
     let moveEvent = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: position, mouseButton: .left)
     moveEvent?.post(tap: .cgSessionEventTap)
+
+    usleep(10000)
     
-    // Create scroll wheel event
     let scrollEvent = CGEvent(scrollWheelEvent2Source: source, 
                              units: .pixel, 
                              wheelCount: 2, 
@@ -306,8 +316,9 @@ func scroll(at position: CGPoint, deltaX: Int32, deltaY: Int32) -> Bool {
                              wheel2: deltaX, 
                              wheel3: 0)
     
-    // Post the event
     scrollEvent?.post(tap: .cgSessionEventTap)
+
+    usleep(10000)
     
     return true
 }
