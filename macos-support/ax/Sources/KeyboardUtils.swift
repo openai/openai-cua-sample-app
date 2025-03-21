@@ -54,6 +54,16 @@ class KeyboardUtils {
     
     /// Maps a key name to its CGKeyCode
     static func keyCodeFor(key: String) -> CGKeyCode? {
+        // Letter key codes
+        let letterKeyCodes: [String: CGKeyCode] = [
+            "a": 0x00, "b": 0x0B, "c": 0x08, "d": 0x02, "e": 0x0E,
+            "f": 0x03, "g": 0x05, "h": 0x04, "i": 0x22, "j": 0x26,
+            "k": 0x28, "l": 0x25, "m": 0x2E, "n": 0x2D, "o": 0x1F,
+            "p": 0x23, "q": 0x0C, "r": 0x0F, "s": 0x01, "t": 0x11,
+            "u": 0x20, "v": 0x09, "w": 0x0D, "x": 0x07, "y": 0x10,
+            "z": 0x06
+        ]
+        
         switch key.lowercased() {
         case "return", "enter": return KeyCode.returnKey
         case "tab": return KeyCode.tab
@@ -85,7 +95,12 @@ class KeyboardUtils {
         case "end": return KeyCode.end
         case "pageup": return KeyCode.pageUp
         case "pagedown": return KeyCode.pageDown
-        default: return nil
+        default:
+            // Handle single letter keys
+            if key.count == 1, let keyCode = letterKeyCodes[key.lowercased()] {
+                return keyCode
+            }
+            return nil
         }
     }
     
@@ -104,7 +119,7 @@ class KeyboardUtils {
     
     /// Parses a key combination string (e.g., "command+c") and returns key codes and flags
     static func parseKeyCombination(_ combination: String) -> (keys: [CGKeyCode], flags: CGEventFlags) {
-        let components = combination.split(separator: "+").map { String($0.trimmingCharacters(in: .whitespaces)) }
+        let components = combination.split(separator: "+").map { String($0.trimmingCharacters(in: .whitespaces).lowercased()) }
         
         var keys: [CGKeyCode] = []
         var flags: CGEventFlags = []
@@ -144,6 +159,7 @@ class KeyboardUtils {
     
     /// Helper to actually perform the key events with a given source
     private static func performKeyEvents(keys: [CGKeyCode], flags: CGEventFlags, source: CGEventSource) -> Bool {
+        print("Performing key events: \(keys) with flags: \(flags)")
         // Add a small delay before starting to ensure system is ready
         usleep(50000) // 50ms
         
