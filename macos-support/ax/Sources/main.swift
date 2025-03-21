@@ -312,8 +312,8 @@ func scroll(at position: CGPoint, deltaX: Int32, deltaY: Int32) -> Bool {
     let scrollEvent = CGEvent(scrollWheelEvent2Source: source, 
                              units: .pixel, 
                              wheelCount: 2, 
-                             wheel1: deltaY, 
-                             wheel2: deltaX, 
+                             wheel1: -1 * deltaY, 
+                             wheel2: -1 * deltaX, 
                              wheel3: 0)
     
     scrollEvent?.post(tap: .cgSessionEventTap)
