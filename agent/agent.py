@@ -57,12 +57,13 @@ class Agent:
 
             if hasattr(self.computer, name):  # if function exists on computer, call it
                 method = getattr(self.computer, name)
-                method(**args)
+                output = method(**args)
+                
             return [
                 {
                     "type": "function_call_output",
                     "call_id": item["call_id"],
-                    "output": "success",  # hard-coded output for demo
+                    "output": output,
                 }
             ]
 

@@ -62,7 +62,8 @@ class MacOSComputer:
             raise Exception(f"Error typing text using controller: {result.stderr}")
 
     def wait(self, ms: int = 1000) -> None:
-        time.sleep(ms / 1000)
+        # time.sleep(ms / 1000)
+        pass
 
     def move(self, x: int, y: int) -> None:
         pass
@@ -81,7 +82,15 @@ class MacOSComputer:
     # Custom Actions
 
     def open_app(self, app_name: str) -> None:
-        # use osascript to open the app
-        result = subprocess.run(['open', '-a', app_name], check=True, timeout=5)
-        if result.returncode != 0:
-            raise Exception(f"Error opening app using controller: {result.stderr}")
+        try:
+            subprocess.run(['open', '-a', app_name], check=True, timeout=5)
+        except subprocess.CalledProcessError:
+            return f"{app_name} is not installed."
+        return f"Opened {app_name}."
+
+    def list_apps(self, filter: List[str] = []) -> List[str]:
+        result = subprocess.run(['mdfind', 'kMDItemKind == "Application"'], check=True, timeout=5, capture_output=True, text=True)
+        apps = result.stdout.split("\n")
+        if filter:
+            apps = [app for app in apps if any(filter_item in app for filter_item in filter)]
+        return apps

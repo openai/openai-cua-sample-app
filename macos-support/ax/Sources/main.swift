@@ -200,29 +200,17 @@ func click(at position: CGPoint, button: String = "left") -> Bool {
         // Continue anyway as we might be clicking on a secondary screen
     }
     
-    // Add a small delay before starting to ensure system is ready
-    usleep(50000) // 50ms
-    
     // Move the mouse to the position
     let moveEvent = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: position, mouseButton: buttonType)
     moveEvent?.post(tap: .cgSessionEventTap)
-    
-    // Add a small delay between move and click
-    usleep(100000) // 100ms
     
     // Click down
     let downEvent = CGEvent(mouseEventSource: source, mouseType: (buttonType == .left) ? .leftMouseDown : .rightMouseDown, mouseCursorPosition: position, mouseButton: buttonType)
     downEvent?.post(tap: .cgSessionEventTap)
     
-    // Slight delay
-    usleep(50000) // 50ms
-    
     // Click up
     let upEvent = CGEvent(mouseEventSource: source, mouseType: (buttonType == .left) ? .leftMouseUp : .rightMouseUp, mouseCursorPosition: position, mouseButton: buttonType)
     upEvent?.post(tap: .cgSessionEventTap)
-    
-    // Add a final delay to ensure the click is processed
-    usleep(50000) // 50ms
     
     return true
 }
@@ -247,20 +235,14 @@ func doubleClick(at position: CGPoint) -> Bool {
         // Continue anyway as we might be clicking on a secondary screen
     }
     
-    usleep(50000)
-    
     let moveEvent = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: position, mouseButton: .left)
     moveEvent?.post(tap: .cgSessionEventTap)
-    
-    usleep(100000)
     
     let event = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, mouseCursorPosition: position, mouseButton: .left)
     event?.setIntegerValueField(.mouseEventClickState, value: 2)
     event?.post(tap: .cgSessionEventTap)
     event?.type = .leftMouseUp
     event?.post(tap: .cgSessionEventTap)
-    
-    usleep(50000)
     
     return true
 }
@@ -272,9 +254,6 @@ func typeText(_ text: String) -> Bool {
         print("Error: Failed to create event source")
         return false
     }
-    
-    // Add a small delay before starting to ensure system is ready
-    usleep(50000) // 50ms
     
     // For each character in the text, create and post a key event
     for unicodeScalar in text.unicodeScalars {
@@ -290,9 +269,6 @@ func typeText(_ text: String) -> Bool {
         // Post the event using session event tap to bypass System Events
         keyDownEvent?.post(tap: .cgSessionEventTap)
         
-        // Small delay
-        usleep(50000) // 50ms
-        
         // Create a key up event
         let keyUpEvent = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
         
@@ -301,9 +277,6 @@ func typeText(_ text: String) -> Bool {
         
         // Post the event using session event tap to bypass System Events
         keyUpEvent?.post(tap: .cgSessionEventTap)
-        
-        // Small delay between characters
-        usleep(50000) // 50ms
     }
     
     return true
@@ -335,15 +308,9 @@ func scroll(at position: CGPoint, deltaX: Int32, deltaY: Int32) -> Bool {
         // Continue anyway as we might be clicking on a secondary screen
     }
     
-    // Add a small delay before starting to ensure system is ready
-    usleep(50000) // 50ms
-    
     // Move mouse to position first
     let moveEvent = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: position, mouseButton: .left)
     moveEvent?.post(tap: .cgSessionEventTap)
-    
-    // Small delay between move and scroll
-    usleep(100000) // 100ms
     
     // Create scroll wheel event
     let scrollEvent = CGEvent(scrollWheelEvent2Source: source, 
@@ -355,9 +322,6 @@ func scroll(at position: CGPoint, deltaX: Int32, deltaY: Int32) -> Bool {
     
     // Post the event
     scrollEvent?.post(tap: .cgSessionEventTap)
-    
-    // Add a small delay to ensure the scroll is processed
-    usleep(50000) // 50ms
     
     return true
 }
@@ -440,24 +404,15 @@ func drag(path: [[String: Int]]) -> Bool {
         // Continue anyway as we might be dragging on a secondary screen
     }
     
-    // Add a small delay before starting to ensure system is ready
-    usleep(50000) // 50ms
-    
     // Move the mouse to the starting position
     let moveEvent = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, 
                            mouseCursorPosition: startPosition, mouseButton: .left)
     moveEvent?.post(tap: .cgSessionEventTap)
     
-    // Add a small delay between move and mouse down
-    usleep(100000) // 100ms
-    
     // Mouse down at the starting position
     let mouseDownEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseDown, 
                                 mouseCursorPosition: startPosition, mouseButton: .left)
     mouseDownEvent?.post(tap: .cgSessionEventTap)
-    
-    // Small delay
-    usleep(50000) // 50ms
     
     // Move through each point in the path
     for (index, point) in path.enumerated() {
@@ -484,9 +439,6 @@ func drag(path: [[String: Int]]) -> Bool {
         let mouseDraggedEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseDragged, 
                                        mouseCursorPosition: position, mouseButton: .left)
         mouseDraggedEvent?.post(tap: .cgSessionEventTap)
-        
-        // Small delay between drag points
-        usleep(10000) // 10ms
     }
     
     // Get the final position
@@ -497,9 +449,6 @@ func drag(path: [[String: Int]]) -> Bool {
     let mouseUpEvent = CGEvent(mouseEventSource: source, mouseType: .leftMouseUp, 
                               mouseCursorPosition: finalPosition, mouseButton: .left)
     mouseUpEvent?.post(tap: .cgSessionEventTap)
-    
-    // Add a final delay to ensure the drag is processed
-    usleep(50000) // 50ms
     
     return true
 }
