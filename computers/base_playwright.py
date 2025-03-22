@@ -79,6 +79,7 @@ class BasePlaywrightComputer:
             self._playwright.stop()
 
     def get_current_url(self) -> str:
+        """Return the current URL of the page."""
         return self._page.url
 
     # --- Common "Computer" actions ---
