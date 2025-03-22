@@ -24,10 +24,33 @@ def pp(obj):
     print(json.dumps(obj, indent=4))
 
 
-def show_image(base_64_image):
+def show_image(base_64_image, use_external_viewer=False):
+    """
+    Display an image from base64 string.
+    
+    If use_external_viewer is True, use the default system viewer (which creates popups),
+    otherwise try to use matplotlib for inline display that doesn't affect screen state.
+    """
     image_data = base64.b64decode(base_64_image)
     image = Image.open(BytesIO(image_data))
-    image.show()
+    
+    if use_external_viewer:
+        # Original behavior - creates popup windows which can interfere with automation
+        image.show()
+    else:
+        try:
+            # Try to use matplotlib for non-intrusive display
+            import matplotlib.pyplot as plt
+            plt.figure(figsize=(10, 10))
+            plt.imshow(image)
+            plt.axis('off')
+            plt.show(block=False)  # Non-blocking display
+            plt.pause(0.5)  # Short pause to render
+        except ImportError:
+            # Fall back to writing to a temporary file - doesn't create popups
+            temp_path = os.path.join(os.path.expanduser("~"), "temp_screenshot.png")
+            image.save(temp_path)
+            print(f"Screenshot saved to {temp_path}")
 
 
 def calculate_image_dimensions(base_64_image):

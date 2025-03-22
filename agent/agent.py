@@ -80,7 +80,11 @@ class Agent:
 
             screenshot_base64 = self.computer.screenshot()
             if self.show_images:
-                show_image(screenshot_base64)
+                # Use non-intrusive display for PyAutoGUI to avoid changing screen state
+                use_external_viewer = self.computer.environment != "windows" and \
+                                    self.computer.environment != "mac" and \
+                                    self.computer.environment != "linux"
+                show_image(screenshot_base64, use_external_viewer=use_external_viewer)
 
             # if user doesn't ack all safety checks exit with error
             pending_checks = item.get("pending_safety_checks", [])
