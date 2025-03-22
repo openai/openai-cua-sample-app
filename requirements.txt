@@ -10,8 +10,10 @@ httpcore==1.0.7
 httpx==0.28.1
 idna==3.10
 jiter==0.8.2
+matplotlib==3.8.0
 pillow==11.1.0
 playwright==1.50.0
+pyautogui==0.9.54
 pydantic==2.10.6
 pydantic_core==2.27.2
 pyee==12.1.1

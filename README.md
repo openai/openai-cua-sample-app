@@ -64,6 +64,12 @@ The `examples` folder contains more examples of how to use CUA.
 python -m examples.weather_example
 ```
 
+You can also try the PyAutoGUI desktop control example:
+
+```shell
+python -m examples.pyautogui_desktop_example
+```
+
 For reference, the file `simple_cua_loop.py` implements the basics of the CUA loop.
 
 You can run it with:
@@ -92,6 +98,7 @@ This sample app provides a set of implemented `Computer` examples, but feel free
 | Computer            | Option             | Type      | Description                       | Requirements                                                     |
 | ------------------- | ------------------ | --------- | --------------------------------- | ---------------------------------------------------------------- |
 | `LocalPlaywright`   | local-playwright   | `browser` | Local browser window              | [Playwright SDK](https://playwright.dev/)                        |
+| `PyAutoGUI`         | local-desktop      | `desktop` | Local desktop control             | [PyAutoGUI](https://pyautogui.readthedocs.io/)                  |
 | `Docker`            | docker             | `linux`   | Docker container environment      | [Docker](https://docs.docker.com/engine/install/) running        |
 | `Browserbase`       | browserbase        | `browser` | Remote browser environment        | [Browserbase](https://www.browserbase.com/) API key in `.env`    |
 | `ScrapybaraBrowser` | scrapybara-browser | `browser` | Remote browser environment        | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
