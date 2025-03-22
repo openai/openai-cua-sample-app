@@ -79,6 +79,7 @@ class BasePlaywrightComputer:
             self._playwright.stop()
 
     def get_current_url(self) -> str:
+        """Return the current URL of the page."""
         return self._page.url
 
     # --- Common "Computer" actions ---
@@ -129,9 +130,6 @@ class BasePlaywrightComputer:
         for point in path[1:]:
             self._page.mouse.move(point["x"], point["y"])
         self._page.mouse.up()
-
-    def get_current_url(self) -> str:
-        return self._page.url
 
     # --- Extra browser-oriented actions ---
     def goto(self, url: str) -> None:

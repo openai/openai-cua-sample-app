@@ -5,7 +5,7 @@ from scrapybara import Scrapybara
 from playwright.sync_api import sync_playwright, Browser, Page
 from utils import BLOCKED_DOMAINS
 
-load_dotenv()
+load_dotenv(dotenv_path=".env.local")
 
 CUA_KEY_TO_SCRAPYBARA_KEY = {
     "/": "slash",
