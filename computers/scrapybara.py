@@ -52,6 +52,9 @@ class ScrapybaraBrowser:
             for domain in BLOCKED_DOMAINS
         ]
         self.instance = self.client.start_browser(blocked_domains=blocked_domains)
+        auth_state_id = os.getenv("SCRAPYBARA_AUTH_STATE_ID")
+        if auth_state_id:
+            self.instance.authenticate(auth_state_id=auth_state_id)
         print("Scrapybara browser started ₍ᐢ•(ܫ)•ᐢ₎")
         print(
             f"You can view and interact with the stream at {self.instance.get_stream_url().stream_url}"
