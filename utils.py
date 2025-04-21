@@ -1,14 +1,22 @@
+from __future__ import annotations
+
 import os
-import requests
-from dotenv import load_dotenv
 import json
 import base64
-from PIL import Image
-from io import BytesIO
 import io
+from io import BytesIO
+from typing import Any, Dict
 from urllib.parse import urlparse
 
-load_dotenv(override=True)
+from dotenv import load_dotenv
+from PIL import Image
+
+import openai
+
+
+openai.api_key = os.getenv("OPENAI_API_KEY", openai.api_key)
+if org := os.getenv("OPENAI_ORG"):
+    openai.organization = org
 
 BLOCKED_DOMAINS = [
     "maliciousbook.com",
@@ -47,23 +55,40 @@ def sanitize_message(msg: dict) -> dict:
     return msg
 
 
-def create_response(**kwargs):
-    url = "https://api.openai.com/v1/responses"
-    headers = {
-        "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
-        "Content-Type": "application/json"
-    }
+def create_response(**kwargs: Any) -> Dict[str, Any]:
+    """Wrapper around *openai.responses.create* with dict output.
 
-    openai_org = os.getenv("OPENAI_ORG")
-    if openai_org:
-        headers["Openai-Organization"] = openai_org
+    The original implementation issued a raw POST and returned ``response.json()``.
+    Most call‑sites therefore expect a *plain dict* with keys like ``"output"``
+    and ``"id"``.  The OpenAI SDK, however, returns a *pydantic* model.
 
-    response = requests.post(url, headers=headers, json=kwargs)
+    To stay backward‑compatible we convert the SDK object back to ``dict`` via
+    its ``to_dict()``/``model_dump()`` helper before returning.  This way none
+    of the downstream code needs to change its access pattern.
+    """
 
-    if response.status_code != 200:
-        print(f"Error: {response.status_code} {response.text}")
+    # The callers may or may not supply ``previous_response_id``.  The SDK
+    # requires ``openai.NOT_GIVEN`` for omitted optional parameters instead of
+    # plain ``None``.  Convert to the sentinel so that accidental "None"
+    # doesn't override the continuation logic.
+    if "previous_response_id" in kwargs and kwargs["previous_response_id"] is None:
+        kwargs["previous_response_id"] = openai.NOT_GIVEN
 
-    return response.json()
+    try:
+        sdk_response = openai.responses.create(**kwargs)
+    except openai.OpenAIError as e:  # pragma: no cover – network/credential errors only at runtime.
+        # Mirror the old behaviour of printing status & body for debugging.
+        print("Error while calling Responses API:", e)
+        raise
+
+    # Convert to dict for compatibility.
+    if hasattr(sdk_response, "to_dict"):
+        return sdk_response.to_dict()
+    # Fallback – older versions expose ``model_dump``.
+    if hasattr(sdk_response, "model_dump"):
+        return sdk_response.model_dump()
+    # As a last resort, expose the underlying ``__dict__``.
+    return dict(sdk_response.__dict__)
 
 
 def check_blocklisted_url(url: str) -> None:

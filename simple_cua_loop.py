@@ -65,30 +65,59 @@ def main():
             }
         ]
 
-        items = []
+        transcript: list[dict] = []
         while True:  # get user input forever
             user_input = input("> ")
-            items.append({"role": "user", "content": user_input})
+            pending: list[dict] = [{"role": "user", "content": user_input}]
+            previous_response_id = None
 
-            while True:  # keep looping until we get a final response
-                response = create_response(
+            while True:
+                seen_ids: set[str] = set()
+                payload: list[dict] = []
+                for m in pending:
+                    mid = m.get("id") if isinstance(m, dict) else None
+                    if mid and mid in seen_ids:
+                        continue
+                    if mid:
+                        seen_ids.add(mid)
+                    payload.append(m)
+
+                req = dict(
                     model="computer-use-preview",
-                    input=items,
+                    input=payload,
                     tools=tools,
                     truncation="auto",
                 )
+                if previous_response_id:
+                    req["previous_response_id"] = previous_response_id
+
+                response = create_response(**req)
 
                 if "output" not in response:
                     print(response)
                     raise ValueError("No output from model")
 
-                items += response["output"]
+                previous_response_id = response.get("id")
+
+                new_pending: list[dict] = []
 
                 for item in response["output"]:
-                    items += handle_item(item, computer)
+                    if item.get("type") == "computer_call":
+                        obs = handle_item(item, computer)
+                        transcript.append(item)
+                        transcript.extend(obs)
+                        new_pending.extend(obs)
+                        break
+                    else:
+                        transcript.append(item)
 
-                if items[-1].get("role") == "assistant":
+                if new_pending and new_pending[-1].get("role") == "assistant":
                     break
+
+                if not new_pending:
+                    break
+
+                pending = new_pending
 
 
 if __name__ == "__main__":
