@@ -29,6 +29,7 @@ Other included sample [computer environments](#computer-environments):
 - [Docker](https://docker.com/) (containerized desktop)
 - [Browserbase](https://www.browserbase.com/) (remote browser, requires account)
 - [Scrapybara](https://scrapybara.com) (remote browser or computer, requires account)
+- [cua-computer](https://github.com/trycua/cua/tree/main/libs/computer) (virtual machines using lume virtualization)
 - ...or implement your own `Computer`!
 
 ## Overview
@@ -58,10 +59,17 @@ The CLI (`cli.py`) is the easiest way to get started with CUA. It accepts the fo
 
 ### Run examples (optional)
 
-The `examples` folder contains more examples of how to use CUA.
+The `examples` folder contains more examples of how to use CUA with different environments:
 
 ```shell
+# General weather example using Scrapybara
 python -m examples.weather_example
+
+# Example with function calling
+python -m examples.function_calling_example
+
+# Example for macOS Finder
+python -m examples.macos_finder_example  # Work with Finder on macOS
 ```
 
 For reference, the file `simple_cua_loop.py` implements the basics of the CUA loop.
@@ -89,13 +97,13 @@ CUA can work with any `Computer` environment that can handle the [CUA actions](h
 
 This sample app provides a set of implemented `Computer` examples, but feel free to add your own!
 
-| Computer            | Option             | Type      | Description                       | Requirements                                                     |
-| ------------------- | ------------------ | --------- | --------------------------------- | ---------------------------------------------------------------- |
-| `LocalPlaywright`   | local-playwright   | `browser` | Local browser window              | [Playwright SDK](https://playwright.dev/)                        |
-| `Docker`            | docker             | `linux`   | Docker container environment      | [Docker](https://docs.docker.com/engine/install/) running        |
-| `Browserbase`       | browserbase        | `browser` | Remote browser environment        | [Browserbase](https://www.browserbase.com/) API key in `.env`    |
-| `ScrapybaraBrowser` | scrapybara-browser | `browser` | Remote browser environment        | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
-| `ScrapybaraUbuntu`  | scrapybara-ubuntu  | `linux`   | Remote Ubuntu desktop environment | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
+| Computer            | Option             | Type                 | Description                       | Requirements                                                     |
+| ------------------- | ------------------ | -------------------- | --------------------------------- | ---------------------------------------------------------------- |
+| `LocalPlaywright`   | local-playwright   | `browser`            | Local browser window              | [Playwright SDK](https://playwright.dev/)                        |
+| `Docker`            | docker             | `linux`              | Docker container environment      | [Docker](https://docs.docker.com/engine/install/) running        |
+| `Browserbase`       | browserbase        | `browser`            | Remote browser environment        | [Browserbase](https://www.browserbase.com/) API key in `.env`    |
+| `ScrapybaraBrowser` | scrapybara-browser | `browser`            | Remote browser environment        | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
+| `ScrapybaraUbuntu`  | scrapybara-ubuntu  | `linux`              | Remote Ubuntu desktop environment | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
 
 Using the CLI, you can run the sample app with different computer environments using the options listed above:
 
@@ -113,7 +121,7 @@ python cli.py --show --computer docker
 
 | Computer | Option | Type | Description | Requirements |
 | -------- | ------ | ---- | ----------- | ------------ |
-| `tbd`    | tbd    | tbd  | tbd         | tbd          |
+| `CuaMacOSComputer`  | cua-macos          | `mac`                | macOS VM with lume virtualization | [cua-computer](https://github.com/trycua/cua/tree/main/libs/computer) package and [lume CLI](https://github.com/trycua/cua/tree/main/libs/lume) |
 
 > [!NOTE]  
 > If you've implemented a new computer, please add it to the "Contributed Computers" section of the README.md file. Clearly indicate any auth / signup requirements. See the [Contributing](#contributing) section for more details.
@@ -144,6 +152,36 @@ docker run --rm -it --name cua-sample-app -p 5900:5900 --dns=1.1.1.3 -e DISPLAY=
 > ```shell
 > docker rm -f cua-sample-app
 > ```
+
+### Cua MacOS Setup
+
+To use the `cua-macos` computer environment, you need to install the `cua-computer` package and the `lume` CLI:
+
+1. **Install cua-computer package**:
+   ```shell
+   pip install cua-computer
+   ```
+
+2. **Install lume CLI**:
+   ```shell
+   sudo /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/trycua/cua/main/libs/lume/scripts/install.sh)"
+   ```
+
+3. **Start the lume daemon**:
+   ```shell
+   lume serve
+   ```
+
+4. **Pull the macOS VM image**:
+   ```shell
+   lume pull macos-sequoia-cua:latest --no-cache
+   ```
+
+> [!NOTE]  
+> - Initial download requires 80GB of free space
+> - After first run, space usage reduces to ~30GB due to macOS's sparse file system
+> - VMs are stored in `~/.lume`
+> - Cached images are stored in `~/.lume/cache`
 
 ### Hosted environment setup
 

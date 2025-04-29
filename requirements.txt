@@ -3,6 +3,7 @@ anyio==4.8.0
 browserbase==1.2.0
 certifi==2025.1.31
 charset-normalizer==3.4.1
+cua-computer>=0.1.0
 distro==1.9.0
 greenlet==3.1.1
 h11==0.14.0
