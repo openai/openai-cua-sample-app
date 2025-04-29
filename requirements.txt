@@ -8,6 +8,7 @@ greenlet==3.1.1
 h11==0.14.0
 httpcore==1.0.7
 httpx==0.28.1
+hyperbrowser==0.41.0
 idna==3.10
 jiter==0.8.2
 pillow==11.1.0

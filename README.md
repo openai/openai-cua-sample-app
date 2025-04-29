@@ -94,6 +94,7 @@ This sample app provides a set of implemented `Computer` examples, but feel free
 | `LocalPlaywright`   | local-playwright   | `browser` | Local browser window              | [Playwright SDK](https://playwright.dev/)                        |
 | `Docker`            | docker             | `linux`   | Docker container environment      | [Docker](https://docs.docker.com/engine/install/) running        |
 | `Browserbase`       | browserbase        | `browser` | Remote browser environment        | [Browserbase](https://www.browserbase.com/) API key in `.env`    |
+| `Hyperbrowser`      | hyperbrowser       | `browser` | Remote browser environment        | [Hyperbrowser](https://hyperbrowser.ai/) API key in `.env`       |
 | `ScrapybaraBrowser` | scrapybara-browser | `browser` | Remote browser environment        | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
 | `ScrapybaraUbuntu`  | scrapybara-ubuntu  | `linux`   | Remote Ubuntu desktop environment | [Scrapybara](https://scrapybara.com/dashboard) API key in `.env` |
 
@@ -113,7 +114,7 @@ python cli.py --show --computer docker
 
 | Computer | Option | Type | Description | Requirements |
 | -------- | ------ | ---- | ----------- | ------------ |
-| `tbd`    | tbd    | tbd  | tbd         | tbd          |
+| `Hyperbrowser`      | hyperbrowser       | `browser` | Remote browser environment        | [Hyperbrowser](https://hyperbrowser.ai/) API key in `.env`       |
 
 > [!NOTE]  
 > If you've implemented a new computer, please add it to the "Contributed Computers" section of the README.md file. Clearly indicate any auth / signup requirements. See the [Contributing](#contributing) section for more details.
