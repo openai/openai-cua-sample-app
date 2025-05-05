@@ -45,10 +45,10 @@ class BasePlaywrightComputer:
       - We also have extra browser actions: `goto(url)` and `back()`.
     """
 
-    def get_environment(self):
+    def get_environment(self) -> str:
         return "browser"
 
-    def get_dimensions(self):
+    def get_dimensions(self) -> tuple[int, int]:
         return (1024, 768)
 
     def __init__(self):
