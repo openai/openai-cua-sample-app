@@ -1,19 +1,8 @@
 import argparse
 from agent.agent import Agent
-<<<<<<< HEAD
 from computers.config import *
 from computers.default import *
 from computers import computers_config
-=======
-from computers import (
-    BrowserbaseBrowser,
-    E2BDesktop,
-    ScrapybaraBrowser,
-    ScrapybaraUbuntu,
-    LocalPlaywrightComputer,
-    DockerComputer,
-)
->>>>>>> d632e112f3ad93e3c901b349bfbf60df73246063
 
 
 def acknowledge_safety_check_callback(message: str) -> bool:
@@ -29,18 +18,7 @@ def main():
     )
     parser.add_argument(
         "--computer",
-<<<<<<< HEAD
         choices=computers_config.keys(),
-=======
-        choices=[
-            "local-playwright",
-            "docker",
-            "browserbase",
-            "e2b",
-            "scrapybara-browser",
-            "scrapybara-ubuntu",
-        ],
->>>>>>> d632e112f3ad93e3c901b349bfbf60df73246063
         help="Choose the computer environment to use.",
         default="local-playwright",
     )
@@ -67,21 +45,7 @@ def main():
         default="https://bing.com",
     )
     args = parser.parse_args()
-<<<<<<< HEAD
     ComputerClass = computers_config[args.computer]
-=======
-
-    computer_mapping = {
-        "local-playwright": LocalPlaywrightComputer,
-        "docker": DockerComputer,
-        "browserbase": BrowserbaseBrowser,
-        "e2b": E2BDesktop,
-        "scrapybara-browser": ScrapybaraBrowser,
-        "scrapybara-ubuntu": ScrapybaraUbuntu,
-    }
-
-    ComputerClass = computer_mapping[args.computer]
->>>>>>> d632e112f3ad93e3c901b349bfbf60df73246063
 
     with ComputerClass() as computer:
         agent = Agent(
