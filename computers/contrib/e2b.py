@@ -31,7 +31,7 @@ class E2BDesktop:
         self.sandbox.kill()
 
     def screenshot(self) -> str:
-        screenshot = self.sandbox.screenshot()
+        screenshot = self.sandbox.screenshot(format="bytes")
         base64_image = base64.b64encode(screenshot).decode("utf-8")
         return base64_image
 
@@ -49,7 +49,10 @@ class E2BDesktop:
 
     def scroll(self, x: int, y: int, scroll_x: int, scroll_y: int) -> None:
         self.sandbox.move_mouse(x, y)
-        self.sandbox.scroll(scroll_x, scroll_y)
+        if scroll_y < 0:
+            self.sandbox.scroll("up", abs(scroll_y))
+        elif scroll_y > 0:
+            self.sandbox.scroll("down", scroll_y)
 
     def type(self, text: str) -> None:
         self.sandbox.write(text)
