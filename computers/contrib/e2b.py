@@ -1,5 +1,6 @@
 import base64
 from e2b_desktop import Sandbox
+from typing import Literal
 
 class E2BDesktop:
     """
@@ -8,8 +9,9 @@ class E2BDesktop:
     """
 
     def __init__(self):
-        self.environment = "linux"  # "windows", "mac", "linux", or "browser"
+        self.environment: Literal["windows", "mac", "linux", "browser"] = "linux"  # "windows", "mac", "linux", or "browser"
         self.dimensions = (1024, 768)
+        self.stream_url: str | None = None
 
     def __enter__(self):
         print("Starting E2B Desktop Sandbox")
@@ -20,11 +22,8 @@ class E2BDesktop:
 
         print(f"Started E2B Desktop Sandbox with id '{self.sandbox.sandbox_id}'")
 
-        print("Starting Desktop Stream")
         self.sandbox.stream.start(require_auth=True)
 
-        stream_url = self.sandbox.stream.get_url(auth_key=self.sandbox.stream.get_auth_key())
-        print(f"Desktop Stream is running at {stream_url}")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -76,3 +75,12 @@ class E2BDesktop:
         end_y = path[-1]["y"]
 
         self.sandbox.drag((start_x, start_y), (end_x, end_y))
+
+    def get_environment(self) -> Literal["windows", "mac", "linux", "browser"]:
+        return self.environment
+
+    def get_dimensions(self) -> tuple[int, int]:
+        return self.dimensions
+
+    def get_current_url(self) -> str:
+        return self.sandbox.stream.get_url(auth_key=self.sandbox.stream.get_auth_key())
