@@ -54,7 +54,7 @@ def main():
         )
         items = []
 
-        if args.computer in ["browserbase", "local-playwright"]:
+        if args.computer in ["browserbase", "local-playwright", "kernel"]:
             if not args.start_url.startswith("http"):
                 args.start_url = "https://" + args.start_url
             agent.computer.goto(args.start_url)
