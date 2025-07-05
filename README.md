@@ -29,6 +29,7 @@ Other included sample [computer environments](#computer-environments):
 - [Docker](https://docker.com/) (containerized desktop)
 - [Browserbase](https://www.browserbase.com/) (remote browser, requires account)
 - [Scrapybara](https://scrapybara.com) (remote browser or computer, requires account)
+- [Anchor](https://anchorbrowser.io) (remote browser, requires account)
 - ...or implement your own `Computer`!
 
 ## Overview
@@ -111,9 +112,10 @@ python cli.py --show --computer docker
 
 #### Contributed Computers
 
-| Computer | Option | Type | Description | Requirements |
-| -------- | ------ | ---- | ----------- | ------------ |
-| `tbd`    | tbd    | tbd  | tbd         | tbd          |
+| Computer | Option | Type      | Description                  | Requirements                                           |
+| -------- | ------ | ----      | -----------                  | ------------                                           |
+| `Anchor` | anchor | `browser` | Remote browser environment   | [Anchor](https://anchorbrowser.io) API key in `.env`   |
+| `tbd`    | tbd    | tbd       | tbd                          | tbd                                                    |
 
 > [!NOTE]  
 > If you've implemented a new computer, please add it to the "Contributed Computers" section of the README.md file. Clearly indicate any auth / signup requirements. See the [Contributing](#contributing) section for more details.
