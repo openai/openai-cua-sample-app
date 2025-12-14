@@ -11,10 +11,10 @@ httpx==0.28.1
 idna==3.10
 jiter==0.8.2
 pillow==11.1.0
-playwright==1.50.0
+playwright==1.57.0
 pydantic==2.10.6
 pydantic_core==2.27.2
-pyee==12.1.1
+pyee==13.0.0
 python-dotenv==1.0.1
 requests==2.32.3
 scrapybara>=2.3.6
