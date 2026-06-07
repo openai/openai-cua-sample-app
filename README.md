@@ -61,7 +61,7 @@ Start both apps together:
 pnpm dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000), choose a scenario, keep `Headless` selected, and start a run.
+Open [http://127.0.0.1:3000][def], choose a scenario, keep `Headless` selected, and start a run.
 
 ## Local Development
 
@@ -155,3 +155,6 @@ See [.env.example](.env.example) for a minimal local template.
 - one successful headless run
 - one successful headful run
 - one intentional failure that shows the new runner guidance cleanly
+
+
+[def]: http://127.0.0.1:3000
