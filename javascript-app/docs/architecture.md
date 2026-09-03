@@ -1,6 +1,6 @@
 # Architecture
 
-The JavaScript sample app is an independent pnpm workspace under `sample-apps/javascript-playwright`. Its packages follow one browser-focused runner pipeline. The repository-root `labs/` templates are copied into fresh run workspaces; they are never edited during a run.
+The JavaScript sample app is an independent pnpm workspace under `javascript-app`. Its packages follow one browser-focused runner pipeline. The repository-root `labs/` templates are copied into fresh run workspaces; they are never edited during a run.
 
 ## Package Boundaries
 

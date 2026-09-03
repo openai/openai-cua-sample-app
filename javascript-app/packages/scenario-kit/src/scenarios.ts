@@ -11,7 +11,7 @@ import { kanbanDefaultPrompt } from "./kanban.js";
 import { paintDefaultPrompt } from "./paint.js";
 
 const templatePath = (labDirectory: string) =>
-  fileURLToPath(new URL(`../../../../../labs/${labDirectory}`, import.meta.url));
+  fileURLToPath(new URL(`../../../../labs/${labDirectory}`, import.meta.url));
 
 const scenarioCatalog = scenarioManifestSchema.array().parse([
   {

@@ -9,7 +9,7 @@ import { launchBrowserSession, type BrowserSession } from "@cua-sample/browser-r
 import { readPaintDocumentSnapshot, readPaintSaveRecord } from "../src/paint-plan.js";
 import { startWorkspaceLabServer } from "../src/workspace-lab-server.js";
 
-const labsPath = fileURLToPath(new URL("../../../../../labs/", import.meta.url));
+const labsPath = fileURLToPath(new URL("../../../../labs/", import.meta.url));
 let directory: string;
 let server: Awaited<ReturnType<typeof startWorkspaceLabServer>>;
 let session: BrowserSession | undefined;

@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { History } from "../../../../../labs/paint-lab-template/editor/history.js";
+import { History } from "../../../../labs/paint-lab-template/editor/history.js";
 import {
   documentPoint,
   constrainEnd,
   rectangle,
   zoomAt,
-} from "../../../../../labs/paint-lab-template/editor/geometry.js";
+} from "../../../../labs/paint-lab-template/editor/geometry.js";
 import {
   floodFill,
   differenceBounds,
   cropPixels,
   countArtwork,
-} from "../../../../../labs/paint-lab-template/editor/pixels.js";
+} from "../../../../labs/paint-lab-template/editor/pixels.js";
 
 describe("paint document coordinates", () => {
   it("maps the same point across zoom, pan, and CSS display sizes", () => {

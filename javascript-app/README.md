@@ -24,7 +24,7 @@ TypeScript sample app for browser-focused computer-use workflows. Start here to 
 
 ```bash
 git clone https://github.com/openai/openai-cua-sample-app.git
-cd openai-cua-sample-app/sample-apps/javascript-playwright
+cd openai-cua-sample-app/javascript-app
 corepack enable
 pnpm install
 cp .env.example .env
@@ -84,7 +84,7 @@ pnpm check
 pnpm test:paint:browser
 ```
 
-These commands run from this directory. From the repository root, use `pnpm --dir sample-apps/javascript-playwright <command>`. The lint command explicitly checks both this workspace and the repository-root labs using this app's ESLint configuration.
+These commands run from this directory. From the repository root, use `pnpm --dir javascript-app <command>`. The lint command explicitly checks both this workspace and the repository-root labs using this app's ESLint configuration.
 
 After building, start the production services in separate terminals:
 
@@ -135,7 +135,7 @@ After normal model completion, the runner retains the last saved draft as `artwo
 
 Optional paint verification checks that a nonblank saved document matches the current layers and rendered pixels. Visual review is still needed to assess whether the artwork depicts the requested subject.
 
-Try: “Draw a yellow smiley face with black eyes and a curved smile, then save the draft.” See the [paint lab guide](../../labs/paint-lab-template/README.md) for controls and persistence details. The live paint smoke test covers both headless and visible Chromium.
+Try: “Draw a yellow smiley face with black eyes and a curved smile, then save the draft.” See the [paint lab guide](../labs/paint-lab-template/README.md) for controls and persistence details. The live paint smoke test covers both headless and visible Chromium.
 
 ## Repo Map
 
@@ -151,7 +151,7 @@ Try: “Draw a yellow smiley face with black eyes and a curved smile, then save 
   Parent browser lifecycle and small worker protocol
 - `packages/runner-core`
   Orchestration, Responses loop, scenario executors, and verification
-- [`../../labs`](../../labs)
+- [`../labs`](../labs)
   Repository-root templates copied into run-scoped workspaces
 - `docs`
   Architecture, scenarios, and contribution guidance

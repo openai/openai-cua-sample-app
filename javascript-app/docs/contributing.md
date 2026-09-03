@@ -34,7 +34,7 @@ Guidelines:
 
 ## Quality Gates
 
-Before opening a PR, run these checks from `sample-apps/javascript-playwright`, the repository's only pnpm workspace. Its lint command also checks the root labs.
+Before opening a PR, run these checks from `javascript-app`, the repository's only pnpm workspace. Its lint command also checks the root labs.
 
 ```bash
 pnpm lint
