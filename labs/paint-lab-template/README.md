@@ -38,3 +38,5 @@ Read-only `__paintReadDocumentSnapshot()` and `__paintReadSaveRecord()` accessor
 The runner checks that current and saved metadata/pixel hashes match, independently decodes and recomposites PNGs, and rejects blank visible artwork. It verifies save consistency rather than the requested subject. See [scenario details](../../docs/scenarios.md).
 
 Modules in `editor/` separate document/layers, history, coordinate geometry, pixel operations, rendering, tools, and persistence. No build step, external image service, or editor framework is required.
+
+Run `pnpm playwright:install` once, then `pnpm test:paint:browser` from the repository root to check the document engine and editor interactions in headless Chromium. These checks do not call the OpenAI API; the regular `pnpm test` suite does not require a browser installation.

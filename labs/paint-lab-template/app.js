@@ -211,6 +211,7 @@ function renderLayers() {
     row.addEventListener("drop", (event) => {
       event.preventDefault();
       if (!busy) {
+        tools.commitText();
         tools.deselect();
         doc.reorderLayer(
           event.dataTransfer.getData("text/sketch-layer"),
@@ -458,6 +459,8 @@ function action(name) {
     tools.editSelection(name === "duplicate-selection");
     return;
   }
+  // Layer changes commit text; undo and redo still cancel pending edits.
+  if (name !== "undo" && name !== "redo") tools.commitText();
   resetOverlays();
   if (name === "undo") doc.history.undo();
   if (name === "redo") doc.history.redo();
@@ -733,7 +736,7 @@ document.addEventListener("keydown", (event) => {
     resetOverlays();
     return;
   }
-  if (key === " ") {
+  if (key === " " && !event.target.closest("button,[role=button]")) {
     event.preventDefault();
     tools.space = true;
     $("#canvas-viewport").classList.add("isHand");

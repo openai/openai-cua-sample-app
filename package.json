@@ -16,6 +16,7 @@
     "start:render:runner": "HOST=0.0.0.0 PLAYWRIGHT_BROWSERS_PATH=0 pnpm --filter @cua-sample/runner start",
     "start:render:web": "pnpm --filter @cua-sample/demo-web start",
     "test:live": "pnpm --filter @cua-sample/runner-core test:live",
+    "test:paint:browser": "pnpm --filter @cua-sample/runner-core test:paint:browser",
     "test": "pnpm --filter @cua-sample/scenario-kit test && pnpm --filter @cua-sample/browser-runtime test && pnpm --filter @cua-sample/runner-core test && pnpm --filter @cua-sample/runner test && pnpm --filter @cua-sample/demo-web test",
     "typecheck": "pnpm --filter @cua-sample/replay-schema typecheck && pnpm --filter @cua-sample/scenario-kit typecheck && pnpm --filter @cua-sample/browser-runtime typecheck && pnpm --filter @cua-sample/runner-core typecheck && pnpm --filter @cua-sample/runner typecheck && pnpm --filter @cua-sample/demo-web typecheck"
   },
