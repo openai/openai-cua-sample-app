@@ -1,33 +1,52 @@
-# Computer-use sample apps
+# Computer-use Sample Apps
 
-Use the Responses API and Playwright to run browser tasks. Watch the model move Kanban cards, draw a picture, or complete a booking in three local labs.
+Sample apps for computer-use workflows with the Responses API. This repository contains the [JavaScript + Playwright app](javascript-app/README.md) and three shared browser labs.
 
-The model's code runs with your permissions. A separate process lets **Stop** end it. This is not a security sandbox. Use local labs or other environments you control.
+## What This Repo Demonstrates
 
-## Quickstart
+- how to connect a model to an application, observe its state, and perform a task
+- how to start each run from a fresh lab workspace and verify the result
+- how to review a run through screenshots, events, and saved artifacts
 
-Use Node.js **22.20.0** and pnpm **10.26.0**. Your API key must have access to the configured model. The default is `gpt-5.6-sol`; set `CUA_DEFAULT_MODEL` in `.env` to change it.
+## Prerequisites
+
+- Git to clone the repository
+- an OpenAI API key with access to the model you plan to use
+- the runtime and browser dependencies listed in the [sample-app guide](javascript-app/README.md#prerequisites)
+
+## First Run
+
+Clone the repository:
 
 ```bash
 git clone https://github.com/openai/openai-cua-sample-app.git
-cd openai-cua-sample-app/javascript-app
-corepack enable
-pnpm install
-cp .env.example .env
-# Edit .env and set OPENAI_API_KEY.
-pnpm playwright:install
-pnpm dev
+cd openai-cua-sample-app
 ```
 
-Open [the console](http://127.0.0.1:3000). See the [JavaScript + Playwright guide](javascript-app/README.md) for a guided first run, Linux setup, configuration, and checks.
+Continue with the [JavaScript + Playwright setup](javascript-app/README.md#first-run) to install dependencies, configure your key, and start the app.
 
-## Repository layout
+Each sample app keeps its setup, configuration, and run data in its own directory. Follow its README for commands and environment-file locations. The repository root is not a pnpm workspace.
 
-- [`javascript-app/`](javascript-app/): app code, configuration, and docs.
-- [`labs/`](labs/): shared lab templates. Each run starts from a fresh copy.
+## Shared Labs
 
-Run package commands from `javascript-app/`. The repository root is not a pnpm workspace.
+- **Launch Planner**: a Kanban board for moving cards between columns and changing their order
+- **Sketch Studio**: a raster editor for drawing, working with layers, and saving artwork
+- **Northstar Stays**: a booking flow for finding a hotel and completing a reservation
 
-Read more about the [architecture](javascript-app/docs/architecture.md), [scenario prompts and verification](javascript-app/docs/scenarios.md), or [contributing](javascript-app/docs/contributing.md).
+The templates live in `labs/`. Each run uses a fresh copy, so changes during a run leave the templates intact. See the [paint lab guide](labs/paint-lab-template/README.md) for drawing controls and save behavior, or the [JavaScript scenario guide](javascript-app/docs/scenarios.md) for task prompts and verification rules.
+
+## Repo Map
+
+- [`javascript-app`](javascript-app/)
+  JavaScript app code, workspace configuration, and detailed documentation
+- [`labs`](labs/)
+  Shared static lab templates copied into each run's workspace
+
+## Safety And Limitations
+
+- Use the included labs or other environments you control.
+- Treat model-generated code as code running with your user permissions. These sample apps do not provide an operating-system security sandbox.
+- Keep API keys in local configuration. Environment files and run data are excluded from Git.
+- Lab verification checks a defined result. A successful lab run does not establish reliability on arbitrary websites.
 
 Licensed under the [MIT License](LICENSE).

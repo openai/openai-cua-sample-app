@@ -1,103 +1,98 @@
-# JavaScript + Playwright sample app
+# GPT-5.6 CUA Sample App
 
-Connect the Responses API to Playwright and watch a model work in the browser. Start a task in the console, then follow its actions, screenshots, and results.
+TypeScript sample app for browser-focused computer-use workflows with GPT-5.6 and Playwright. The app includes:
 
-The model's code runs with your permissions. A separate process lets **Stop** end it. This is not a security sandbox. Use local labs or other environments you control.
+- `apps/demo-web`: a Next.js console for starting runs and reviewing screenshots, events, and replay artifacts
+- `apps/runner`: a Fastify runner that manages run workspaces, browser sessions, event streams, and replay bundles
+- `packages/*`: scenario, runtime, and contract packages used by the JavaScript app
 
-## First run
+See the [root README](../README.md) for repository setup, shared labs, and general guidance.
 
-Use Node.js **22.20.0** (pinned in [`.node-version`](.node-version)) and pnpm **10.26.0** (pinned in [`package.json`](package.json)).
+## What This Repo Demonstrates
+
+- how to integrate the Responses API in the [model loop](packages/runner-core/src/responses-loop.ts)
+- how to drive browser labs through a persistent Playwright JavaScript session using `exec_js`
+- how to run model code in an [execution worker](packages/runner-core/src/javascript-worker.ts) that the runner can stop
+- how to define scenarios, copy lab templates into fresh workspaces, and verify outcomes
+- how to keep the console useful when a connection drops or a run fails
+
+## Prerequisites
+
+- Node.js `22.20.0`, pinned in [`.node-version`](.node-version)
+- pnpm `10.26.0`, pinned in [`package.json`](package.json)
+- Playwright Chromium, installed below
+- an API key with access to the configured model, which defaults to `gpt-5.6-sol`
+
+## First Run
+
+[Clone the repository](../README.md#first-run), then run these commands from its root:
 
 ```bash
-git clone https://github.com/openai/openai-cua-sample-app.git
-cd openai-cua-sample-app/javascript-app
+cd javascript-app
 corepack enable
 pnpm install
 cp .env.example .env
 ```
 
-Edit `.env` and set `OPENAI_API_KEY`. Your key must have access to the model in `CUA_DEFAULT_MODEL`, which defaults to `gpt-5.6-sol`. The runner scripts load this file for you. All three scenarios send real API requests.
+Edit `.env` and set your API key:
 
-Install Chromium and start the app. On Linux, replace `pnpm playwright:install` with `pnpm playwright:install:with-deps` to include system libraries.
+```bash
+OPENAI_API_KEY=your_key_here
+```
+
+The runner loads `javascript-app/.env` through the provided scripts. The web app uses its built-in defaults. Put web overrides in `apps/demo-web/.env.local` or the shell that starts it; Next.js does not load the app-level `.env`.
+
+An `Ignored build scripts` warning for `esbuild` does not require approval for this setup. The supplied dependency versions install and build without that script.
+
+Install the Playwright browser:
 
 ```bash
 pnpm playwright:install
+```
+
+On Linux, install Chromium and its system libraries with:
+
+```bash
+pnpm playwright:install:with-deps
+```
+
+If Playwright reports missing system libraries, rerun the `with-deps` command and follow its package prompts.
+
+Start the runner and console together:
+
+```bash
 pnpm dev
 ```
 
-Open [the console](http://127.0.0.1:3000). Choose **Sketch Studio**, keep **Headless**, and use the supplied drawing prompt. To check the saved draft, enable **Verification** in the advanced controls. Select **Start Run**.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000), choose a scenario, keep **Headless** selected, and select **Start Run**. All three scenarios send real API requests. To try drawing, choose **Sketch Studio** and use the supplied prompt.
 
-Watch the activity and screenshots as the model works. The console recovers missed updates; refreshing the page reconnects to the active run. **Stop** ends the run and waits for the worker and browser to close. For a later run, choose **Visible** to watch Chromium in a separate window.
+The console keeps run actions at the top, with controls and activity in separate scrolling panels. Below 960px, use **Controls**, **Preview**, and **Activity** to switch panels. The timeline stays visible; **Show thumbnails** opens the frame strip.
 
-## Configuration
+The console reconnects and polls for missed updates. Refreshing the page restores the active run, including **Stop**.
 
-The runner loads `javascript-app/.env`. Set `CUA_DEFAULT_MODEL` to change its default model. The console uses this default unless you set a web override.
+## Local Development
 
-| Runner variable | Default / purpose |
-| --- | --- |
-| `OPENAI_API_KEY` | Required. The key must have access to the configured model. |
-| `CUA_DEFAULT_MODEL` | `gpt-5.6-sol`. |
-| `HOST` | `127.0.0.1`. |
-| `PORT` | `4001`. |
-| `CUA_RESPONSES_MODE` | `auto` (default) calls the API with a key outside tests. `live` requires a key. `fallback` disables API calls, so these labs cannot run. |
-| `CUA_ALLOWED_ORIGINS` | Extra browser origins, separated by commas. Local console origins on ports 3000 and 3041 are already allowed. |
-
-Put web overrides in `apps/demo-web/.env.local` or the shell that starts the web app. Next.js does not load `javascript-app/.env`.
-
-| Web variable | Default / purpose |
-| --- | --- |
-| `RUNNER_BASE_URL` | `http://127.0.0.1:4001`. Change it if the runner address changes. |
-| `NEXT_PUBLIC_CUA_DEFAULT_MODEL` | Overrides the runner's default model. Leave unset to use `CUA_DEFAULT_MODEL`. |
-| `NEXT_PUBLIC_CUA_DEFAULT_MAX_RESPONSE_TURNS` | `24`. |
-
-See [`.env.example`](.env.example) for the runner settings and commented web examples. Restart a service after changing its environment. For production, rebuild the web app after changing `NEXT_PUBLIC_*` values.
-
-## Scenarios and results
-
-| Scenario | Task | Optional verification |
-| --- | --- | --- |
-| Launch Planner | Move Kanban cards. | Checks each card's column and order. |
-| Sketch Studio | Draw with brushes, shapes, text, selections, and layers. | Checks that the saved draft is nonblank and matches the current document and pixels. |
-| Northstar Stays | Complete a local hotel reservation. | Checks the filters and confirmation. |
-
-Verification is off by default. With it off, success means the model loop completed; the runner skips outcome checks. For Kanban or Booking verification, replace the freeform default prompt with a [structured example](docs/scenarios.md). The runner checks those fields before the model starts.
-
-Each run starts from a fresh copy of a root lab template. The runner saves records, replay JSON, and screenshots under `data/runs/<run-id>/`. Lab copies live under `data/workspaces/<run-id>/`.
-
-In Sketch Studio, **Save draft** stores the artwork and layers in IndexedDB. When the model finishes normally, the runner writes the last saved draft to `artwork/draft.png` and `artwork/draft.sketch.json` in the run workspace. It does this even with verification off.
-
-**Export PNG** downloads the current artwork and does not save a draft. Without a saved draft, there are no paint files to retain. A cancelled run may end before capture. See [scenario details](docs/scenarios.md) and the [paint lab guide](../labs/paint-lab-template/README.md).
-
-## Read the code
-
-Follow a task through these files:
-
-1. [`responses-loop.ts`](packages/runner-core/src/responses-loop.ts) sends API requests, handles `exec_js` tool calls, and reads the final response.
-2. [`javascript-worker.ts`](packages/runner-core/src/javascript-worker.ts) runs the code, keeps JavaScript state between calls, and finalizes the scenario.
-3. [`javascript-process.ts`](packages/browser-runtime/src/javascript-process.ts) starts the worker, enforces deadlines, and closes Chromium.
-4. [`scenario-runtime.ts`](packages/runner-core/src/scenario-runtime.ts) connects the lab, model loop, screenshots, and verification.
-
-See [architecture](docs/architecture.md) for more detail or [contributing](docs/contributing.md) to add a scenario.
-
-## Development and checks
-
-Run these commands from `javascript-app/`. From the repository root, use `pnpm --dir javascript-app <command>`.
-
-For separate logs, start each service in its own terminal:
+Run the services separately for independent logs, using one terminal for each:
 
 ```bash
 pnpm dev:runner
-pnpm dev:web
+RUNNER_BASE_URL=http://127.0.0.1:4001 pnpm dev:web
 ```
 
-Run the checks:
+Common checks:
 
 ```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 pnpm check
 pnpm test:paint:browser
 ```
 
-`pnpm check` runs lint, type checks, automated tests, and a production build. You can also run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` separately. Lint includes the shared root labs.
+`pnpm check` runs lint, type checks, automated tests, and a production build. Lint includes the root labs. The regular tests and paint browser suite use Chromium but make no live API calls.
+
+These commands run from `javascript-app/`. From the repository root, use `pnpm --dir javascript-app <command>`.
 
 Live smoke tests load the same `.env` and send real API requests:
 
@@ -105,15 +100,110 @@ Live smoke tests load the same `.env` and send real API requests:
 pnpm test:live
 ```
 
-After `pnpm build`, start each production service in its own terminal:
+After building, start the production services in separate terminals:
 
 ```bash
 pnpm --filter @cua-sample/runner start
 pnpm --filter @cua-sample/demo-web start
 ```
 
-If something goes wrong:
+See [contributing](docs/contributing.md) for the checks and steps to add a scenario.
 
-- **Runner unavailable:** Check the runner terminal and its address.
-- **Chromium missing:** Rerun the Playwright install command above.
-- **Execution timeout:** Review the activity and start a new run. The timed-out worker is discarded.
+## Browser Execution
+
+Each run uses a persistent Playwright JavaScript session exposed through `exec_js`. The model controls the browser, and the runner records tool activity, screenshots, and verification results. Choose **Headless** or **Visible** in the console; the API values are `headless` and `headful`.
+
+The main runner owns the API client, HTTP server, run records, execution deadline, and Chromium lifecycle. One child process per run owns the JavaScript context and Playwright page. Use `globalThis` to keep custom state between calls. The worker also provides `page`, `context`, `browser`, `Buffer`, `console.log`, and `display()`.
+
+Ordinary script errors return as tool output so the model can correct them. Stop and the 20-second execution deadline can terminate the worker and Chromium even when JavaScript loops forever. A timeout, worker crash, or invalid worker response fails the run. Cleanup finishes before another run can start.
+
+Follow the [model loop](packages/runner-core/src/responses-loop.ts), [worker](packages/runner-core/src/javascript-worker.ts), and [process controller](packages/browser-runtime/src/javascript-process.ts) to see this flow. The [scenario runtime](packages/runner-core/src/scenario-runtime.ts) connects them to the lab and verification. See [architecture](docs/architecture.md) for more detail.
+
+## API And Replay Changes
+
+Omit `mode` when calling `POST /api/runs`. Requests containing `mode: "code"`, `mode: "native"`, or any other unknown field receive HTTP 400. Run records have no `mode` field, and scenario manifests have no `defaultMode`.
+
+The start response includes initial run detail. `GET /api/runs/active` returns the active run or `null`, which lets the console recover after a page refresh.
+
+Replay bundles use version `2` and include function-call events. The runner writes snapshots atomically and uses `replay.json` as the saved source of truth. Records and screenshots live under `data/runs/<run-id>/`; lab copies live under `data/workspaces/<run-id>/` in this app directory.
+
+Existing saved files remain in place. The app does not migrate old replay paths or display historical native runs.
+
+## Official Scenarios
+
+- `kanban-reprioritize-sprint` (`kanban`): move cards to the columns and order requested in the prompt
+- `paint-draw-poster` (`paint`): draw and save artwork in Sketch Studio
+- `booking-complete-reservation` (`booking`): find a hotel and complete the requested reservation
+
+Verification is off by default. Enable **Run verification checks** under **Advanced settings**. With verification off, success means the model loop completed; the runner skips outcome checks. For Kanban or Booking verification, replace the freeform default prompt with a [structured example](docs/scenarios.md). The runner checks those fields before the model starts.
+
+See [scenario details](docs/scenarios.md) for prompts and verification rules, and the [shared labs](../README.md#shared-labs) for an overview.
+
+## Sketch Studio
+
+Sketch Studio opens a 1024 × 768 raster document. It supports brushes, pencil, eraser, fill, eyedropper, shapes, text, selections, up to eight layers, undo/redo, and zoom/pan. The model uses the visible controls through the Playwright session.
+
+**Save draft** stores a version-2 record of the artwork and layers in IndexedDB. Reload recovery works within the same lab origin and browser context; a new run starts fresh. **Export PNG** downloads the current artwork without editor chrome and does not save a draft.
+
+When the model finishes normally, the runner retains the last saved draft as `artwork/draft.png` and `artwork/draft.sketch.json` in the run workspace. Capture runs before optional verification, including when verification is off. The activity log records the paths; successful run summaries include them too.
+
+No saved draft means no retained paint files. Invalid image data or file-write errors fail the run. Cancelled or interrupted runs may end before capture.
+
+Paint verification checks that the saved draft is nonblank and matches the current layers and rendered pixels. Review the image yourself to assess whether it depicts the requested subject.
+
+Try: “Draw a yellow smiley face with black eyes and a curved smile, then save the draft.” See the [paint lab guide](../labs/paint-lab-template/README.md) for controls and save behavior. The live paint smoke tests exercise both headless and visible Chromium.
+
+## Repo Map
+
+- `apps/demo-web`
+  The operator console
+- `apps/runner`
+  HTTP routes, event streams, and screenshot serving
+- `packages/replay-schema`
+  Request, response, replay, and error contracts
+- `packages/scenario-kit`
+  Scenario manifests and default prompts
+- `packages/browser-runtime`
+  Chromium lifecycle, worker protocol, and execution deadlines
+- `packages/runner-core`
+  Run management, Responses loop, execution worker, and verification
+- [`../labs`](../labs/)
+  Shared templates copied into each run's workspace
+- [`docs`](docs/)
+  Architecture, scenario, and contribution guides
+
+## Environment Variables
+
+Runner settings belong in `javascript-app/.env` or the runner's shell:
+
+- `OPENAI_API_KEY`: required for all three scenarios
+- `HOST`: defaults to `127.0.0.1`
+- `PORT`: defaults to `4001`
+- `CUA_DEFAULT_MODEL`: defaults to `gpt-5.6-sol`
+- `CUA_RESPONSES_MODE`: `auto` uses the API when a key is available outside tests; `live` requires a key; `fallback` disables API calls and cannot run these scenarios
+- `CUA_ALLOWED_ORIGINS`: extra browser origins, separated by commas; local console origins on ports 3000 and 3041 are allowed by default
+
+Web settings belong in `apps/demo-web/.env.local` or the web app's shell:
+
+- `RUNNER_BASE_URL`: defaults to `http://127.0.0.1:4001`
+- `NEXT_PUBLIC_CUA_DEFAULT_MODEL`: optional override; leave unset to use the runner's default model
+- `NEXT_PUBLIC_CUA_DEFAULT_MAX_RESPONSE_TURNS`: defaults to `24`
+
+See [`.env.example`](.env.example) for the runner template and commented web examples. Restart a service after changing its environment. Rebuild the production web app after changing `NEXT_PUBLIC_*` values.
+
+## Safety And Limitations
+
+Read the [shared safety guidance](../README.md#safety-and-limitations) before running the app.
+
+The worker provides a way to stop execution, not an operating-system security sandbox. It runs with your user permissions and has no filesystem or network isolation. The parent removes `OPENAI_API_KEY` from the worker and Chromium environments; this does not prevent code from reading local files.
+
+This sample focuses on browser tasks in local labs. Keep the runner on its default loopback address for local development.
+
+## Release Validation Checklist
+
+- clone the repository into a fresh directory
+- follow this README to install dependencies and start the app
+- run `pnpm check` and `pnpm test:paint:browser`
+- start the development and production services
+- complete one verified headless run and one verified visible run with live credentials
+- check that Stop works and an intentional failure gives useful guidance
