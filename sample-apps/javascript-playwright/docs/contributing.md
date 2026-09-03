@@ -4,7 +4,7 @@ This repo is intentionally small. New public scenarios should follow the existin
 
 ## Add A Scenario
 
-1. Add the lab template under `labs/<name>-lab-template`.
+1. Add the lab template under the repository-root `labs/<name>-lab-template`.
 2. Add a manifest and default prompt in `packages/scenario-kit/src`.
 3. Export the manifest through `packages/scenario-kit/src/scenarios.ts`.
 4. Add scenario instructions and verification helpers in `packages/runner-core/src`.

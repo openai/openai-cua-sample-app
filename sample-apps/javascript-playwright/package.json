@@ -8,7 +8,7 @@
     "dev:runner": "pnpm --filter @cua-sample/runner dev",
     "playwright:install": "pnpm --filter @cua-sample/runner playwright:install",
     "playwright:install:with-deps": "pnpm --filter @cua-sample/runner playwright:install:with-deps",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "node scripts/lint.mjs",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "build": "pnpm --filter @cua-sample/replay-schema build && pnpm --filter @cua-sample/scenario-kit build && pnpm --filter @cua-sample/browser-runtime build && pnpm --filter @cua-sample/runner-core build && pnpm --filter @cua-sample/runner build && pnpm --filter @cua-sample/demo-web build",
     "build:render:runner": "pnpm --filter @cua-sample/replay-schema build && pnpm --filter @cua-sample/scenario-kit build && pnpm --filter @cua-sample/browser-runtime build && pnpm --filter @cua-sample/runner-core build && pnpm --filter @cua-sample/runner build && PLAYWRIGHT_BROWSERS_PATH=0 pnpm exec playwright install chromium",

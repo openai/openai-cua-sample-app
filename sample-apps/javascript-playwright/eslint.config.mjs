@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import js from "@eslint/js";
 import nextPlugin from "@next/eslint-plugin-next";
 import globals from "globals";
@@ -16,8 +18,8 @@ export default tseslint.config(
       "**/coverage/**",
       "**/dist/**",
       "**/node_modules/**",
-      "apps/demo-web/next-env.d.ts",
-      "data/**",
+      "**/apps/demo-web/next-env.d.ts",
+      "**/data/**",
     ],
   },
   js.configs.recommended,
@@ -34,14 +36,14 @@ export default tseslint.config(
     },
   },
   {
-    files: ["apps/demo-web/**/*.{ts,tsx}"],
+    files: ["**/apps/demo-web/**/*.{ts,tsx}"],
     plugins: {
       "@next/next": nextPlugin,
       "react-hooks": reactHooks,
     },
     settings: {
       next: {
-        rootDir: "apps/demo-web/",
+        rootDir: fileURLToPath(new URL("./apps/demo-web/", import.meta.url)),
       },
     },
     rules: {

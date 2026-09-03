@@ -8,3 +8,5 @@ dist/
 coverage/
 data/
 *.tsbuildinfo
+.env.*
+!.env.example
