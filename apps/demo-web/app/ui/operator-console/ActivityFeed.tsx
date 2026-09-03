@@ -33,14 +33,10 @@ export function ActivityFeed({
   streamLogs,
 }: ActivityFeedProps) {
   return (
-    <section className="railActivity">
+    <section aria-label="Agent activity" className="railActivity" id="activity-pane">
       <div className="feedHeader">
         <div className="feedHeaderCopy">
           <h2>Agent activity</h2>
-          <p>
-            Watch tool calls, screenshots, and optional
-            verification stream in real time.
-          </p>
         </div>
         <div className="feedActions">
           {!followActivityFeed && activityItems.length > 0 ? (
@@ -72,8 +68,7 @@ export function ActivityFeed({
           <div className="activityEmpty">
             <h3>No activity yet</h3>
             <p>
-              The live trace will appear here once the model starts calling
-              tools, navigating, and finishing the scenario.
+              Tool calls and results will appear here once a run starts.
             </p>
           </div>
         ) : (

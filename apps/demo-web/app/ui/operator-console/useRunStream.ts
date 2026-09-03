@@ -55,6 +55,10 @@ function createFallbackIssue(message: string, hint?: string) {
   return createRunnerIssue("runner_request_failed", message, hint);
 }
 
+function hasActivityFeedLayout(feed: HTMLDivElement) {
+  return feed.clientHeight > 0 && feed.getClientRects().length > 0;
+}
+
 function toRunnerIssue(
   error: unknown,
   fallbackMessage: string,
@@ -245,7 +249,7 @@ export function useRunStream({
 
     const feed = activityFeedRef.current;
 
-    if (!feed) {
+    if (!feed || !hasActivityFeedLayout(feed)) {
       return;
     }
 
@@ -259,6 +263,26 @@ export function useRunStream({
 
     feed.scrollTop = feed.scrollHeight;
   }, [activityItems.length, followActivityFeed, selectedRun?.run.status]);
+
+  useEffect(() => {
+    const feed = activityFeedRef.current;
+
+    if (!feed || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    // Hidden responsive panels have no scroll geometry. Resume following when
+    // the feed is revealed or its available height changes at a breakpoint.
+    const observer = new ResizeObserver(() => {
+      if (followActivityFeed && hasActivityFeedLayout(feed)) {
+        feed.scrollTop = feed.scrollHeight;
+      }
+    });
+
+    observer.observe(feed);
+
+    return () => observer.disconnect();
+  }, [followActivityFeed]);
 
   useEffect(() => {
     if (!selectedRun || selectedRun.run.status !== "running" || !streamLogs) {
@@ -558,7 +582,7 @@ export function useRunStream({
   const handleActivityFeedScroll = () => {
     const feed = activityFeedRef.current;
 
-    if (!feed) {
+    if (!feed || !hasActivityFeedLayout(feed)) {
       return;
     }
 
@@ -582,6 +606,10 @@ export function useRunStream({
     }
 
     setFollowActivityFeed(true);
+
+    if (!hasActivityFeedLayout(feed)) {
+      return;
+    }
 
     if (typeof feed.scrollTo === "function") {
       feed.scrollTo({ behavior: "smooth", top: feed.scrollHeight });

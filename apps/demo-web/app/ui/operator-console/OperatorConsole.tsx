@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { formatClock, formatRunnerIssueMessage, scenarioTargetDisplay } from "./helpers";
 import { ActivityFeed } from "./ActivityFeed";
 import { RunControls, RunActionButtons } from "./RunControls";
@@ -8,11 +10,14 @@ import { ScreenshotPane } from "./ScreenshotPane";
 import type { OperatorConsoleProps } from "./types";
 import { useRunStream } from "./useRunStream";
 
+type WorkspacePanel = "controls" | "preview" | "activity";
+
 export function OperatorConsole({
   initialRunnerIssue,
   runnerBaseUrl,
   scenarios,
 }: OperatorConsoleProps) {
+  const [activePanel, setActivePanel] = useState<WorkspacePanel>("controls");
   const {
     activityFeedLabel,
     activityFeedRef,
@@ -119,15 +124,10 @@ export function OperatorConsole({
       : runnerOnline
         ? "Start a run to begin reviewing captured frames."
         : issueMessage ?? "Runner is unavailable.";
-  const emptyTimelineMessage = selectedRun
-    ? selectedRun.run.status === "failed"
-      ? issueMessage ?? "The run ended before any captures were saved."
-      : "Captured frames will appear here as the run progresses."
-    : currentIssue
-      ? issueMessage ?? currentIssue.error
-      : runnerOnline
-        ? "Captured frames will appear here once the run starts."
-        : issueMessage ?? "Runner is unavailable.";
+  const startRunAndPreview = async () => {
+    setActivePanel("preview");
+    await handleStartRun();
+  };
 
   return (
     <main className="consoleShell">
@@ -137,7 +137,42 @@ export function OperatorConsole({
           topbarSubtitle={topbarSubtitle}
         />
 
-        <section className="benchTop">
+        <div className="stageControlBar">
+          <RunSummary
+            stageHeadline={stageHeadline}
+            stageSupportCopy={stageSupportCopy}
+          />
+          <RunActionButtons
+            onResetWorkspace={handleResetWorkspace}
+            onStartRun={startRunAndPreview}
+            onStopRun={handleStopRun}
+            pendingAction={pendingAction}
+            resetDisabled={resetDisabled}
+            startDisabled={startDisabled}
+            stopDisabled={stopDisabled}
+          />
+        </div>
+
+        <nav aria-label="Workspace panels" className="workspacePanelNav">
+          {(["controls", "preview", "activity"] as const).map((panel) => (
+            <button
+              aria-controls={`${panel}-pane`}
+              aria-pressed={activePanel === panel}
+              className="workspacePanelButton"
+              key={panel}
+              onClick={() => setActivePanel(panel)}
+              type="button"
+            >
+              {panel === "controls"
+                ? "Controls"
+                : panel === "preview"
+                  ? "Preview"
+                  : "Activity"}
+            </button>
+          ))}
+        </nav>
+
+        <section className="benchTop" data-panel={activePanel}>
           <section className="controlColumn">
             <RunControls
               browserMode={browserMode}
@@ -148,7 +183,7 @@ export function OperatorConsole({
               onPromptChange={setPrompt}
               onResetWorkspace={handleResetWorkspace}
               onScenarioChange={handleScenarioChange}
-              onStartRun={handleStartRun}
+              onStartRun={startRunAndPreview}
               onStopRun={handleStopRun}
               onVerificationEnabledChange={setVerificationEnabled}
               pendingAction={pendingAction}
@@ -169,33 +204,23 @@ export function OperatorConsole({
               followActivityFeed={followActivityFeed}
               onActivityFeedScroll={handleActivityFeedScroll}
               onJumpToLatestActivity={handleJumpToLatestActivity}
-              onSelectScreenshot={handleSelectScreenshot}
+              onSelectScreenshot={(screenshotId) => {
+                handleSelectScreenshot(screenshotId);
+                setActivePanel("preview");
+              }}
               onStreamLogsChange={setStreamLogs}
               screenshots={screenshots}
               streamLogs={streamLogs}
             />
           </section>
 
-          <section className="stageColumn">
-            <div className="stageControlBar">
-              <RunSummary
-                stageHeadline={stageHeadline}
-                stageSupportCopy={stageSupportCopy}
-              />
-              <RunActionButtons
-                onResetWorkspace={handleResetWorkspace}
-                onStartRun={handleStartRun}
-                onStopRun={handleStopRun}
-                pendingAction={pendingAction}
-                resetDisabled={resetDisabled}
-                startDisabled={startDisabled}
-                stopDisabled={stopDisabled}
-              />
-            </div>
-
+          <section
+            aria-label="Screenshot preview"
+            className="stageColumn"
+            id="preview-pane"
+          >
             <ScreenshotPane
               emptyReviewMessage={emptyReviewMessage}
-              emptyTimelineMessage={emptyTimelineMessage}
               onJumpToLatestScreenshot={handleJumpToLatestScreenshot}
               onOpenReplay={handleOpenReplay}
               onScrubberChange={handleScrubberChange}
