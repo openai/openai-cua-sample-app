@@ -1,5 +1,5 @@
 {
-  "name": "cua-container-runtime",
+  "name": "gpt6-js-image",
   "private": true,
   "type": "module",
   "dependencies": { "playwright-core": "1.62.0" }
