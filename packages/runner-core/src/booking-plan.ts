@@ -136,7 +136,7 @@ export function buildBookingRunnerPrompt(prompt: string) {
 
 export function buildBookingCodeInstructions(currentUrl: string) {
   return [
-    "You are operating a persistent Playwright browser session for a GPT-5.4 CUA demo harness.",
+    "You are operating a persistent Playwright browser session for a gpt-5.6-sol CUA demo harness.",
     "You must use the exec_js tool before you answer.",
     `The booking app is already open at ${currentUrl}.`,
     "Use only the operator prompt as the source of truth.",

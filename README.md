@@ -1,6 +1,6 @@
-# GPT-5.4 CUA Sample App
+# gpt-5.6-sol CUA Sample App
 
-TypeScript sample app for browser-focused computer-use workflows with GPT-5.4. The repo includes:
+TypeScript sample app for browser-focused computer-use workflows with gpt-5.6-sol. The repo includes:
 
 - `apps/demo-web`: a Next.js operator console for starting runs and reviewing screenshots, events, and replay artifacts
 - `apps/runner`: a Fastify runner that manages mutable workspaces, browser sessions, SSE, and replay bundles
@@ -101,10 +101,22 @@ New replay bundles use version `2` and contain function-call events from the REP
 ## Official Scenarios
 
 - `kanban-reprioritize-sprint` (`kanban`): teaches stateful drag-and-drop verification against a target board state derived from the operator prompt
-- `paint-draw-poster` (`paint`): teaches cursor control, drawing, and verifying saved canvas state against the live canvas
+- `paint-draw-poster` (`paint`): Sketch Studio, a raster editor for drawing with tools, layers, text, and verifiable saved artwork
 - `booking-complete-reservation` (`booking`): teaches multi-step browsing and form completion with verification against a local confirmation record
 
 More detail lives in [docs/scenarios.md](docs/scenarios.md).
+
+## Sketch Studio
+
+The paint lab opens a 1024 × 768 raster document with brush/pencil, eraser, fill, eyedropper, shapes, text, rectangular selection, up to eight layers, undo/redo, and zoom/pan. The model operates its visible controls through the same persistent Playwright REPL as the other labs.
+
+**Save draft** stores a version-2 save record containing the artwork and layers in IndexedDB. Reload recovery works within the same lab origin and browser context; a new run starts fresh. **Export PNG** downloads the current artwork without editor chrome and does not update the saved draft.
+
+After normal model completion, the runner retains the last saved draft as `artwork/draft.png` and `artwork/draft.sketch.json` inside the run workspace, before optional verification and teardown. Capture also runs when verification is off, and the file paths appear in run events and the summary. No saved draft means no retained paint artifacts. Invalid image data or filesystem write errors fail the run. Cancelled or interrupted runs may end before capture.
+
+Optional paint verification checks that a nonblank saved document matches the current layers and rendered pixels. Visual review is still needed to assess whether the artwork depicts the requested subject.
+
+Try: “Draw a yellow smiley face with black eyes and a curved smile, then save the draft.” See the [paint lab guide](labs/paint-lab-template/README.md) for controls and persistence details. The live paint smoke test covers both headless and visible Chromium.
 
 ## Repo Map
 
@@ -132,13 +144,13 @@ Runner:
 - `OPENAI_API_KEY`
 - `HOST` (default `127.0.0.1`)
 - `PORT` (default `4001`)
-- `CUA_DEFAULT_MODEL` (default `gpt-5.4`)
+- `CUA_DEFAULT_MODEL` (default `gpt-5.6-sol`)
 - `CUA_RESPONSES_MODE` (`auto`, `fallback`, or `live`)
 
 Web:
 
 - `RUNNER_BASE_URL` (default `http://127.0.0.1:4001`)
-- `NEXT_PUBLIC_CUA_DEFAULT_MODEL` (default `gpt-5.4`)
+- `NEXT_PUBLIC_CUA_DEFAULT_MODEL` (default `gpt-5.6-sol`)
 - `NEXT_PUBLIC_CUA_DEFAULT_MAX_RESPONSE_TURNS` (default `24`)
 
 See [.env.example](.env.example) for a minimal local template.

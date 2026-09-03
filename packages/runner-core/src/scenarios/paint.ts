@@ -3,6 +3,7 @@ import {
   buildPaintCodeInstructions,
   buildPaintRunnerPrompt,
   readPaintSaveRecord,
+  retainPaintArtifacts,
 } from "../paint-plan.js";
 import {
   createDefaultResponsesClient,
@@ -40,8 +41,8 @@ class PaintCodeExecutor implements RunExecutor {
         const saveRecord = await readPaintSaveRecord(session);
 
         return saveRecord
-          ? `checksum=${saveRecord.checksum} · painted=${saveRecord.paintedCellCount}`
-          : "checksum=none · painted=0";
+          ? `pixels=${saveRecord.document.paintedPixelCount} · layers=${saveRecord.document.layers.length}`
+          : "saved=none";
       },
       loadedScreenshotLabel: "paint-loaded",
       navigationMessage: "Browser navigated to the paint lab.",
@@ -57,8 +58,28 @@ class PaintCodeExecutor implements RunExecutor {
           client,
         );
 
+        const artifacts = await retainPaintArtifacts(
+          session,
+          context.detail.workspacePath,
+        );
+        if (artifacts) {
+          await context.emitEvent({
+            type: "run_progress",
+            level: "ok",
+            message: "Saved paint artifacts retained in the run workspace.",
+            detail: `PNG: ${artifacts.imagePath} · Project: ${artifacts.projectPath}`,
+          });
+        }
         return {
-          notes: result.notes,
+          notes: [
+            ...result.notes,
+            ...(artifacts
+              ? [
+                  `Saved artwork: ${artifacts.imagePath}`,
+                  `Layered project: ${artifacts.projectPath}`,
+                ]
+              : ["No draft was saved; no paint artifacts were retained."]),
+          ],
           verificationMessage:
             "Paint verification passed after the full Responses code loop.",
         };

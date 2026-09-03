@@ -45,7 +45,7 @@ const scenarioCatalog = scenarioManifestSchema.array().parse([
     category: "creativity",
     title: "Sketch Studio",
     description:
-      "Use a paint-like interface to create a simple prompt-driven sketch with precise cursor control.",
+      "Draw and edit raster artwork with brushes, shapes, text, layers, and a saved draft.",
     defaultPrompt: paintDefaultPrompt,
     workspaceTemplatePath: templatePath("paint-lab-template"),
     startTarget: {
@@ -59,7 +59,7 @@ const scenarioCatalog = scenarioManifestSchema.array().parse([
         id: "paint-canvas-state",
         kind: "canvas_state",
         description:
-          "The saved artwork exists and matches the live canvas state at the end of the run.",
+          "The saved draft is nonblank and matches the current document layers and rendered pixels.",
       },
     ],
     tags: ["hero", "creativity", "canvas"],

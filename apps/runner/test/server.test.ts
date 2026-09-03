@@ -147,6 +147,30 @@ describe("runner server", () => {
     }
   });
 
+  it("rejects a turn budget above 50", async () => {
+    const app = createServer();
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        payload: {
+          maxResponseTurns: 51,
+          prompt: "Draw a smiley face and save the draft.",
+          scenarioId: "paint-draw-poster",
+        },
+        url: "/api/runs",
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(runnerErrorResponseSchema.parse(response.json())).toMatchObject({
+        code: "invalid_request",
+        error: expect.stringContaining("maxResponseTurns"),
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
   it("returns the structured error envelope for invalid requests", async () => {
     const app = createServer();
 

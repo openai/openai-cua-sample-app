@@ -16,7 +16,7 @@ import type {
 } from "./types";
 
 export const defaultRunModel =
-  process.env.NEXT_PUBLIC_CUA_DEFAULT_MODEL ?? "gpt-5.4";
+  process.env.NEXT_PUBLIC_CUA_DEFAULT_MODEL ?? "gpt-5.6-sol";
 export const defaultMaxResponseTurns = Number(
   process.env.NEXT_PUBLIC_CUA_DEFAULT_MAX_RESPONSE_TURNS ?? "24",
 ) as ResponseTurnBudget;

@@ -204,3 +204,44 @@ export const runnerErrorResponseSchema = z.object({
   hint: z.string().min(1).optional(),
 });
 export type RunnerErrorResponse = z.infer<typeof runnerErrorResponseSchema>;
+
+const paintPngSchema = z
+  .string()
+  .max(8 * 1024 * 1024)
+  .regex(/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/);
+const paintPixelHashSchema = z.string().regex(/^[a-f0-9]{64}$/);
+
+export const paintDocumentSnapshotSchema = z.object({
+  version: z.literal(2),
+  name: z.string().min(1).max(80),
+  width: z.literal(1024),
+  height: z.literal(768),
+  layers: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(100),
+        name: z.string().min(1).max(80),
+        visible: z.boolean(),
+        opacity: z.number().min(0).max(1),
+        png: paintPngSchema,
+        pixelHash: paintPixelHashSchema,
+      }),
+    )
+    .min(1)
+    .max(8)
+    .refine(
+      (layers) => new Set(layers.map((layer) => layer.id)).size === layers.length,
+      "Layer IDs must be unique.",
+    ),
+  compositePng: paintPngSchema,
+  compositePixelHash: paintPixelHashSchema,
+  paintedPixelCount: z.number().int().min(0).max(1024 * 768),
+});
+export type PaintDocumentSnapshot = z.infer<typeof paintDocumentSnapshotSchema>;
+
+export const paintSaveRecordSchema = z.object({
+  version: z.literal(2),
+  savedAt: z.string().datetime(),
+  document: paintDocumentSnapshotSchema,
+});
+export type PaintSaveRecord = z.infer<typeof paintSaveRecordSchema>;

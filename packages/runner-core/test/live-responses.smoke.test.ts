@@ -82,13 +82,14 @@ describe("live Responses smoke", () => {
     130_000,
   );
 
-  it(
-    "completes the paint code path against the live Responses API",
-    async () => {
+  it.each(["headless", "headful"] as const)(
+    "completes the paint code path against the live Responses API (%s)",
+    async (browserMode) => {
       const manager = await createLiveManager();
       const detail = await manager.startRun({
-        browserMode: "headless",
-        prompt: "Paint me a smiley face as simple pixel art and save the draft.",
+        browserMode,
+        prompt:
+          "Draw a yellow smiley face with black eyes and a curved smile, then save the draft.",
         scenarioId: "paint-draw-poster",
         verificationEnabled: true,
       });

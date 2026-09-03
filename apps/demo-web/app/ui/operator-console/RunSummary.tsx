@@ -19,10 +19,10 @@ export function ConsoleTopbar({
       <div className="brandBlock">
         <div className="brandMark">
           <span>GPT</span>
-          <strong>5.4</strong>
+          <strong>5.6</strong>
         </div>
         <div className="brandCopy">
-          <h1>GPT-5.4 CUA Sample App</h1>
+          <h1>gpt-5.6-sol CUA Sample App</h1>
           <p>{topbarSubtitle}</p>
         </div>
       </div>

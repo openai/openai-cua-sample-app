@@ -11,7 +11,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
     "test:live": "vitest run test/live-responses.smoke.test.ts",
-    "test": "vitest run test/responses-loop.test.ts test/runner-manager.test.ts",
+    "test": "vitest run test/responses-loop.test.ts test/runner-manager.test.ts test/paint-engine.test.js test/paint-plan.test.ts test/paint-executor.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

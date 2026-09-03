@@ -52,7 +52,7 @@ const runDetail: RunDetail = {
     browserMode: "headless",
     id: "test-run",
     labId: scenario.labId,
-    model: "gpt-5.4",
+    model: "gpt-5.6-sol",
     prompt: scenario.defaultPrompt,
     scenarioId: scenario.id,
     startedAt: "2026-04-18T12:00:00.000Z",
@@ -190,7 +190,9 @@ describe("OperatorConsole", () => {
     expect(
       screen.getByRole("button", { name: "Headless" }).getAttribute("aria-pressed"),
     ).toBe("true");
-    expect(screen.getByRole("slider", { name: "Turn budget" })).toBeTruthy();
+    const turnBudget = screen.getByRole("slider", { name: "Turn budget" }) as HTMLInputElement;
+    expect(turnBudget.value).toBe("24");
+    expect(turnBudget.max).toBe("50");
 
     await user.click(screen.getByRole("button", { name: "Visible" }));
     await user.click(
@@ -209,6 +211,8 @@ describe("OperatorConsole", () => {
     expect(options?.method).toBe("POST");
     expect(payload).toMatchObject({
       browserMode: "headful",
+      model: "gpt-5.6-sol",
+      maxResponseTurns: 24,
       prompt: scenario.defaultPrompt,
       scenarioId: scenario.id,
       verificationEnabled: true,

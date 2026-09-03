@@ -64,7 +64,7 @@ function createMockExecutionContext() {
           supportsCodeEdits: false,
         },
         run: {
-          model: "gpt-5.4",
+          model: "gpt-5.6-sol",
           prompt: "Finish the browser task and report success.",
         },
       },

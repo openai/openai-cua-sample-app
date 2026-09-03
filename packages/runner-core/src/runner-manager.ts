@@ -69,7 +69,7 @@ type ReplayBundle = {
 };
 
 const defaultStepDelayMs = 650;
-const defaultRunModel = process.env.CUA_DEFAULT_MODEL ?? "gpt-5.4";
+const defaultRunModel = process.env.CUA_DEFAULT_MODEL ?? "gpt-5.6-sol";
 const defaultMaxResponseTurns = 24;
 
 function sleep(ms: number) {

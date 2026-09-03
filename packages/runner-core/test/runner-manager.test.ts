@@ -160,6 +160,8 @@ describe("RunnerManager", () => {
     );
 
     expect(completed.run.status).toBe("completed");
+    expect(completed.run.model).toBe("gpt-5.6-sol");
+    expect(completed.run.maxResponseTurns).toBe(24);
     expect(reloaded).toEqual(completed);
     expect(replay.version).toBe(2);
     expect(replay.run).toEqual(completed.run);
