@@ -6,9 +6,6 @@ export type LabId = z.infer<typeof labIdSchema>;
 export const categorySchema = z.enum(["productivity", "creativity", "commerce"]);
 export type ScenarioCategory = z.infer<typeof categorySchema>;
 
-export const executionModeSchema = z.enum(["code", "native"]);
-export type ExecutionMode = z.infer<typeof executionModeSchema>;
-
 export const browserModeSchema = z.enum(["headless", "headful"]);
 export type BrowserMode = z.infer<typeof browserModeSchema>;
 
@@ -52,7 +49,6 @@ export const scenarioManifestSchema = z.object({
   defaultPrompt: z.string().min(1),
   workspaceTemplatePath: z.string().min(1),
   startTarget: startTargetSchema,
-  defaultMode: executionModeSchema,
   supportsCodeEdits: z.boolean(),
   verification: z.array(verificationSpecSchema).min(1),
   tags: z.array(z.string().min(1)).min(1),
@@ -93,9 +89,6 @@ export const runEventTypeSchema = z.enum([
   "browser_navigated",
   "function_call_requested",
   "function_call_completed",
-  "computer_call_requested",
-  "computer_actions_executed",
-  "computer_call_output_recorded",
   "screenshot_captured",
   "run_progress",
   "verification_completed",
@@ -121,7 +114,6 @@ export const runRecordSchema = z.object({
   id: z.string().min(1),
   scenarioId: z.string().min(1),
   labId: labIdSchema,
-  mode: executionModeSchema,
   browserMode: browserModeSchema,
   verificationEnabled: z.boolean().optional(),
   model: z.string().min(1),
@@ -165,15 +157,16 @@ export const browserStateSchema = z.object({
 });
 export type BrowserState = z.infer<typeof browserStateSchema>;
 
-export const startRunRequestSchema = z.object({
-  scenarioId: z.string().min(1),
-  mode: executionModeSchema,
-  browserMode: browserModeSchema.optional(),
-  verificationEnabled: z.boolean().optional(),
-  maxResponseTurns: responseTurnBudgetSchema.optional(),
-  prompt: z.string().min(1),
-  model: z.string().min(1).optional(),
-});
+export const startRunRequestSchema = z
+  .object({
+    scenarioId: z.string().min(1),
+    browserMode: browserModeSchema.optional(),
+    verificationEnabled: z.boolean().optional(),
+    maxResponseTurns: responseTurnBudgetSchema.optional(),
+    prompt: z.string().min(1),
+    model: z.string().min(1).optional(),
+  })
+  .strict();
 export type StartRunRequest = z.infer<typeof startRunRequestSchema>;
 
 export const startRunResponseSchema = z.object({
@@ -211,3 +204,44 @@ export const runnerErrorResponseSchema = z.object({
   hint: z.string().min(1).optional(),
 });
 export type RunnerErrorResponse = z.infer<typeof runnerErrorResponseSchema>;
+
+const paintPngSchema = z
+  .string()
+  .max(8 * 1024 * 1024)
+  .regex(/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/);
+const paintPixelHashSchema = z.string().regex(/^[a-f0-9]{64}$/);
+
+export const paintDocumentSnapshotSchema = z.object({
+  version: z.literal(2),
+  name: z.string().min(1).max(80),
+  width: z.literal(1024),
+  height: z.literal(768),
+  layers: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(100),
+        name: z.string().min(1).max(80),
+        visible: z.boolean(),
+        opacity: z.number().min(0).max(1),
+        png: paintPngSchema,
+        pixelHash: paintPixelHashSchema,
+      }),
+    )
+    .min(1)
+    .max(8)
+    .refine(
+      (layers) => new Set(layers.map((layer) => layer.id)).size === layers.length,
+      "Layer IDs must be unique.",
+    ),
+  compositePng: paintPngSchema,
+  compositePixelHash: paintPixelHashSchema,
+  paintedPixelCount: z.number().int().min(0).max(1024 * 768),
+});
+export type PaintDocumentSnapshot = z.infer<typeof paintDocumentSnapshotSchema>;
+
+export const paintSaveRecordSchema = z.object({
+  version: z.literal(2),
+  savedAt: z.string().datetime(),
+  document: paintDocumentSnapshotSchema,
+});
+export type PaintSaveRecord = z.infer<typeof paintSaveRecordSchema>;

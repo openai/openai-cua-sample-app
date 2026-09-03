@@ -1,6 +1,6 @@
-# GPT-5.4 CUA Sample App
+# gpt-5.6-sol CUA Sample App
 
-TypeScript sample app for browser-focused computer-use workflows with GPT-5.4. The repo includes:
+TypeScript sample app for browser-focused computer-use workflows with gpt-5.6-sol. The repo includes:
 
 - `apps/demo-web`: a Next.js operator console for starting runs and reviewing screenshots, events, and replay artifacts
 - `apps/runner`: a Fastify runner that manages mutable workspaces, browser sessions, SSE, and replay bundles
@@ -11,7 +11,7 @@ The legacy Python sample does not ship in this release branch. Keep that history
 ## What This Repo Demonstrates
 
 - how to integrate the Responses API from one canonical place: `packages/runner-core/src/responses-loop.ts`
-- how to switch between `code` mode and `native` computer mode against the same browser lab
+- how to drive browser labs through a persistent Playwright JavaScript REPL using `exec_js`
 - how to define scenario manifests, launch isolated run workspaces, and verify outcomes
 - how to build an operator-facing console that is understandable even when the runner is offline or a run fails
 
@@ -88,20 +88,35 @@ Live smoke tests stay opt-in and secret-gated:
 OPENAI_API_KEY=your_key_here pnpm test:live
 ```
 
-## Execution Modes
+## Browser Execution
 
-- `native`: exposes the Responses API computer tool directly. The model requests clicks, drags, typing, waits, and screenshots against the live browser session.
-- `code`: exposes a persistent Playwright JavaScript REPL through `exec_js`. The model scripts the browser rather than emitting raw computer actions.
+Every run uses a persistent Playwright JavaScript REPL exposed through `exec_js`. The model scripts the live browser session, and the runner records tool activity, screenshots, and scenario verification results. Browser visibility remains configurable as `headless` or `headful`.
 
-Both modes use the same scenario manifests and replay pipeline. `native` is the closest sample of the computer tool itself. `code` is the clearest sample of a browser REPL harness.
+## API And Replay Changes
+
+Execution mode has been removed from the API. Omit `mode` when calling `POST /api/runs`; requests containing `mode: "code"`, `mode: "native"`, or any other unknown field receive HTTP 400. Run records no longer include `mode`, and scenario manifests no longer include `defaultMode`.
+
+New replay bundles use version `2` and contain function-call events from the REPL. Existing saved replay files remain untouched. This release does not migrate old bundles or support displaying historical native runs.
 
 ## Official Scenarios
 
 - `kanban-reprioritize-sprint` (`kanban`): teaches stateful drag-and-drop verification against a target board state derived from the operator prompt
-- `paint-draw-poster` (`paint`): teaches cursor control, drawing, and verifying saved canvas state against the live canvas
+- `paint-draw-poster` (`paint`): Sketch Studio, a raster editor for drawing with tools, layers, text, and verifiable saved artwork
 - `booking-complete-reservation` (`booking`): teaches multi-step browsing and form completion with verification against a local confirmation record
 
 More detail lives in [docs/scenarios.md](docs/scenarios.md).
+
+## Sketch Studio
+
+The paint lab opens a 1024 × 768 raster document with brush/pencil, eraser, fill, eyedropper, shapes, text, rectangular selection, up to eight layers, undo/redo, and zoom/pan. The model operates its visible controls through the same persistent Playwright REPL as the other labs.
+
+**Save draft** stores a version-2 save record containing the artwork and layers in IndexedDB. Reload recovery works within the same lab origin and browser context; a new run starts fresh. **Export PNG** downloads the current artwork without editor chrome and does not update the saved draft.
+
+After normal model completion, the runner retains the last saved draft as `artwork/draft.png` and `artwork/draft.sketch.json` inside the run workspace, before optional verification and teardown. Capture also runs when verification is off, and the file paths appear in run events and the summary. No saved draft means no retained paint artifacts. Invalid image data or filesystem write errors fail the run. Cancelled or interrupted runs may end before capture.
+
+Optional paint verification checks that a nonblank saved document matches the current layers and rendered pixels. Visual review is still needed to assess whether the artwork depicts the requested subject.
+
+Try: “Draw a yellow smiley face with black eyes and a curved smile, then save the draft.” See the [paint lab guide](labs/paint-lab-template/README.md) for controls and persistence details. The live paint smoke test covers both headless and visible Chromium.
 
 ## Repo Map
 
@@ -129,13 +144,13 @@ Runner:
 - `OPENAI_API_KEY`
 - `HOST` (default `127.0.0.1`)
 - `PORT` (default `4001`)
-- `CUA_DEFAULT_MODEL` (default `gpt-5.4`)
+- `CUA_DEFAULT_MODEL` (default `gpt-5.6-sol`)
 - `CUA_RESPONSES_MODE` (`auto`, `fallback`, or `live`)
 
 Web:
 
 - `RUNNER_BASE_URL` (default `http://127.0.0.1:4001`)
-- `NEXT_PUBLIC_CUA_DEFAULT_MODEL` (default `gpt-5.4`)
+- `NEXT_PUBLIC_CUA_DEFAULT_MODEL` (default `gpt-5.6-sol`)
 - `NEXT_PUBLIC_CUA_DEFAULT_MAX_RESPONSE_TURNS` (default `24`)
 
 See [.env.example](.env.example) for a minimal local template.
@@ -144,7 +159,6 @@ See [.env.example](.env.example) for a minimal local template.
 
 - Computer use remains high risk. Do not point this sample at authenticated, financial, medical, or otherwise high-stakes environments.
 - This repo is intentionally browser-focused. Workspace patching and file-editing scenarios are out of scope for the OSS release branch.
-- Pending computer-use safety acknowledgements are not implemented in this sample yet. Runs fail with the stable code `unsupported_safety_acknowledgement` when the API asks for one.
 - The public scenarios are local labs designed for deterministic verification. They are not intended as proofs of general web autonomy.
 
 ## Release Validation Checklist

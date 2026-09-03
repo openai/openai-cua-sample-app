@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GPT-5.4 CUA Sample App",
+  title: "gpt-5.6-sol CUA Sample App",
   description:
-    "Scenario-driven sample app for GPT-5.4 computer-use workflows.",
+    "Scenario-driven sample app for gpt-5.6-sol computer-use workflows.",
 };
 
 type RootLayoutProps = {

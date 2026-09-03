@@ -1,10 +1,9 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RunnerCoreError } from "../src/errors.js";
 import {
   createDefaultResponsesClient,
   runResponsesCodeLoop,
-  runResponsesNativeComputerLoop,
 } from "../src/responses-loop.js";
 
 const originalEnv = {
@@ -36,18 +35,6 @@ function createMockSession() {
     context: {},
     mode: "headless" as const,
     page: {
-      keyboard: {
-        press: async () => undefined,
-        type: async () => undefined,
-      },
-      mouse: {
-        click: async () => undefined,
-        dblclick: async () => undefined,
-        down: async () => undefined,
-        move: async () => undefined,
-        up: async () => undefined,
-        wheel: async () => undefined,
-      },
       screenshot: async () => Buffer.from("png"),
       title: async () => "Mock Lab",
       url: () => "http://127.0.0.1:3102",
@@ -70,14 +57,14 @@ function createMockExecutionContext() {
 
   return {
     context: {
-      captureScreenshot: async () => screenshotArtifact,
+      captureScreenshot: vi.fn(async () => screenshotArtifact),
       completeRun: async () => undefined,
       detail: {
         scenario: {
           supportsCodeEdits: false,
         },
         run: {
-          model: "gpt-5.4",
+          model: "gpt-5.6-sol",
           prompt: "Finish the browser task and report success.",
         },
       },
@@ -87,7 +74,7 @@ function createMockExecutionContext() {
       screenshotDirectory: "/tmp",
       signal: new AbortController().signal,
       stepDelayMs: 0,
-      syncBrowserState: async () => undefined,
+      syncBrowserState: vi.fn(async () => undefined),
     },
     events,
   };
@@ -122,7 +109,7 @@ describe("createDefaultResponsesClient", () => {
 });
 
 describe("runResponsesCodeLoop", () => {
-  it("executes the public exec_js tool path and returns the final assistant message", async () => {
+  it("chains exec_js outputs while preserving REPL state, images, and replay artifacts", async () => {
     const requests: Record<string, unknown>[] = [];
     const client = {
       async create(request: Record<string, unknown>) {
@@ -134,9 +121,33 @@ describe("runResponsesCodeLoop", () => {
             output: [
               {
                 arguments: JSON.stringify({
-                  code: 'console.log("Board updated.");',
+                  code: [
+                    'globalThis.completedSteps = ["updated"];',
+                    'console.log("Board updated.");',
+                    'display((await page.screenshot()).toString("base64"));',
+                  ].join("\n"),
                 }),
-                call_id: "call_exec",
+                call_id: "call_update",
+                name: "exec_js",
+                type: "function_call" as const,
+              },
+            ],
+          };
+        }
+
+        if (requests.length === 2) {
+          return {
+            id: "resp_code_2",
+            output: [
+              {
+                arguments: JSON.stringify({
+                  code: [
+                    'globalThis.completedSteps.push("verified");',
+                    'console.log(globalThis.completedSteps.join(" -> "));',
+                    'display("data:image/png;base64,cG5n");',
+                  ].join("\n"),
+                }),
+                call_id: "call_verify",
                 name: "exec_js",
                 type: "function_call" as const,
               },
@@ -145,7 +156,7 @@ describe("runResponsesCodeLoop", () => {
         }
 
         return {
-          id: "resp_code_2",
+          id: "resp_code_3",
           output: [
             {
               content: [
@@ -162,139 +173,77 @@ describe("runResponsesCodeLoop", () => {
       },
     };
     const { context, events } = createMockExecutionContext();
+    const session = createMockSession();
 
     const result = await runResponsesCodeLoop(
       {
         context: context as never,
         instructions: "Use exec_js to update the live board, then summarize.",
         maxResponseTurns: 8,
-        session: createMockSession() as never,
+        session: session as never,
       },
       client,
     );
 
-    expect(
-      (requests[0]?.tools as Array<{ name?: string }>).map((tool) => tool.name),
-    ).toEqual(["exec_js"]);
+    expect(requests).toHaveLength(3);
+    for (const request of requests) {
+      expect(request.tools).toEqual([
+        expect.objectContaining({ name: "exec_js", type: "function" }),
+      ]);
+    }
+    expect(requests.map((request) => request.previous_response_id)).toEqual([
+      undefined,
+      "resp_code_1",
+      "resp_code_2",
+    ]);
+    expect(requests[0]?.input).toBe(context.detail.run.prompt);
+    expect(requests[1]?.input).toEqual([
+      {
+        call_id: "call_update",
+        output: [
+          { text: "Board updated.", type: "input_text" },
+          {
+            detail: "original",
+            image_url: "data:image/png;base64,cG5n",
+            type: "input_image",
+          },
+        ],
+        type: "function_call_output",
+      },
+    ]);
+    expect(requests[2]?.input).toEqual([
+      {
+        call_id: "call_verify",
+        output: [
+          { text: "updated -> verified", type: "input_text" },
+          {
+            detail: "original",
+            image_url: "data:image/png;base64,cG5n",
+            type: "input_image",
+          },
+        ],
+        type: "function_call_output",
+      },
+    ]);
     expect(result.finalAssistantMessage).toBe(
       "Board matches the requested final state.",
     );
     expect(
-      events.some((event) => event.type === "function_call_completed"),
-    ).toBe(true);
-  });
-});
-
-describe("runResponsesNativeComputerLoop", () => {
-  it("continues the native loop by returning computer_call_output to the model", async () => {
-    const requests: Record<string, unknown>[] = [];
-    const client = {
-      async create(request: Record<string, unknown>) {
-        requests.push(request);
-
-        if (requests.length === 1) {
-          return {
-            id: "resp_native_1",
-            output: [
-              {
-                actions: [{ type: "screenshot" }],
-                call_id: "call_1",
-                type: "computer_call" as const,
-              },
-            ],
-          };
-        }
-
-        return {
-          id: "resp_native_2",
-          output: [
-            {
-              content: [
-                {
-                  text: "Completed the browser task.",
-                  type: "output_text",
-                },
-              ],
-              role: "assistant",
-              type: "message" as const,
-            },
-          ],
-        };
-      },
-    };
-    const { context, events } = createMockExecutionContext();
-
-    const result = await runResponsesNativeComputerLoop(
-      {
-        context: context as never,
-        instructions: "Use the computer tool until the task is complete.",
-        maxResponseTurns: 8,
-        session: createMockSession() as never,
-      },
-      client,
-    );
-
-    expect(requests).toHaveLength(2);
-    expect(
-      (requests[0]?.tools as Array<{ name?: string; type: string }>).map((tool) =>
-        tool.type === "computer" ? "computer" : tool.name,
-      ),
-    ).toEqual(["computer"]);
-    expect(requests[1]?.previous_response_id).toBe("resp_native_1");
-    expect(requests[1]?.input).toEqual([
-      {
-        call_id: "call_1",
-        output: {
-          image_url: expect.stringContaining("data:image/png;base64,"),
-          type: "computer_screenshot",
-        },
-        type: "computer_call_output",
-      },
+      events
+        .filter((event) => event.type.startsWith("function_call_"))
+        .map((event) => event.type),
+    ).toEqual([
+      "function_call_requested",
+      "function_call_completed",
+      "function_call_requested",
+      "function_call_completed",
     ]);
-    expect(result.finalAssistantMessage).toBe("Completed the browser task.");
-    expect(
-      events.some((event) => event.type === "computer_call_output_recorded"),
-    ).toBe(true);
-  });
-
-  it("throws a stable error when the API asks for a safety acknowledgement", async () => {
-    const client = {
-      async create() {
-        return {
-          id: "resp_safety",
-          output: [
-            {
-              actions: [{ type: "screenshot" }],
-              call_id: "call_safety",
-              pending_safety_checks: [
-                {
-                  code: "requires_ack",
-                  message: "Approve the action before continuing.",
-                },
-              ],
-              type: "computer_call" as const,
-            },
-          ],
-        };
-      },
-    };
-    const { context } = createMockExecutionContext();
-
-    await expect(
-      runResponsesNativeComputerLoop(
-        {
-          context: context as never,
-          instructions: "Use the computer tool until the task is complete.",
-          maxResponseTurns: 4,
-          session: createMockSession() as never,
-        },
-        client,
-      ),
-    ).rejects.toMatchObject({
-      code: "unsupported_safety_acknowledgement",
-      hint: expect.stringContaining("does not implement operator approval"),
-      message: expect.stringContaining("Pending computer use safety checks"),
-      name: "RunnerCoreError",
-    });
+    expect(context.syncBrowserState).toHaveBeenCalledTimes(2);
+    expect(context.syncBrowserState).toHaveBeenCalledWith(session);
+    expect(context.captureScreenshot).toHaveBeenCalledTimes(2);
+    expect(context.captureScreenshot).toHaveBeenCalledWith(
+      session,
+      expect.stringMatching(/^responses-code-turn-/),
+    );
   });
 });

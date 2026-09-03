@@ -38,7 +38,7 @@ export function ActivityFeed({
         <div className="feedHeaderCopy">
           <h2>Agent activity</h2>
           <p>
-            Watch tool calls, browser actions, screenshots, and optional
+            Watch tool calls, screenshots, and optional
             verification stream in real time.
           </p>
         </div>

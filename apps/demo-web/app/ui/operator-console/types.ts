@@ -32,7 +32,7 @@ export type ActivityItem = {
   code?: string;
   createdAt: string;
   detail?: string;
-  family: "action" | "observe" | "operator" | "snapshot" | "system" | "tool" | "verify";
+  family: "observe" | "operator" | "snapshot" | "system" | "tool" | "verify";
   headline: string;
   key: string;
   level: RunEventLevel;

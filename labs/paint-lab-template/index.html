@@ -7,61 +7,452 @@
     <link rel="stylesheet" href="./app.css" />
   </head>
   <body>
-    <div class="appShell">
-      <header class="topbar">
-        <div class="topbarBrand">
-          <div class="brandMark" aria-hidden="true"></div>
-          <div>
-            <h1>Sketch Studio</h1>
+    <div class="editorShell">
+      <header class="appBar">
+        <a class="brand" href="#" aria-label="Sketch Studio"
+          ><span class="brandMark" aria-hidden="true">S</span
+          ><span>Sketch Studio</span></a
+        >
+        <nav class="menus" aria-label="Application menus">
+          <div class="menu">
+            <button
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="file-menu"
+              class="menuTrigger"
+            >
+              File
+            </button>
+            <div class="menuPopup" role="menu" id="file-menu" hidden>
+              <button role="menuitem" data-action="new">
+                New document <kbd>⌘/Ctrl N</kbd></button
+              ><button role="menuitem" data-action="save">
+                Save draft <kbd>⌘/Ctrl S</kbd></button
+              ><button role="menuitem" data-action="export">Export PNG</button>
+            </div>
           </div>
+          <div class="menu">
+            <button
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="edit-menu"
+              class="menuTrigger"
+            >
+              Edit
+            </button>
+            <div class="menuPopup" role="menu" id="edit-menu" hidden>
+              <button role="menuitem" data-action="undo">
+                Undo <kbd>⌘/Ctrl Z</kbd></button
+              ><button role="menuitem" data-action="redo">
+                Redo <kbd>⇧ ⌘/Ctrl Z</kbd>
+              </button>
+              <hr />
+              <button role="menuitem" data-action="select-all">
+                Select all <kbd>⌘/Ctrl A</kbd></button
+              ><button role="menuitem" data-action="duplicate-selection">
+                Duplicate selection <kbd>⌘/Ctrl D</kbd></button
+              ><button role="menuitem" data-action="delete-selection">
+                Delete selection <kbd>Delete</kbd></button
+              ><button role="menuitem" data-action="deselect">
+                Deselect <kbd>Esc</kbd>
+              </button>
+              <hr />
+              <button role="menuitem" data-action="clear">
+                Clear active layer
+              </button>
+            </div>
+          </div>
+          <div class="menu">
+            <button
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="view-menu"
+              class="menuTrigger"
+            >
+              View
+            </button>
+            <div class="menuPopup" role="menu" id="view-menu" hidden>
+              <button role="menuitem" data-action="fit">Fit canvas</button
+              ><button role="menuitem" data-action="actual-size">
+                Actual size · 100%</button
+              ><button role="menuitem" data-action="zoom-in">Zoom in</button
+              ><button role="menuitem" data-action="zoom-out">Zoom out</button>
+              <hr />
+              <button role="menuitem" data-action="inspector">
+                Show/hide panels
+              </button>
+            </div>
+          </div>
+        </nav>
+        <div class="documentTitle">
+          <span id="document-tab-name">Untitled</span><span>.sketch</span>
         </div>
-
-        <div class="topbarActions">
-          <span class="saveIndicator" data-role="save-indicator">Unsaved changes</span>
-          <button class="secondaryButton" data-testid="clear-canvas" type="button">Clear</button>
-          <button class="primaryButton" data-testid="save-poster" type="button">Save draft</button>
+        <div class="fileActions">
+          <span id="save-indicator" class="saveIndicator" role="status"
+            >Loading…</span
+          ><button
+            class="button primary"
+            data-action="save"
+            data-testid="save-poster"
+          >
+            Save draft</button
+          ><button class="button" data-action="export">Export PNG</button>
         </div>
       </header>
-
-      <main class="studioLayout">
-        <aside class="paletteDock">
-          <section class="dockCard">
-            <h2 class="dockTitle">Colors</h2>
-            <section class="palette" data-testid="palette"></section>
-          </section>
-
-          <section class="dockCard">
-            <p class="dockLabel">Selected</p>
-            <div class="currentColorCard">
-              <span class="currentSwatch" data-role="current-color-swatch"></span>
-              <div>
-                <strong data-role="current-color-name">Midnight</strong>
-              </div>
-            </div>
-          </section>
+      <section class="optionsBar" aria-label="Tool settings" id="tool-options">
+        <div class="currentTool" id="current-tool">Brush</div>
+        <span class="barDivider"></span>
+        <label
+          class="option"
+          data-tools="brush pencil eraser line rectangle ellipse"
+          >Size
+          <input
+            id="brush-size"
+            aria-label="Brush size"
+            type="range"
+            min="1"
+            max="64"
+            value="12"
+          /><output id="size-output">12 px</output></label
+        >
+        <label class="option" data-tools="brush"
+          >Opacity
+          <input
+            id="brush-opacity"
+            aria-label="Brush opacity"
+            type="range"
+            min="10"
+            max="100"
+            value="100"
+          /><output id="opacity-output">100%</output></label
+        >
+        <label class="option" data-tools="fill" hidden
+          >Tolerance
+          <input
+            id="fill-tolerance"
+            aria-label="Fill tolerance"
+            type="range"
+            min="0"
+            max="64"
+            value="16"
+          /><output id="tolerance-output">16</output></label
+        >
+        <label class="option" data-tools="rectangle ellipse" hidden
+          >Style
+          <select id="shape-mode" aria-label="Shape style">
+            <option value="outline">Outline</option>
+            <option value="fill">Fill</option>
+            <option value="both">Fill + outline</option>
+          </select></label
+        >
+        <label class="option" data-tools="text" hidden
+          >Font
+          <select id="font-family" aria-label="Font family">
+            <option value="Arial, sans-serif">Sans serif</option>
+            <option value="Georgia, serif">Serif</option>
+            <option value="Menlo, monospace">Monospace</option>
+          </select></label
+        >
+        <label class="option" data-tools="text" hidden
+          >Size
+          <input
+            id="font-size"
+            aria-label="Font size"
+            type="number"
+            min="12"
+            max="144"
+            value="48"
+          /><span>px</span></label
+        >
+        <div class="option selectionOptions" data-tools="select" hidden>
+          <button class="button small" data-action="duplicate-selection">
+            Duplicate</button
+          ><button class="button small" data-action="delete-selection">
+            Delete</button
+          ><button class="button small" data-action="deselect">Deselect</button>
+        </div>
+        <span id="tool-hint" class="toolHint"
+          >Drag to paint. [ ] changes size.</span
+        >
+        <div class="quickActions">
+          <button
+            class="iconButton"
+            data-action="undo"
+            aria-label="Undo"
+            title="Undo (⌘/Ctrl Z)"
+          >
+            <span data-icon="undo"></span></button
+          ><button
+            class="iconButton"
+            data-action="redo"
+            aria-label="Redo"
+            title="Redo (Shift ⌘/Ctrl Z)"
+          >
+            <span data-icon="redo"></span></button
+          ><button
+            class="iconButton"
+            data-action="inspector"
+            aria-label="Toggle panels"
+            title="Toggle panels"
+          >
+            <span data-icon="panels"></span>
+          </button>
+        </div>
+      </section>
+      <main class="workspace" id="editor-workspace">
+        <aside class="toolRail" aria-label="Drawing tools">
+          <div id="tools"></div>
+          <div class="railColor" title="Foreground color">
+            <span id="foreground-swatch"></span>
+          </div>
         </aside>
-
-        <section class="studioSurface" aria-label="Sketch canvas workspace">
-          <div class="canvasStage">
-            <div class="stageHeader">
-              <h2>Canvas</h2>
-            </div>
-
-            <div class="canvasFrame">
-              <div class="paintGrid" data-testid="paint-grid"></div>
+        <section class="documentWorkspace" aria-label="Document workspace">
+          <div class="documentTab">
+            <span class="documentDot"></span
+            ><input
+              id="document-name"
+              aria-label="Document name"
+              maxlength="80"
+              value="Untitled"
+              spellcheck="false"
+              title="Rename document"
+            /><span class="tabMeta">1024 × 768</span>
+          </div>
+          <div
+            class="canvasViewport"
+            id="canvas-viewport"
+            tabindex="0"
+            aria-label="Drawing canvas. Choose a tool and drag to draw; use Space to pan."
+          >
+            <div class="artboard" id="artboard">
+              <canvas
+                width="1024"
+                height="768"
+                id="drawing-canvas"
+                data-testid="paint-canvas"
+                aria-label="Artwork canvas"
+                >Sketch Studio artwork</canvas
+              >
+              <canvas
+                width="1024"
+                height="768"
+                id="overlay-canvas"
+                aria-hidden="true"
+              ></canvas>
+              <div class="textComposer" hidden>
+                <textarea
+                  id="text-entry"
+                  aria-label="Artwork text"
+                  placeholder="Type here"
+                  rows="2"
+                  spellcheck="false"
+                  maxlength="2000"
+                ></textarea>
+                <div>
+                  <button class="button primary" data-action="commit-text">
+                    Apply text</button
+                  ><button class="button" data-action="cancel-text">
+                    Cancel</button
+                  ><span>Enter to apply · Shift Enter for a new line</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
+        <aside class="inspector" id="inspector" aria-label="Editor panels">
+          <section class="colorPanel">
+            <div class="panelHeading">
+              <h2>Color</h2>
+              <button
+                class="iconButton drawerClose"
+                data-action="inspector"
+                aria-label="Close panels"
+              >
+                ×
+              </button>
+            </div>
+            <div class="colorSummary">
+              <span class="largeSwatch" id="large-swatch"></span>
+              <div>
+                <label for="color-hex">Foreground</label
+                ><input
+                  id="color-hex"
+                  aria-label="Hex color"
+                  maxlength="7"
+                  value="#252936"
+                  spellcheck="false"
+                />
+              </div>
+              <span class="colorValue" id="color-name">Ink</span>
+            </div>
+            <div
+              class="colorSpectrum"
+              id="color-spectrum"
+              role="slider"
+              tabindex="0"
+              aria-label="Color picker"
+              aria-valuemin="0"
+              aria-valuemax="359"
+              aria-valuenow="0"
+            >
+              <span>Hue</span><i id="hue-marker"></i>
+            </div>
+            <div class="colorRange">
+              <label for="color-saturation">Saturation</label
+              ><input
+                type="range"
+                id="color-saturation"
+                min="0"
+                max="100"
+                value="75"
+              />
+            </div>
+            <div class="colorRange">
+              <label for="color-lightness">Lightness</label
+              ><input
+                type="range"
+                id="color-lightness"
+                min="0"
+                max="100"
+                value="55"
+              />
+            </div>
+            <div
+              class="swatches"
+              id="swatches"
+              aria-label="Color swatches"
+            ></div>
+          </section>
+          <div
+            class="inspectorTabs"
+            role="tablist"
+            aria-label="Layers and history"
+          >
+            <button
+              role="tab"
+              aria-selected="true"
+              aria-controls="layers-panel"
+              id="layers-tab"
+            >
+              Layers</button
+            ><button
+              role="tab"
+              aria-selected="false"
+              aria-controls="history-panel"
+              id="history-tab"
+              tabindex="-1"
+            >
+              History
+            </button>
+          </div>
+          <section
+            class="layersPanel"
+            role="tabpanel"
+            aria-labelledby="layers-tab"
+            id="layers-panel"
+          >
+            <div class="layerProperties">
+              <label for="layer-name">Layer name</label
+              ><input id="layer-name" maxlength="80" value="Layer 1" /><label
+                class="layerOpacity"
+                >Opacity
+                <input
+                  id="layer-opacity"
+                  aria-label="Layer opacity"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="100"
+                /><output id="layer-opacity-output">100%</output></label
+              >
+            </div>
+            <div class="layerList" id="layer-list"></div>
+            <div class="backgroundRow">
+              <span data-icon="lock"></span><span>Background</span
+              ><span>White</span>
+            </div>
+            <div class="layerActions">
+              <button
+                class="iconButton"
+                data-action="add-layer"
+                aria-label="Add layer"
+                title="Add layer"
+              >
+                <span data-icon="plus"></span></button
+              ><button
+                class="iconButton"
+                data-action="duplicate-layer"
+                aria-label="Duplicate layer"
+                title="Duplicate layer"
+              >
+                <span data-icon="copy"></span></button
+              ><span class="layerCount" id="layer-count">1 / 8</span
+              ><button
+                class="iconButton"
+                data-action="layer-up"
+                aria-label="Move layer up"
+                title="Move layer up"
+              >
+                <span data-icon="up"></span></button
+              ><button
+                class="iconButton"
+                data-action="layer-down"
+                aria-label="Move layer down"
+                title="Move layer down"
+              >
+                <span data-icon="down"></span></button
+              ><button
+                class="iconButton"
+                data-action="delete-layer"
+                aria-label="Delete layer"
+                title="Delete layer"
+              >
+                <span data-icon="trash"></span>
+              </button>
+            </div>
+          </section>
+          <section
+            class="historyPanel"
+            role="tabpanel"
+            aria-labelledby="history-tab"
+            id="history-panel"
+            hidden
+          >
+            <div class="historyList" id="history-list"></div>
+            <p class="historyNote">
+              One stroke, one step.<br />Up to 50 edits · 64 MiB history
+            </p>
+          </section>
+        </aside>
       </main>
-
-      <div class="telemetry" hidden>
-        <span data-testid="paint-status">Canvas ready</span>
-        <span data-testid="save-status">No artwork saved yet</span>
-        <span data-testid="saved-checksum">none</span>
-        <span data-testid="saved-cell-count">0</span>
-      </div>
+      <footer class="statusBar">
+        <span id="status-message" role="status"
+          >Choose a tool. Make something.</span
+        ><span class="dimensions">1024 × 768 px</span>
+        <div class="zoomControls">
+          <button data-action="zoom-out" aria-label="Zoom out">−</button
+          ><button
+            id="zoom-value"
+            data-action="actual-size"
+            aria-label="Zoom to 100 percent"
+          >
+            100%</button
+          ><button data-action="zoom-in" aria-label="Zoom in">+</button
+          ><span></span><button data-action="fit" id="fit-button">Fit</button>
+        </div>
+      </footer>
     </div>
-
-    <script src="./app.js"></script>
+    <div class="toast" id="toast" role="alert" hidden></div>
+    <dialog id="new-dialog">
+      <form method="dialog">
+        <h2>Start a new document?</h2>
+        <p>Your unsaved changes will be discarded.</p>
+        <div>
+          <button class="button" value="cancel">Keep editing</button
+          ><button class="button primary" value="discard">New document</button>
+        </div>
+      </form>
+    </dialog>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

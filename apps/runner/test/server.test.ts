@@ -47,7 +47,6 @@ describe("runner server", () => {
         payload: {
           browserMode: "headless",
           maxResponseTurns: 17,
-          mode: "code",
           prompt: [
             "Reorganize the board to match this requested final board state exactly.",
             "",
@@ -69,10 +68,14 @@ describe("runner server", () => {
       });
 
       expect(runResponse.statusCode).toBe(200);
-      const detail = runDetailSchema.parse(runResponse.json());
+      const rawDetail = runResponse.json();
+      expect(rawDetail.run).not.toHaveProperty("mode");
+      expect(rawDetail.scenario).not.toHaveProperty("defaultMode");
+      const detail = runDetailSchema.parse(rawDetail);
 
       expect(detail.run.id).toBe(started.runId);
       expect(detail.run.maxResponseTurns).toBe(17);
+      expect(detail.run.browserMode).toBe("headless");
       expect(detail.run.status).toBe("running");
       expect(detail.run.verificationEnabled).toBe(false);
 
@@ -110,7 +113,59 @@ describe("runner server", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(scenariosResponseSchema.parse(response.json())).toHaveLength(3);
+      const scenarios = response.json();
+      expect(scenariosResponseSchema.parse(scenarios)).toHaveLength(3);
+      for (const scenario of scenarios) {
+        expect(scenario).not.toHaveProperty("defaultMode");
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it.each(["native", "code"])("rejects the removed mode field (%s)", async (mode) => {
+    const app = createServer();
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        payload: {
+          mode,
+          prompt: "Paint a smiley face and save the draft.",
+          scenarioId: "paint-draw-poster",
+        },
+        url: "/api/runs",
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(runnerErrorResponseSchema.parse(response.json())).toMatchObject({
+        code: "invalid_request",
+        error: expect.stringContaining("mode"),
+      });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("rejects a turn budget above 50", async () => {
+    const app = createServer();
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        payload: {
+          maxResponseTurns: 51,
+          prompt: "Draw a smiley face and save the draft.",
+          scenarioId: "paint-draw-poster",
+        },
+        url: "/api/runs",
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(runnerErrorResponseSchema.parse(response.json())).toMatchObject({
+        code: "invalid_request",
+        error: expect.stringContaining("maxResponseTurns"),
+      });
     } finally {
       await app.close();
     }

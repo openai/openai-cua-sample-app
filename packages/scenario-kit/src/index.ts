@@ -8,6 +8,6 @@ export { bookingDefaultPrompt } from "./booking.js";
 export { kanbanDefaultPrompt, type KanbanBoardState } from "./kanban.js";
 export {
   paintDefaultPrompt,
-  type PaintCellColor,
-  type PaintGrid,
+  type PaintDocumentSnapshot,
+  type PaintSaveRecord,
 } from "./paint.js";

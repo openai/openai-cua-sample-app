@@ -1,4 +1,7 @@
-export type PaintCellColor = "blank" | "coral" | "gold" | "midnight";
-export type PaintGrid = PaintCellColor[][];
+export type {
+  PaintDocumentSnapshot,
+  PaintSaveRecord,
+} from "@cua-sample/replay-schema";
 
-export const paintDefaultPrompt = "Draw me a smiley face.";
+export const paintDefaultPrompt =
+  "Draw a yellow smiley face with black eyes and a curved smile, then save the draft.";

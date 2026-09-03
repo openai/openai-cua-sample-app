@@ -1,20 +1,15 @@
+import { mkdir, writeFile, rename, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 import { type BrowserSession } from "@cua-sample/browser-runtime";
-import { type PaintGrid } from "@cua-sample/scenario-kit";
+import {
+  paintDocumentSnapshotSchema,
+  paintSaveRecordSchema,
+  type PaintDocumentSnapshot,
+  type PaintSaveRecord,
+} from "@cua-sample/replay-schema";
 
-export type PaintSaveRecord =
-  | {
-      checksum: string;
-      paintedCellCount: number;
-    }
-  | null;
-
-function cloneGrid(grid: PaintGrid): PaintGrid {
-  return JSON.parse(JSON.stringify(grid)) as PaintGrid;
-}
-
-function countPaintedCells(grid: PaintGrid) {
-  return grid.flat().filter((cell) => cell !== "blank").length;
-}
+export type { PaintSaveRecord } from "@cua-sample/replay-schema";
 
 export function buildPaintRunnerPrompt(prompt: string) {
   return prompt.trim();
@@ -22,101 +17,224 @@ export function buildPaintRunnerPrompt(prompt: string) {
 
 export function buildPaintCodeInstructions(currentUrl: string) {
   return [
-    "You are operating a persistent Playwright browser session for a GPT-5.4 CUA demo harness.",
+    "You are operating a persistent Playwright browser session for a gpt-5.6-sol CUA demo harness.",
     "You must use the exec_js tool before you answer.",
-    `The paint app is already open at ${currentUrl}.`,
-    "Use the operator prompt as the source of truth.",
-    "Create a best-effort pixel-art interpretation of the requested image using the available palette, then save the draft.",
-    "You can use the Erase swatch to correct mistakes if needed.",
-    "Reply briefly once the draft has been saved.",
+    "Observe the interface with display((await page.screenshot()).toString('base64')), then use Playwright locators, page.mouse, and page.keyboard to operate the visible controls. Mouse coordinates refer to the page screenshot.",
+    `Sketch Studio is already open at ${currentUrl}.`,
+    "Use the operator prompt as the source of truth. Draw through the visible application controls. Do not generate an image externally, write canvas pixels through page.evaluate, or call page-internal drawing, document, or save functions.",
+    "The app has a real raster canvas. Tools on the left include brush, pencil, eraser, fill, eyedropper, line, rectangle, ellipse, text, selection, and hand.",
+    "Tool settings are above the canvas. Colors and layers are on the right. Open the panels button if the inspector is collapsed. Use Fit at the bottom if you lose the canvas.",
+    "Shapes are drawn by dragging. Choose Fill or Outline in the shape settings. Hold Shift for a circle or square. The fill bucket fills connected pixels on the active layer.",
+    "For text, select Text, click the canvas, type, and press Enter or Apply text. Shift+Enter adds a new line.",
+    "Use Undo or the eraser to correct mistakes. Save draft at the top saves the full document; wait until the interface says Saved draft.",
+    "Do not answer until the artwork has been saved. Reply briefly after saving.",
   ].join("\n");
 }
 
-export function buildPaintNativeInstructions(currentUrl: string) {
-  return [
-    "You are controlling a browser-based paint app through the built-in computer tool.",
-    `The paint app is already open at ${currentUrl}.`,
-    "Use the operator prompt as the source of truth.",
-    "Create a best-effort pixel-art interpretation of the requested image using the available palette, then save the draft.",
-    "You can use the Erase swatch to correct mistakes if needed.",
-    "Reply briefly once the draft has been saved.",
-  ].join("\n");
-}
-
-async function readPaintValue<T>(
+export async function readPaintDocumentSnapshot(
   session: BrowserSession,
-  accessorName: "__paintReadCanvasGrid" | "__paintReadSaveRecord",
-) {
-  return session.page.evaluate((name) => {
-    const scope = globalThis as unknown as Record<string, (() => T) | undefined>;
-    const accessor = scope[name];
-
-    if (typeof accessor !== "function") {
-      throw new Error(`Paint accessor ${name} is unavailable.`);
+): Promise<PaintDocumentSnapshot> {
+  const value = await session.page.evaluate(async () => {
+    const scope = globalThis as unknown as {
+      __paintReadDocumentSnapshot?: () => Promise<unknown>;
+    };
+    if (typeof scope.__paintReadDocumentSnapshot !== "function") {
+      throw new Error("Paint document accessor is unavailable.");
     }
-
-    return accessor();
-  }, accessorName);
+    return scope.__paintReadDocumentSnapshot();
+  });
+  const parsed = paintDocumentSnapshotSchema.safeParse(value);
+  if (!parsed.success)
+    throw new Error(
+      "Paint verification failed. The live document snapshot is invalid.",
+    );
+  return parsed.data;
+}
+export async function readPaintSaveRecord(
+  session: BrowserSession,
+): Promise<PaintSaveRecord | null> {
+  const value = await session.page.evaluate(() => {
+    const scope = globalThis as unknown as {
+      __paintReadSaveRecord?: () => unknown;
+    };
+    if (typeof scope.__paintReadSaveRecord !== "function") {
+      throw new Error("Paint save accessor is unavailable.");
+    }
+    return scope.__paintReadSaveRecord();
+  });
+  if (value === null) return null;
+  const parsed = paintSaveRecordSchema.safeParse(value);
+  if (!parsed.success)
+    throw new Error("Paint verification failed. The saved draft is invalid.");
+  return parsed.data;
 }
 
-export async function readPaintCanvasGrid(session: BrowserSession) {
-  return cloneGrid(await readPaintValue<PaintGrid>(session, "__paintReadCanvasGrid"));
+export function assertMatchingPaintDocuments(
+  live: PaintDocumentSnapshot,
+  saved: PaintDocumentSnapshot,
+) {
+  const signature = (snapshot: PaintDocumentSnapshot) =>
+    JSON.stringify({
+      version: snapshot.version,
+      name: snapshot.name,
+      width: snapshot.width,
+      height: snapshot.height,
+      layers: snapshot.layers.map((layer) => ({
+        id: layer.id,
+        name: layer.name,
+        visible: layer.visible,
+        opacity: layer.opacity,
+        pixelHash: layer.pixelHash,
+      })),
+      compositePixelHash: snapshot.compositePixelHash,
+      paintedPixelCount: snapshot.paintedPixelCount,
+    });
+  if (signature(live) !== signature(saved))
+    throw new Error(
+      "Paint verification failed. The saved draft does not match the current document. Save the latest changes.",
+    );
+  if (live.paintedPixelCount === 0)
+    throw new Error("Paint verification failed. The saved artwork is blank.");
 }
 
-export async function readPaintSaveRecord(session: BrowserSession) {
-  return readPaintValue<PaintSaveRecord>(session, "__paintReadSaveRecord");
+// Decode the actual saved PNGs in isolated canvases. Recompose them independently of app state.
+export async function validatePaintImageData(
+  session: BrowserSession,
+  snapshot: PaintDocumentSnapshot,
+) {
+  // Keep this browser program as source: tsx's keepNames transform otherwise
+  // injects Node-side helpers into nested functions serialized by Playwright.
+  const browserProgram = `async (saved) => {
+    const hash = async (pixels) =>
+      Array.from(
+        new Uint8Array(
+          await crypto.subtle.digest("SHA-256", new Uint8Array(pixels)),
+        ),
+        (byte) => byte.toString(16).padStart(2, "0"),
+      ).join("");
+    const newCanvas = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = saved.width;
+      canvas.height = saved.height;
+      return canvas;
+    };
+    const decode = async (png) => {
+      const image = new Image();
+      image.src = png;
+      await image.decode();
+      if (
+        image.naturalWidth !== saved.width ||
+        image.naturalHeight !== saved.height
+      )
+        throw new Error("Saved PNG dimensions are incorrect.");
+      const canvas = newCanvas();
+      canvas.getContext("2d", { willReadFrequently: true }).drawImage(image, 0, 0);
+      return canvas;
+    };
+    const composite = newCanvas(),
+      ctx = composite.getContext("2d", { willReadFrequently: true });
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, saved.width, saved.height);
+    for (const layer of saved.layers) {
+      const canvas = await decode(layer.png),
+        pixels = canvas
+          .getContext("2d", { willReadFrequently: true })
+          .getImageData(0, 0, saved.width, saved.height).data;
+      if ((await hash(pixels)) !== layer.pixelHash)
+        return {
+          valid: false,
+          reason: "A saved layer image does not match its pixel hash.",
+        };
+      if (layer.visible) {
+        ctx.globalAlpha = layer.opacity;
+        ctx.drawImage(canvas, 0, 0);
+      }
+    }
+    const decoded = await decode(saved.compositePng),
+      pixels = decoded
+        .getContext("2d", { willReadFrequently: true })
+        .getImageData(0, 0, saved.width, saved.height).data;
+    const compositePixels = ctx.getImageData(
+      0,
+      0,
+      saved.width,
+      saved.height,
+    ).data;
+    let count = 0;
+    for (let i = 0; i < pixels.length; i += 4)
+      if (pixels[i] !== 255 || pixels[i + 1] !== 255 || pixels[i + 2] !== 255)
+        count++;
+    const decodedHash = await hash(pixels);
+    const valid =
+      decodedHash === saved.compositePixelHash &&
+      (await hash(compositePixels)) === decodedHash &&
+      count === saved.paintedPixelCount;
+    return {
+      valid,
+      reason:
+        "The saved PNG is inconsistent with the saved layers or pixel metadata.",
+    };
+  }`;
+  let result: { valid: boolean; reason: string };
+  try {
+    result = await session.page.evaluate<typeof result>(
+      `(${browserProgram})(${JSON.stringify(snapshot)})`,
+    );
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Paint verification failed. Could not validate saved PNG data: ${detail}`, {
+      cause: error,
+    });
+  }
+  if (!result.valid) {
+    throw new Error(`Paint verification failed. ${result.reason}`);
+  }
 }
 
 export async function assertPaintOutcome(session: BrowserSession) {
-  await session.page.waitForFunction(() => {
-    const scope = globalThis as unknown as {
-      __paintLabReady?: boolean;
-      __paintReadSaveRecord?: () => PaintSaveRecord;
-    };
-
-    return scope.__paintLabReady === true && scope.__paintReadSaveRecord?.() != null;
-  });
-
-  const [canvasGrid, saveRecord] = await Promise.all([
-    readPaintCanvasGrid(session),
+  await session.page.waitForFunction(
+    () =>
+      (globalThis as unknown as { __paintLabReady?: boolean })
+        .__paintLabReady === true,
+  );
+  const [live, saved] = await Promise.all([
+    readPaintDocumentSnapshot(session),
     readPaintSaveRecord(session),
   ]);
+  if (!saved)
+    throw new Error("Paint verification failed. No saved draft exists.");
+  assertMatchingPaintDocuments(live, saved.document);
+  await validatePaintImageData(session, saved.document);
+}
 
-  if (!saveRecord) {
-    throw new Error(
-      "Paint verification failed. Saved artwork record was missing.",
+export async function retainPaintArtifacts(
+  session: BrowserSession,
+  workspacePath: string,
+) {
+  const saved = await readPaintSaveRecord(session);
+  if (!saved) return null;
+  await validatePaintImageData(session, saved.document);
+  const directory = join(workspacePath, "artwork");
+  await mkdir(directory, { recursive: true });
+  const temporary = join(directory, `.draft-${randomUUID()}`);
+  const projectPath = join(directory, "draft.sketch.json"),
+    imagePath = join(directory, "draft.png");
+  try {
+    await writeFile(`${temporary}.json`, JSON.stringify(saved, null, 2));
+    await writeFile(
+      `${temporary}.png`,
+      Buffer.from(
+        saved.document.compositePng.slice("data:image/png;base64,".length),
+        "base64",
+      ),
     );
+    await rename(`${temporary}.json`, projectPath);
+    await rename(`${temporary}.png`, imagePath);
+  } finally {
+    await Promise.all([
+      rm(`${temporary}.json`, { force: true }),
+      rm(`${temporary}.png`, { force: true }),
+    ]);
   }
-
-  const currentChecksum = canvasGrid.map((row) => row.join("-")).join("/");
-
-  if (saveRecord.checksum !== currentChecksum) {
-    throw new Error(
-      [
-        "Paint verification failed.",
-        "Saved checksum did not match the live canvas checksum.",
-        `Observed ${saveRecord.checksum}.`,
-        `Live ${currentChecksum}.`,
-      ].join(" "),
-    );
-  }
-
-  const paintedCellCount = countPaintedCells(canvasGrid);
-
-  if (saveRecord.paintedCellCount !== paintedCellCount) {
-    throw new Error(
-      [
-        "Paint verification failed.",
-        "Saved painted-cell count did not match the live canvas.",
-        `Observed ${saveRecord.paintedCellCount}.`,
-        `Live ${paintedCellCount}.`,
-      ].join(" "),
-    );
-  }
-
-  if (paintedCellCount <= 0) {
-    throw new Error(
-      "Paint verification failed. The saved artwork was blank.",
-    );
-  }
+  return { projectPath, imagePath };
 }

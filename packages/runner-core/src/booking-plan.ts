@@ -136,23 +136,12 @@ export function buildBookingRunnerPrompt(prompt: string) {
 
 export function buildBookingCodeInstructions(currentUrl: string) {
   return [
-    "You are operating a persistent Playwright browser session for a GPT-5.4 CUA demo harness.",
+    "You are operating a persistent Playwright browser session for a gpt-5.6-sol CUA demo harness.",
     "You must use the exec_js tool before you answer.",
     `The booking app is already open at ${currentUrl}.`,
     "Use only the operator prompt as the source of truth.",
     "Apply the requested search filters, select the requested hotel, complete the reservation form, and confirm the booking.",
     "Only finish when the reservation panel shows the booking as confirmed.",
-    "Reply briefly once the booking is confirmed.",
-  ].join("\n");
-}
-
-export function buildBookingNativeInstructions(currentUrl: string) {
-  return [
-    "You are controlling a browser-based booking app through the built-in computer tool.",
-    `The booking app is already open at ${currentUrl}.`,
-    "Use only the operator prompt as the source of truth.",
-    "Apply the requested search filters, select the requested hotel, complete the reservation form, and confirm the booking.",
-    "Only stop requesting computer actions once the reservation panel shows the booking as confirmed.",
     "Reply briefly once the booking is confirmed.",
   ].join("\n");
 }

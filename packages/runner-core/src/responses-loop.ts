@@ -8,18 +8,6 @@ import { type BrowserSession } from "@cua-sample/browser-runtime";
 import { RunnerCoreError } from "./errors.js";
 import type { RunExecutionContext } from "./scenario-runtime.js";
 
-type ComputerAction = {
-  [key: string]: unknown;
-  type: string;
-};
-
-type ComputerCallItem = {
-  actions?: ComputerAction[];
-  call_id?: string;
-  pending_safety_checks?: SafetyCheck[];
-  type: "computer_call";
-};
-
 type FunctionCallItem = {
   arguments?: string;
   call_id?: string;
@@ -37,7 +25,6 @@ type MessageItem = {
 };
 
 type ResponseOutputItem =
-  | ComputerCallItem
   | FunctionCallItem
   | MessageItem
   | { [key: string]: unknown; type: string };
@@ -66,11 +53,6 @@ type ResponsesClient = {
   ) => Promise<ResponsesApiResponse>;
 };
 
-type SafetyCheck = {
-  code?: string;
-  message?: string;
-};
-
 type ToolOutput =
   | {
       text: string;
@@ -95,7 +77,6 @@ type ResponsesLoopResult = {
   notes: string[];
 };
 
-const defaultInterActionDelayMs = 120;
 const toolExecutionTimeoutMs = 20_000;
 
 class OpenAIResponsesClient implements ResponsesClient {
@@ -118,103 +99,10 @@ function assertActive(signal: AbortSignal) {
   }
 }
 
-async function delay(ms: number, signal: AbortSignal) {
-  if (ms <= 0) {
-    return;
-  }
-
-  if (signal.aborted) {
-    throw new Error("Run aborted.");
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-
-    const onAbort = () => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", onAbort);
-      reject(new Error("Run aborted."));
-    };
-
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
 function normalizeImageDataUrl(value: string) {
   return value.startsWith("data:image/")
     ? value
     : `data:image/png;base64,${value}`;
-}
-
-function normalizePlaywrightKey(key: string) {
-  const normalized = key.trim();
-  const lookup = normalized.toUpperCase();
-
-  switch (lookup) {
-    case "CTRL":
-    case "CONTROL":
-      return "Control";
-    case "CMD":
-    case "COMMAND":
-    case "META":
-      return "Meta";
-    case "ALT":
-    case "OPTION":
-      return "Alt";
-    case "SHIFT":
-      return "Shift";
-    case "ENTER":
-    case "RETURN":
-      return "Enter";
-    case "ESC":
-    case "ESCAPE":
-      return "Escape";
-    case "SPACE":
-      return "Space";
-    case "TAB":
-      return "Tab";
-    case "BACKSPACE":
-      return "Backspace";
-    case "DELETE":
-      return "Delete";
-    case "HOME":
-      return "Home";
-    case "END":
-      return "End";
-    case "PGUP":
-    case "PAGEUP":
-      return "PageUp";
-    case "PGDN":
-    case "PAGEDOWN":
-      return "PageDown";
-    case "UP":
-    case "ARROWUP":
-      return "ArrowUp";
-    case "DOWN":
-    case "ARROWDOWN":
-      return "ArrowDown";
-    case "LEFT":
-    case "ARROWLEFT":
-      return "ArrowLeft";
-    case "RIGHT":
-    case "ARROWRIGHT":
-      return "ArrowRight";
-    default:
-      return normalized.length === 1
-        ? normalized
-        : normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase();
-  }
-}
-
-async function capturePageImageDataUrl(session: BrowserSession) {
-  const payload = await session.page.screenshot({
-    type: "png",
-  });
-
-  return `data:image/png;base64,${payload.toString("base64")}`;
 }
 
 function parseResponsesLoopMode(env: NodeJS.ProcessEnv = process.env): ResponsesLoopMode {
@@ -270,20 +158,6 @@ function describeUsage(response: ResponsesApiResponse) {
   return `${inputTokens} in · ${outputTokens} out · ${reasoningTokens} reasoning`;
 }
 
-function summarizeActions(actions: ComputerAction[]) {
-  return actions.map((action) => action.type).join(" -> ") || "no actions";
-}
-
-function formatActionBatchDetail(actions: ComputerAction[]) {
-  const payload = JSON.stringify(actions);
-
-  if (payload.length <= 2_000) {
-    return `${summarizeActions(actions)} :: ${payload}`;
-  }
-
-  return `${summarizeActions(actions)} :: ${payload.slice(0, 1_997)}...`;
-}
-
 function extractAssistantMessageText(response: ResponsesApiResponse) {
   return (response.output ?? [])
     .filter((item): item is MessageItem => item.type === "message")
@@ -298,14 +172,6 @@ function getFunctionCallItems(response: ResponsesApiResponse) {
   return (response.output ?? []).filter(
     (item): item is FunctionCallItem => item.type === "function_call",
   );
-}
-
-function isFunctionCallItem(item: ResponseOutputItem): item is FunctionCallItem {
-  return item.type === "function_call";
-}
-
-function isComputerCallItem(item: ResponseOutputItem): item is ComputerCallItem {
-  return item.type === "computer_call";
 }
 
 async function emitModelTurnEvent(
@@ -345,14 +211,6 @@ function buildCodeToolDefinitions() {
         required: ["code"],
         type: "object",
       },
-    },
-  ];
-}
-
-function buildComputerToolDefinitions() {
-  return [
-    {
-      type: "computer",
     },
   ];
 }
@@ -463,9 +321,7 @@ ${code}
 async function executeFunctionToolCall(
   input: ResponsesLoopContext,
   functionCall: FunctionCallItem,
-  options: {
-    vmContext?: vm.Context;
-  } = {},
+  vmContext: vm.Context,
 ) {
   const toolName = functionCall.name ?? "<unknown>";
 
@@ -478,14 +334,7 @@ async function executeFunctionToolCall(
 
   const output =
     toolName === "exec_js"
-      ? await executeJavaScriptToolCall(
-          input,
-          functionCall,
-          options.vmContext ??
-            (() => {
-              throw new Error("exec_js requires a vmContext.");
-            })(),
-        )
+      ? await executeJavaScriptToolCall(input, functionCall, vmContext)
       : (() => {
           throw new Error(
             `Unexpected function call: ${functionCall.name ?? "<unknown>"}.`,
@@ -500,178 +349,6 @@ async function executeFunctionToolCall(
   });
 
   return output;
-}
-
-async function executeComputerAction(
-  input: ResponsesLoopContext,
-  action: ComputerAction,
-) {
-  const { page } = input.session;
-  const buttonValue = action.button;
-  const button =
-    buttonValue === "right" || buttonValue === 2 || buttonValue === 3
-      ? "right"
-      : buttonValue === "middle" || buttonValue === "wheel"
-        ? "middle"
-        : "left";
-  const x = Number(action.x ?? 0);
-  const y = Number(action.y ?? 0);
-
-  switch (action.type) {
-    case "click": {
-      await page.mouse.click(x, y, { button });
-      break;
-    }
-    case "double_click": {
-      await page.mouse.dblclick(x, y, { button });
-      break;
-    }
-    case "drag": {
-      const path = Array.isArray(action.path)
-        ? action.path
-            .map((point) =>
-              point &&
-              typeof point === "object" &&
-              "x" in point &&
-              "y" in point
-                ? {
-                    x: Number((point as { x: unknown }).x),
-                    y: Number((point as { y: unknown }).y),
-                  }
-                : null,
-            )
-            .filter(
-              (
-                point,
-              ): point is {
-                x: number;
-                y: number;
-              } => point !== null,
-            )
-        : [];
-
-      if (path.length < 2) {
-        throw new Error("drag action did not include a valid path.");
-      }
-
-      const startPoint = path[0];
-
-      if (!startPoint) {
-        throw new Error("drag action did not include a valid start point.");
-      }
-
-      await page.mouse.move(startPoint.x, startPoint.y);
-      await page.mouse.down();
-
-      for (const point of path.slice(1)) {
-        await page.mouse.move(point.x, point.y);
-      }
-
-      await page.mouse.up();
-      break;
-    }
-    case "move": {
-      await page.mouse.move(x, y);
-      break;
-    }
-    case "scroll": {
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        await page.mouse.move(x, y);
-      }
-      await page.mouse.wheel(
-        Number(action.delta_x ?? action.deltaX ?? 0),
-        Number(action.delta_y ?? action.deltaY ?? action.scroll_y ?? 0),
-      );
-      break;
-    }
-    case "type": {
-      const text = String(action.text ?? "");
-      await page.keyboard.type(text);
-      break;
-    }
-    case "keypress": {
-      const keys = Array.isArray(action.keys)
-        ? action.keys.map((key) => normalizePlaywrightKey(String(key))).filter(Boolean)
-        : [normalizePlaywrightKey(String(action.key ?? ""))].filter(Boolean);
-
-      if (keys.length === 0) {
-        throw new Error("keypress action did not include a key value.");
-      }
-
-      await page.keyboard.press(keys.join("+"));
-      break;
-    }
-    case "wait": {
-      const durationMs = Number(action.ms ?? action.duration_ms ?? 1_000);
-      await delay(Math.max(0, durationMs), input.context.signal);
-      break;
-    }
-    case "screenshot": {
-      break;
-    }
-    default: {
-      throw new Error(`Unsupported computer action: ${action.type}`);
-    }
-  }
-
-  if (action.type !== "wait" && action.type !== "screenshot") {
-    await delay(defaultInterActionDelayMs, input.context.signal);
-  }
-}
-
-async function buildComputerCallOutput(
-  input: ResponsesLoopContext,
-  computerCall: ComputerCallItem,
-  artifactLabel: string,
-) {
-  const pendingSafetyChecks = computerCall.pending_safety_checks ?? [];
-
-  if (pendingSafetyChecks.length > 0) {
-    const detail = pendingSafetyChecks
-      .map((check) => check.message ?? check.code ?? "Unknown safety check")
-      .join(" | ");
-
-    await input.context.emitEvent({
-      detail,
-      level: "warn",
-      message:
-        "Computer use safety acknowledgement is required before the run can continue.",
-      type: "run_progress",
-    });
-
-    throw new RunnerCoreError(
-      "Pending computer use safety checks require explicit operator acknowledgement, which is not implemented in this harness yet.",
-      {
-        code: "unsupported_safety_acknowledgement",
-        hint:
-          "This sample app does not implement operator approval for pending safety checks yet. Retry with a task that does not trigger a safety acknowledgement.",
-        statusCode: 400,
-      },
-    );
-  }
-
-  await input.context.syncBrowserState(input.session);
-  const screenshotArtifact = await input.context.captureScreenshot(
-    input.session,
-    artifactLabel,
-  );
-  const screenshotDataUrl = await capturePageImageDataUrl(input.session);
-
-  await input.context.emitEvent({
-    detail: screenshotArtifact.url,
-    level: "ok",
-    message: "Computer-call output recorded with the updated screenshot.",
-    type: "computer_call_output_recorded",
-  });
-
-  return {
-    type: "computer_call_output",
-    call_id: computerCall.call_id,
-    output: {
-      image_url: screenshotDataUrl,
-      type: "computer_screenshot",
-    },
-  };
 }
 
 function ensureResponseSucceeded(response: ResponsesApiResponse) {
@@ -754,9 +431,7 @@ export async function runResponsesCodeLoop(
         throw new Error("Unexpected function call returned from the model.");
       }
 
-      const output = await executeFunctionToolCall(input, functionCall, {
-        vmContext,
-      });
+      const output = await executeFunctionToolCall(input, functionCall, vmContext);
 
       toolOutputs.push({
         call_id: functionCall.call_id,
@@ -785,132 +460,6 @@ export async function runResponsesCodeLoop(
     finalAssistantMessage,
     notes: [
       "Executed the scenario through a live Responses API code loop.",
-      `Model final response: ${finalAssistantMessage}`,
-    ],
-  };
-}
-
-export async function runResponsesNativeComputerLoop(
-  input: ResponsesLoopContext,
-  client: ResponsesClient,
-): Promise<ResponsesLoopResult> {
-  const operatorPrompt = input.prompt ?? input.context.detail.run.prompt;
-  let previousResponseId: string | undefined;
-  let nextInput: unknown = [
-    {
-      content: [
-        {
-          text: operatorPrompt,
-          type: "input_text",
-        },
-        {
-          detail: "original",
-          image_url: await capturePageImageDataUrl(input.session),
-          type: "input_image",
-        },
-      ],
-      role: "user",
-    },
-  ];
-  let finalAssistantMessage: string | undefined;
-
-  for (let turn = 1; turn <= input.maxResponseTurns; turn += 1) {
-    assertActive(input.context.signal);
-    const response = await client.create(
-      {
-        instructions: input.instructions,
-        input: nextInput,
-        model: input.context.detail.run.model,
-        parallel_tool_calls: false,
-        previous_response_id: previousResponseId,
-        reasoning: { effort: "low" },
-        tools: buildComputerToolDefinitions(),
-        truncation: "auto",
-      },
-      input.context.signal,
-    );
-    ensureResponseSucceeded(response);
-    await emitModelTurnEvent(input.context, response, turn);
-
-    previousResponseId = response.id;
-    const hasToolCalls = (response.output ?? []).some(
-      (item) => item.type === "computer_call" || item.type === "function_call",
-    );
-
-    if (!hasToolCalls) {
-      finalAssistantMessage = extractAssistantMessageText(response) || undefined;
-      break;
-    }
-
-    const toolOutputs = [];
-
-    for (const outputItem of response.output ?? []) {
-      if (isFunctionCallItem(outputItem)) {
-        if (!outputItem.call_id) {
-          throw new Error("Unexpected function call returned from the model.");
-        }
-
-        toolOutputs.push({
-          call_id: outputItem.call_id,
-          output: await executeFunctionToolCall(input, outputItem),
-          type: "function_call_output",
-        });
-        continue;
-      }
-
-      if (!isComputerCallItem(outputItem)) {
-        continue;
-      }
-
-      const actions = outputItem.actions ?? [];
-
-      await input.context.emitEvent({
-        detail: formatActionBatchDetail(actions),
-        level: "pending",
-        message: "Computer-call batch received from the model.",
-        type: "computer_call_requested",
-      });
-
-      for (const action of actions) {
-        await executeComputerAction(input, action);
-      }
-
-      await input.context.emitEvent({
-        detail: formatActionBatchDetail(actions),
-        level: "ok",
-        message: "Browser actions executed against the active lab.",
-        type: "computer_actions_executed",
-      });
-
-      toolOutputs.push(
-        await buildComputerCallOutput(
-          input,
-          outputItem,
-          `responses-native-turn-${turn}`,
-        ),
-      );
-    }
-
-    nextInput = toolOutputs;
-  }
-
-  if (!finalAssistantMessage) {
-    throw new Error(
-      `Responses API native loop exhausted the configured ${input.maxResponseTurns}-turn budget without producing a final assistant message.`,
-    );
-  }
-
-  await input.context.emitEvent({
-    detail: finalAssistantMessage,
-    level: "ok",
-    message: "Model returned a final response.",
-    type: "run_progress",
-  });
-
-  return {
-    finalAssistantMessage,
-    notes: [
-      "Executed the scenario through a live Responses API native computer-tool loop.",
       `Model final response: ${finalAssistantMessage}`,
     ],
   };

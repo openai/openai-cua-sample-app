@@ -18,18 +18,7 @@ describe("scenario registry", () => {
     for (const scenario of scenarios) {
       expect(() => scenarioManifestSchema.parse(scenario)).not.toThrow();
       expect(existsSync(scenario.workspaceTemplatePath)).toBe(true);
-    }
-  });
-
-  it("uses the expected default mode for each lab", () => {
-    const defaultModeByLab = new Map([
-      ["kanban", "code"],
-      ["paint", "code"],
-      ["booking", "code"],
-    ]);
-
-    for (const scenario of listScenarios()) {
-      expect(scenario.defaultMode).toBe(defaultModeByLab.get(scenario.labId));
+      expect(scenario).not.toHaveProperty("defaultMode");
     }
   });
 });

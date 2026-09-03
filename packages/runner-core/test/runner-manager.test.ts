@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -33,13 +33,12 @@ async function createManager(stepDelayMs = 10) {
 }
 
 describe("RunnerManager", () => {
-  it("fails the kanban native executor honestly when live Responses is unavailable", async () => {
+  it("fails the kanban executor honestly when live Responses is unavailable", async () => {
     const { manager } = await createManager(5);
 
     const detail = await manager.startRun({
       browserMode: "headless",
       maxResponseTurns: 18,
-      mode: "native",
       prompt: [
         "Reorganize the board to match this requested final board state exactly.",
         "",
@@ -62,13 +61,12 @@ describe("RunnerManager", () => {
     ).toBe(true);
   });
 
-  it("fails the paint native executor honestly when live Responses is unavailable", async () => {
+  it("fails the paint executor honestly when live Responses is unavailable", async () => {
     const { manager } = await createManager(5);
 
     const detail = await manager.startRun({
       browserMode: "headless",
       maxResponseTurns: 18,
-      mode: "native",
       prompt: "Paint me a smiley face as simple pixel art and save the draft.",
       scenarioId: "paint-draw-poster",
     });
@@ -85,13 +83,12 @@ describe("RunnerManager", () => {
     ).toBe(true);
   });
 
-  it("fails the booking native executor honestly when live Responses is unavailable", async () => {
+  it("fails the booking executor honestly when live Responses is unavailable", async () => {
     const { manager } = await createManager(5);
 
     const detail = await manager.startRun({
       browserMode: "headless",
       maxResponseTurns: 18,
-      mode: "native",
       prompt: [
         "Complete the reservation flow using only the request below.",
         "",
@@ -119,12 +116,68 @@ describe("RunnerManager", () => {
     ).toBe(true);
   });
 
+  it("reloads a completed run and its version-2 replay without execution-mode metadata", async () => {
+    const { dataRoot } = await createManager(0);
+    let finishExecution = () => {};
+    const executionFinished = new Promise<void>((resolveExecution) => {
+      finishExecution = resolveExecution;
+    });
+    const manager = new RunnerManager({
+      dataRoot,
+      executorFactory: () => ({
+        async execute(context) {
+          await context.emitEvent({
+            detail: "exec_js",
+            level: "ok",
+            message: "Function tool call completed.",
+            type: "function_call_completed",
+          });
+          await context.completeRun({
+            notes: ["Browser task completed."],
+            outcome: "success",
+            verificationPassed: true,
+          });
+          finishExecution();
+        },
+      }),
+      stepDelayMs: 0,
+    });
+
+    const started = await manager.startRun({
+      browserMode: "headless",
+      prompt: "Paint a smiley face and save the draft.",
+      scenarioId: "paint-draw-poster",
+      verificationEnabled: true,
+    });
+    await executionFinished;
+
+    const completed = await manager.getRunDetail(started.run.id);
+    const restartedManager = new RunnerManager({ dataRoot });
+    const reloaded = await restartedManager.getRunDetail(started.run.id);
+    const replay = await restartedManager.getReplayBundle(started.run.id);
+    const persistedRun = JSON.parse(
+      await readFile(join(dataRoot, "runs", started.run.id, "run.json"), "utf8"),
+    );
+
+    expect(completed.run.status).toBe("completed");
+    expect(completed.run.model).toBe("gpt-5.6-sol");
+    expect(completed.run.maxResponseTurns).toBe(24);
+    expect(reloaded).toEqual(completed);
+    expect(replay.version).toBe(2);
+    expect(replay.run).toEqual(completed.run);
+    expect(replay.events).toEqual(completed.events);
+    expect(replay.scenario).toEqual(completed.scenario);
+    expect(persistedRun).toEqual(completed.run);
+    expect(persistedRun).not.toHaveProperty("mode");
+    expect(replay.scenario).not.toHaveProperty("defaultMode");
+    expect(reloaded.events.some((event) => event.type === "function_call_completed")).toBe(true);
+  });
+
   it("cancels a running run", async () => {
     const { manager } = await createManager(40);
 
     const detail = await manager.startRun({
       browserMode: "headless",
-      mode: "native",
       prompt: [
         "Reorganize the board to match this requested final board state exactly.",
         "",
@@ -148,7 +201,6 @@ describe("RunnerManager", () => {
 
     const detail = await manager.startRun({
       browserMode: "headful",
-      mode: "native",
       prompt: [
         "Complete the reservation flow using only the request below.",
         "",
