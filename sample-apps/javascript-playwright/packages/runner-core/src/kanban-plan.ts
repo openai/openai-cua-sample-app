@@ -57,7 +57,7 @@ function formatBoardState(boardState: KanbanBoardState) {
 }
 
 function parseBoardLine(line: string, targetState: KanbanBoardState) {
-  const match = line.match(/^([a-z_\-\s]+)\s*:\s*(.+)$/i);
+  const match = line.match(/^([a-z_\-\s]+)\s*:\s*(.*)$/i);
 
   if (!match) {
     return false;
@@ -71,13 +71,13 @@ function parseBoardLine(line: string, targetState: KanbanBoardState) {
     return false;
   }
 
-  const cardIdsForColumn = rawCards
-    .split(/\s*(?:->|,)\s*/g)
-    .map((token) => resolveCardId(token))
-    .filter((value): value is string => Boolean(value));
-
-  targetState[columnId] = cardIdsForColumn;
-  return true;
+  const tokens = !rawCards || /^(?:none|empty|\[\])$/i.test(rawCards) ? [] : rawCards.split(/\s*(?:->|,)\s*/g);
+  targetState[columnId] = tokens.map(token => {
+    const id = resolveCardId(token);
+    if (!id) throw new Error(`Kanban prompt references unknown card "${token}".`);
+    return id;
+  });
+  return columnId;
 }
 
 export function parseKanbanTargetBoardState(prompt: string): KanbanBoardState {
@@ -90,23 +90,8 @@ export function parseKanbanTargetBoardState(prompt: string): KanbanBoardState {
   const matchedColumns = new Set<(typeof kanbanColumnOrder)[number]>();
 
   for (const line of prompt.split("\n")) {
-    const before = formatBoardState(targetState);
-    const parsed = parseBoardLine(line.trim(), targetState);
-
-    if (!parsed) {
-      continue;
-    }
-
-    const after = formatBoardState(targetState);
-
-    if (before !== after) {
-      const rawColumn = line.split(":")[0]?.trim().toLowerCase() ?? "";
-      const columnId = columnAliases.get(rawColumn);
-
-      if (columnId) {
-        matchedColumns.add(columnId);
-      }
-    }
+    const columnId = parseBoardLine(line.trim(), targetState);
+    if (columnId) matchedColumns.add(columnId);
   }
 
   if (matchedColumns.size !== kanbanColumnOrder.length) {

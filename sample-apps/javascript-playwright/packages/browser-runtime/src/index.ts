@@ -29,19 +29,26 @@ export type BrowserScreenshot = BrowserSessionState & {
   path: string;
 };
 
-export type BrowserSession = {
-  browser: Browser;
+export type BrowserObservationSession = {
   captureScreenshot: (label: string) => Promise<BrowserScreenshot>;
   close: () => Promise<void>;
-  context: BrowserContext;
   mode: BrowserMode;
-  page: Page;
   readState: () => Promise<BrowserSessionState>;
   targetLabel: string;
   viewport: BrowserViewport;
 };
 
-type LaunchBrowserSessionOptions = {
+// Only trusted worker-side verification and browser tests receive these handles.
+export type BrowserSession = BrowserObservationSession & {
+  browser: Browser;
+  context: BrowserContext;
+  page: Page;
+};
+
+export { launchJavaScriptSession, JavaScriptRuntimeError, type JavaScriptSession } from "./javascript-process.js";
+export { isRecord, maxCodeBytes, maxOutputBytes, parseJavaScriptOutput, type JavaScriptOutput, type ScenarioFinalization, type WorkerOperation } from "./protocol.js";
+
+export type LaunchBrowserSessionOptions = {
   browserMode: BrowserMode;
   now?: () => Date;
   screenshotDir: string;
@@ -80,25 +87,32 @@ export function resolveBrowserStartTarget(
 export async function launchBrowserSession(
   options: LaunchBrowserSessionOptions,
 ): Promise<BrowserSession> {
-  const now = options.now ?? (() => new Date());
-  const viewport = defaultViewport;
-  const resolvedTarget = resolveBrowserStartTarget(
-    options.startTarget,
-    options.workspacePath,
-  );
   const browser = await chromium.launch({
-    args: [`--window-size=${viewport.width},${viewport.height}`],
+    args: [`--window-size=${defaultViewport.width},${defaultViewport.height}`],
     headless: options.browserMode === "headless",
   });
-  const context = await browser.newContext({
-    viewport,
-  });
-  const page = await context.newPage();
-  let screenshotCount = 0;
+  return createBrowserSession(browser, options);
+}
 
-  await page.goto(resolvedTarget.url, {
-    waitUntil: "load",
-  });
+export async function connectBrowserSession(endpoint: string, options: LaunchBrowserSessionOptions): Promise<BrowserSession> {
+  return createBrowserSession(await chromium.connect(endpoint, { timeout: 15_000 }), options);
+}
+
+async function createBrowserSession(browser: Browser, options: LaunchBrowserSessionOptions): Promise<BrowserSession> {
+  const now = options.now ?? (() => new Date());
+  const viewport = defaultViewport;
+  const resolvedTarget = resolveBrowserStartTarget(options.startTarget, options.workspacePath);
+  let context: BrowserContext;
+  let page: Page;
+  try {
+    context = await browser.newContext({ viewport });
+    page = await context.newPage();
+    await page.goto(resolvedTarget.url, { waitUntil: "load" });
+  } catch (error) {
+    await browser.close().catch(() => undefined);
+    throw error;
+  }
+  let screenshotCount = 0;
 
   return {
     browser,
@@ -127,8 +141,7 @@ export async function launchBrowserSession(
       };
     },
     async close() {
-      await context.close();
-      await browser.close();
+      try { await context.close(); } finally { await browser.close(); }
     },
     context,
     mode: options.browserMode,

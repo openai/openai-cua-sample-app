@@ -1,3 +1,4 @@
+import vm from "node:vm";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -9,10 +10,11 @@ import { getScenarioById, paintDefaultPrompt } from "@cua-sample/scenario-kit";
 
 import type { RunExecutionContext } from "../src/scenario-runtime.js";
 import { createPaintExecutor } from "../src/scenarios/paint.js";
+import { assertPaintOutcome, retainPaintArtifacts } from "../src/paint-plan.js";
 
 const mocks = vi.hoisted(() => ({
   createResponse: vi.fn(),
-  launchBrowserSession: vi.fn(),
+  launchJavaScriptSession: vi.fn(),
   closeLab: vi.fn(),
 }));
 
@@ -22,7 +24,7 @@ vi.mock("openai", () => ({
   },
 }));
 vi.mock("@cua-sample/browser-runtime", () => ({
-  launchBrowserSession: mocks.launchBrowserSession,
+  launchJavaScriptSession: mocks.launchJavaScriptSession,
 }));
 vi.mock("../src/workspace-lab-server.js", () => ({
   startWorkspaceLabServer: async () => ({
@@ -68,6 +70,20 @@ async function setup(verificationEnabled: boolean, code: string) {
     mode: "headless",
     targetLabel: "Sketch Studio",
     viewport: { width: 1440, height: 900 },
+    execute: vi.fn(async (source: string) => {
+      await new vm.Script(`(async () => { ${source} })()`).runInNewContext({ page: session.page });
+      return [{ type: "input_text", text: "executed" }];
+    }),
+    finalizeScenario: vi.fn(async (input: { verificationEnabled: boolean }) => {
+      const artifacts = await retainPaintArtifacts(session as never, workspacePath);
+      if (input.verificationEnabled) await assertPaintOutcome(session as never);
+      return {
+        verificationPassed: input.verificationEnabled,
+        verificationDetail: "Saved artwork verified.",
+        ...(artifacts ? { artifacts } : {}),
+        notes: artifacts ? [`Saved artwork: ${artifacts.imagePath}`, `Layered project: ${artifacts.projectPath}`] : ["No draft was saved; no paint artifacts were retained."],
+      };
+    }),
     close: vi.fn(async () => undefined),
     readState: async () => ({ currentUrl: "http://127.0.0.1:3103/index.html" }),
     page: {
@@ -89,13 +105,15 @@ async function setup(verificationEnabled: boolean, code: string) {
       }),
     },
   };
-  mocks.launchBrowserSession.mockResolvedValue(session as unknown as BrowserSession);
+  mocks.launchJavaScriptSession.mockResolvedValue(session as unknown as BrowserSession);
   mocks.createResponse
     .mockResolvedValueOnce({
+      status: "completed",
       id: "paint-response-1",
       output: [{ type: "function_call", name: "exec_js", call_id: "paint-script", arguments: JSON.stringify({ code }) }],
     })
     .mockResolvedValueOnce({
+      status: "completed",
       id: "paint-response-2",
       output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: "Finished the artwork." }] }],
     });

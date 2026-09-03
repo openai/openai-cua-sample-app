@@ -1,7 +1,8 @@
 import { createReadStream } from "node:fs";
-import { access } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
+import { pipeline } from "node:stream/promises";
 
 type WorkspaceLabServer = {
   close: () => Promise<void>;
@@ -59,13 +60,19 @@ export async function startWorkspaceLabServer(
         getRequestPathname(request, entryPath),
       );
 
-      await access(assetPath);
+      if (!(await stat(assetPath)).isFile()) {
+        throw new Error("Requested asset is not a file.");
+      }
       response.writeHead(200, {
         "Cache-Control": "no-store",
         "Content-Type": getContentType(assetPath),
       });
-      createReadStream(assetPath).pipe(response);
+      await pipeline(createReadStream(assetPath), response);
     } catch {
+      if (response.headersSent || response.destroyed) {
+        response.destroy();
+        return;
+      }
       response.writeHead(404, {
         "Cache-Control": "no-store",
         "Content-Type": "application/json; charset=utf-8",

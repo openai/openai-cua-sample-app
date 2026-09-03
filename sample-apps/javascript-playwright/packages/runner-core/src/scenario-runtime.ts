@@ -1,4 +1,5 @@
-import { launchBrowserSession } from "@cua-sample/browser-runtime";
+import { fileURLToPath } from "node:url";
+import { launchJavaScriptSession, type BrowserObservationSession, type JavaScriptSession } from "@cua-sample/browser-runtime";
 import {
   type BrowserMode,
   type BrowserScreenshotArtifact,
@@ -20,7 +21,7 @@ export class RunAbortedError extends Error {
 
 export type RunExecutionContext = {
   captureScreenshot: (
-    session: Awaited<ReturnType<typeof launchBrowserSession>>,
+    session: BrowserObservationSession,
     label: string,
   ) => Promise<BrowserScreenshotArtifact>;
   completeRun: (options: {
@@ -39,7 +40,7 @@ export type RunExecutionContext = {
   signal: AbortSignal;
   stepDelayMs: number;
   syncBrowserState: (
-    session: Awaited<ReturnType<typeof launchBrowserSession>>,
+    session: BrowserObservationSession,
   ) => Promise<void>;
 };
 
@@ -47,7 +48,7 @@ export interface RunExecutor {
   execute(context: RunExecutionContext): Promise<void>;
 }
 
-export type WorkspaceLabSession = Awaited<ReturnType<typeof launchBrowserSession>>;
+export type WorkspaceLabSession = JavaScriptSession;
 
 export type WorkspaceLabExecutionResult = {
   notes: string[];
@@ -55,8 +56,6 @@ export type WorkspaceLabExecutionResult = {
 };
 
 type WorkspaceLabFlowOptions = {
-  assertOutcome: (session: WorkspaceLabSession) => Promise<void>;
-  buildVerificationDetail: (session: WorkspaceLabSession) => Promise<string>;
   loadedScreenshotLabel: string;
   navigationMessage: string;
   runner: (input: {
@@ -104,6 +103,16 @@ function clamp(value: number, minimum: number, maximum: number) {
 
 function isVerificationEnabled(context: RunExecutionContext) {
   return context.detail.run.verificationEnabled ?? false;
+}
+
+export function validateVerificationPrompt(context: RunExecutionContext, parse: (prompt: string) => unknown, hint: string) {
+  if (!isVerificationEnabled(context)) return;
+  try { parse(context.detail.run.prompt); }
+  catch (error) {
+    throw new RunnerCoreError(error instanceof Error ? error.message : "Invalid verification prompt.", {
+      code: "invalid_verification_prompt", hint, statusCode: 400,
+    });
+  }
 }
 
 function extractHeadfulHoldMs(prompt: string, browserMode: BrowserMode) {
@@ -161,7 +170,10 @@ export async function runWorkspaceLabBrowserFlow(
     workspacePath: context.detail.workspacePath,
   });
   const labUrl = labServer.urlFor("index.html");
-  const session = await launchBrowserSession({
+  let session: JavaScriptSession | undefined;
+  try {
+    assertActive(context.signal);
+    session = await launchJavaScriptSession({
     browserMode: context.detail.run.browserMode,
     screenshotDir: context.screenshotDirectory,
     startTarget: {
@@ -170,9 +182,9 @@ export async function runWorkspaceLabBrowserFlow(
       url: labUrl,
     },
     workspacePath: context.detail.workspacePath,
+    workerPath: fileURLToPath(new URL(import.meta.url.endsWith(".ts") ? "./javascript-worker.ts" : "./javascript-worker.js", import.meta.url)),
+    signal: context.signal,
   });
-
-  try {
     assertActive(context.signal);
     await context.emitEvent({
       detail: labUrl,
@@ -196,19 +208,28 @@ export async function runWorkspaceLabBrowserFlow(
     await context.captureScreenshot(session, options.loadedScreenshotLabel);
 
     const result = await options.runner({ labUrl, session });
+    const finalization = await session.finalizeScenario({
+      scenarioId: context.detail.run.scenarioId,
+      prompt: context.detail.run.prompt,
+      verificationEnabled: isVerificationEnabled(context),
+    });
+    if (finalization.artifacts) {
+      await context.emitEvent({
+        type: "run_progress", level: "ok",
+        message: "Saved paint artifacts retained in the run workspace.",
+        detail: `PNG: ${finalization.artifacts.imagePath} · Project: ${finalization.artifacts.projectPath}`,
+      });
+    }
     await context.captureScreenshot(session, options.verifiedScreenshotLabel);
-    let verificationPassed = false;
-    const notes = [...result.notes];
+    const notes = [...result.notes, ...finalization.notes];
 
     if (isVerificationEnabled(context)) {
-      await options.assertOutcome(session);
       await context.emitEvent({
-        detail: await options.buildVerificationDetail(session),
+        detail: finalization.verificationDetail ?? "Scenario verification passed.",
         level: "ok",
         message: result.verificationMessage,
         type: "verification_completed",
       });
-      verificationPassed = true;
     } else {
       notes.push("Verification checks were skipped for this run.");
     }
@@ -217,11 +238,10 @@ export async function runWorkspaceLabBrowserFlow(
     await context.completeRun({
       notes,
       outcome: "success",
-      verificationPassed,
+      verificationPassed: finalization.verificationPassed,
     });
   } finally {
-    await session.close();
-    await labServer.close();
+    try { await session?.close(); } finally { await labServer.close(); }
   }
 }
 
@@ -242,7 +262,7 @@ export async function failLiveResponsesUnavailable(
     detail: context.detail.run.prompt,
     level: "error",
     message,
-    type: "run_failed",
+    type: "run_progress",
   });
   throw createLiveResponsesUnavailableError(message);
 }

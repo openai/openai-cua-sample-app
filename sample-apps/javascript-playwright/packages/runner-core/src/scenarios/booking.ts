@@ -1,8 +1,7 @@
 import {
-  assertBookingOutcome,
   buildBookingCodeInstructions,
   buildBookingRunnerPrompt,
-  readBookingConfirmation,
+  parseBookingRequest,
 } from "../booking-plan.js";
 import {
   createDefaultResponsesClient,
@@ -13,6 +12,7 @@ import {
   type RunExecutionContext,
   type RunExecutor,
   runWorkspaceLabBrowserFlow,
+  validateVerificationPrompt,
 } from "../scenario-runtime.js";
 
 const liveOnlyMessage =
@@ -20,6 +20,7 @@ const liveOnlyMessage =
 
 class BookingCodeExecutor implements RunExecutor {
   async execute(context: RunExecutionContext) {
+    validateVerificationPrompt(context, parseBookingRequest, "Use the structured prompt in docs/scenarios.md, or turn verification off for a free-form task.");
     const client = createDefaultResponsesClient();
 
     if (!client) {
@@ -35,21 +36,13 @@ class BookingCodeExecutor implements RunExecutor {
     });
 
     await runWorkspaceLabBrowserFlow(context, {
-      assertOutcome: (session) => assertBookingOutcome(session, context.detail.run.prompt),
-      buildVerificationDetail: async (session) => {
-        const confirmation = await readBookingConfirmation(session);
-
-        return confirmation
-          ? `hotel=${confirmation.hotelName} · guest=${confirmation.guestName}`
-          : "hotel=none · guest=none";
-      },
       loadedScreenshotLabel: "booking-loaded",
       navigationMessage: "Browser navigated to the booking lab.",
-      runner: async ({ session }) => {
+      runner: async ({ labUrl, session }) => {
         const result = await runResponsesCodeLoop(
           {
             context,
-            instructions: buildBookingCodeInstructions(session.page.url()),
+            instructions: buildBookingCodeInstructions(labUrl),
             maxResponseTurns: context.detail.run.maxResponseTurns ?? 24,
             prompt: buildBookingRunnerPrompt(context.detail.run.prompt),
             session,

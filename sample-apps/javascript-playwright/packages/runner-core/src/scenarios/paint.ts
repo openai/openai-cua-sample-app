@@ -1,9 +1,6 @@
 import {
-  assertPaintOutcome,
   buildPaintCodeInstructions,
   buildPaintRunnerPrompt,
-  readPaintSaveRecord,
-  retainPaintArtifacts,
 } from "../paint-plan.js";
 import {
   createDefaultResponsesClient,
@@ -36,21 +33,13 @@ class PaintCodeExecutor implements RunExecutor {
     });
 
     await runWorkspaceLabBrowserFlow(context, {
-      assertOutcome: assertPaintOutcome,
-      buildVerificationDetail: async (session) => {
-        const saveRecord = await readPaintSaveRecord(session);
-
-        return saveRecord
-          ? `pixels=${saveRecord.document.paintedPixelCount} · layers=${saveRecord.document.layers.length}`
-          : "saved=none";
-      },
       loadedScreenshotLabel: "paint-loaded",
       navigationMessage: "Browser navigated to the paint lab.",
-      runner: async ({ session }) => {
+      runner: async ({ labUrl, session }) => {
         const result = await runResponsesCodeLoop(
           {
             context,
-            instructions: buildPaintCodeInstructions(session.page.url()),
+            instructions: buildPaintCodeInstructions(labUrl),
             maxResponseTurns: context.detail.run.maxResponseTurns ?? 24,
             prompt: buildPaintRunnerPrompt(context.detail.run.prompt),
             session,
@@ -58,28 +47,8 @@ class PaintCodeExecutor implements RunExecutor {
           client,
         );
 
-        const artifacts = await retainPaintArtifacts(
-          session,
-          context.detail.workspacePath,
-        );
-        if (artifacts) {
-          await context.emitEvent({
-            type: "run_progress",
-            level: "ok",
-            message: "Saved paint artifacts retained in the run workspace.",
-            detail: `PNG: ${artifacts.imagePath} · Project: ${artifacts.projectPath}`,
-          });
-        }
         return {
-          notes: [
-            ...result.notes,
-            ...(artifacts
-              ? [
-                  `Saved artwork: ${artifacts.imagePath}`,
-                  `Layered project: ${artifacts.projectPath}`,
-                ]
-              : ["No draft was saved; no paint artifacts were retained."]),
-          ],
+          notes: result.notes,
           verificationMessage:
             "Paint verification passed after the full Responses code loop.",
         };

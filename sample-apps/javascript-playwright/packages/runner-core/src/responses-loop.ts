@@ -1,9 +1,6 @@
-import vm from "node:vm";
-import util from "node:util";
-
 import OpenAI from "openai";
 
-import { type BrowserSession } from "@cua-sample/browser-runtime";
+import { type JavaScriptSession } from "@cua-sample/browser-runtime";
 
 import { RunnerCoreError } from "./errors.js";
 import type { RunExecutionContext } from "./scenario-runtime.js";
@@ -12,15 +9,19 @@ type FunctionCallItem = {
   arguments?: string;
   call_id?: string;
   name?: string;
+  status?: string;
   type: "function_call";
 };
 
 type MessageItem = {
   content?: Array<{
     text?: string;
+    refusal?: string;
     type?: string;
   }>;
   role?: string;
+  status?: string;
+  phase?: string | null;
   type: "message";
 };
 
@@ -53,31 +54,18 @@ type ResponsesClient = {
   ) => Promise<ResponsesApiResponse>;
 };
 
-type ToolOutput =
-  | {
-      text: string;
-      type: "input_text";
-    }
-  | {
-      detail: "original";
-      image_url: string;
-      type: "input_image";
-    };
-
 type ResponsesLoopContext = {
   context: RunExecutionContext;
   instructions: string;
   maxResponseTurns: number;
   prompt?: string;
-  session: BrowserSession;
+  session: JavaScriptSession;
 };
 
 type ResponsesLoopResult = {
   finalAssistantMessage?: string;
   notes: string[];
 };
-
-const toolExecutionTimeoutMs = 20_000;
 
 class OpenAIResponsesClient implements ResponsesClient {
   private readonly client: OpenAI;
@@ -97,12 +85,6 @@ function assertActive(signal: AbortSignal) {
   if (signal.aborted) {
     throw new Error("Run aborted.");
   }
-}
-
-function normalizeImageDataUrl(value: string) {
-  return value.startsWith("data:image/")
-    ? value
-    : `data:image/png;base64,${value}`;
 }
 
 function parseResponsesLoopMode(env: NodeJS.ProcessEnv = process.env): ResponsesLoopMode {
@@ -158,22 +140,6 @@ function describeUsage(response: ResponsesApiResponse) {
   return `${inputTokens} in · ${outputTokens} out · ${reasoningTokens} reasoning`;
 }
 
-function extractAssistantMessageText(response: ResponsesApiResponse) {
-  return (response.output ?? [])
-    .filter((item): item is MessageItem => item.type === "message")
-    .flatMap((item) => item.content ?? [])
-    .filter((part) => part.type === "output_text")
-    .map((part) => part.text?.trim())
-    .filter((text): text is string => Boolean(text))
-    .join("\n\n");
-}
-
-function getFunctionCallItems(response: ResponsesApiResponse) {
-  return (response.output ?? []).filter(
-    (item): item is FunctionCallItem => item.type === "function_call",
-  );
-}
-
 async function emitModelTurnEvent(
   context: RunExecutionContext,
   response: ResponsesApiResponse,
@@ -215,113 +181,18 @@ function buildCodeToolDefinitions() {
   ];
 }
 
-async function withExecutionTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  signal: AbortSignal,
-) {
-  if (signal.aborted) {
-    throw new Error("Run aborted.");
-  }
-
-  return await new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      reject(new Error(`Tool execution exceeded ${timeoutMs}ms.`));
-    }, timeoutMs);
-
-    const onAbort = () => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", onAbort);
-      reject(new Error("Run aborted."));
-    };
-
-    signal.addEventListener("abort", onAbort, { once: true });
-
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        signal.removeEventListener("abort", onAbort);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        signal.removeEventListener("abort", onAbort);
-        reject(error);
-      },
-    );
-  });
-}
-
-async function executeJavaScriptToolCall(
-  input: ResponsesLoopContext,
-  functionCall: FunctionCallItem,
-  ctx: vm.Context,
-) {
-  const parsed = JSON.parse(functionCall.arguments ?? "{}") as {
-    code?: string;
-  };
-  const code = parsed.code ?? "";
-  const toolOutputs: ToolOutput[] = [];
-
-  const sandbox = ctx as vm.Context & {
-    __setToolOutputs?: (outputs: ToolOutput[]) => void;
-  };
-  sandbox.__setToolOutputs?.(toolOutputs);
-
-  if (code.trim().length === 0) {
-    return [
-      {
-        text: "No code was provided to exec_js.",
-        type: "input_text" as const,
-      },
-    ];
-  }
-
-  const wrappedCode = `
-(async () => {
-${code}
-})();
-`;
-
-  try {
-    const execution = new vm.Script(wrappedCode, {
-      filename: "exec_js.js",
-    }).runInContext(ctx);
-    await withExecutionTimeout(
-      Promise.resolve(execution).then(() => undefined),
-      toolExecutionTimeoutMs,
-      input.context.signal,
-    );
-  } catch (error) {
-    const formatted =
-      error instanceof Error ? `${error.message}\n${error.stack ?? ""}` : String(error);
-    toolOutputs.push({
-      text: formatted.trim(),
-      type: "input_text",
-    });
-  }
-
-  if (toolOutputs.length === 0) {
-    toolOutputs.push({
-      text: "exec_js completed with no console output.",
-      type: "input_text",
-    });
-  }
-
+async function executeJavaScriptToolCall(input: ResponsesLoopContext, functionCall: FunctionCallItem) {
+  const { code } = JSON.parse(functionCall.arguments!) as { code: string };
+  if (!code.trim()) return [{ type: "input_text" as const, text: "No code was provided to exec_js." }];
+  const output = await input.session.execute(code, input.context.signal);
   await input.context.syncBrowserState(input.session);
-  await input.context.captureScreenshot(
-    input.session,
-    `responses-code-turn-${Date.now()}`,
-  );
-
-  return toolOutputs;
+  await input.context.captureScreenshot(input.session, `responses-code-turn-${Date.now()}`);
+  return output;
 }
 
 async function executeFunctionToolCall(
   input: ResponsesLoopContext,
   functionCall: FunctionCallItem,
-  vmContext: vm.Context,
 ) {
   const toolName = functionCall.name ?? "<unknown>";
 
@@ -334,7 +205,7 @@ async function executeFunctionToolCall(
 
   const output =
     toolName === "exec_js"
-      ? await executeJavaScriptToolCall(input, functionCall, vmContext)
+      ? await executeJavaScriptToolCall(input, functionCall)
       : (() => {
           throw new Error(
             `Unexpected function call: ${functionCall.name ?? "<unknown>"}.`,
@@ -351,49 +222,69 @@ async function executeFunctionToolCall(
   return output;
 }
 
-function ensureResponseSucceeded(response: ResponsesApiResponse) {
-  if (response.error?.message) {
-    throw new Error(response.error.message);
-  }
+function invalidResponse(message: string) {
+  return new RunnerCoreError(message, { code: "unexpected_model_response", statusCode: 400 });
+}
 
-  if (response.status === "failed") {
-    throw new Error("Responses API request failed.");
+export function classifyResponse(response: ResponsesApiResponse) {
+  if (response.status !== "completed" || response.error) {
+    throw invalidResponse(`Responses API response ${response.id} has status "${response.status ?? "missing"}"${response.error?.message ? `: ${response.error.message}` : "."}`);
   }
+  if (!Array.isArray(response.output)) throw invalidResponse("Responses API output is missing.");
+  const calls: FunctionCallItem[] = [];
+  const callIds = new Set<string>();
+  const commentary: string[] = [];
+  const final: string[] = [];
+  const unphased: string[] = [];
+  let hasExplicitPhase = false;
+  let refusal: string | undefined;
+  for (const item of response.output) {
+    if (!item || typeof item !== "object") throw invalidResponse("Malformed response output item.");
+    if (item.type === "reasoning") continue;
+    if (item.type === "function_call") {
+      const call = item as FunctionCallItem;
+      if (call.name !== "exec_js" || typeof call.call_id !== "string" || !call.call_id.trim() || callIds.has(call.call_id) ||
+        (call.status !== undefined && call.status !== "completed")) throw invalidResponse("Invalid, incomplete, or unsupported function call.");
+      let args: unknown;
+      try { args = JSON.parse(call.arguments ?? ""); } catch { throw invalidResponse("Function call arguments are not valid JSON."); }
+      if (!args || typeof args !== "object" || Array.isArray(args) || !("code" in args) || typeof args.code !== "string" || Object.keys(args).some(key => key !== "code")) {
+        throw invalidResponse("exec_js requires a code string and no other arguments.");
+      }
+      callIds.add(call.call_id);
+      calls.push(call);
+      continue;
+    }
+    if (item.type !== "message") throw invalidResponse(`Unsupported response item: ${item.type}.`);
+    const message = item as MessageItem;
+    if (message.role !== "assistant" || !Array.isArray(message.content) || (message.status !== undefined && message.status !== "completed")) {
+      throw invalidResponse("The response contains an invalid or unfinished assistant message.");
+    }
+    if (message.phase != null) {
+      hasExplicitPhase = true;
+      if (message.phase !== "commentary" && message.phase !== "final_answer") throw invalidResponse("Unknown assistant message phase.");
+    }
+    for (const part of message.content) {
+      if (part.type === "refusal") { refusal = part.refusal?.trim() || "The model declined this task."; continue; }
+      if (part.type !== "output_text" || !part.text?.trim()) continue;
+      if (message.phase === "commentary") commentary.push(part.text.trim());
+      else if (message.phase === "final_answer") final.push(part.text.trim());
+      else unphased.push(part.text.trim());
+    }
+  }
+  if (refusal) throw new RunnerCoreError(refusal, { code: "model_refusal", statusCode: 400 });
+  const progress = commentary.join("\n\n");
+  // Validate the complete response before dispatching any of its calls.
+  if (calls.length) return { kind: "calls" as const, calls, commentary: progress };
+  if (final.length) return { kind: "final" as const, text: final.join("\n\n"), commentary: progress };
+  if (commentary.length) return { kind: "commentary" as const, commentary: progress };
+  if (!hasExplicitPhase && unphased.length) return { kind: "final" as const, text: unphased.join("\n\n"), commentary: progress };
+  throw invalidResponse("Response contains no supported tool calls, progress, or final answer.");
 }
 
 export async function runResponsesCodeLoop(
   input: ResponsesLoopContext,
   client: ResponsesClient,
 ): Promise<ResponsesLoopResult> {
-  const jsOutputRef: { current: ToolOutput[] } = { current: [] };
-  const sandbox = {
-    Buffer,
-    browser: input.session.browser,
-    console: {
-      log: (...values: unknown[]) => {
-        jsOutputRef.current.push({
-          text: util.formatWithOptions(
-            { getters: false, maxStringLength: 2_000, showHidden: false },
-            ...values,
-          ),
-          type: "input_text",
-        });
-      },
-    },
-    context: input.session.context,
-    display: (base64Image: string) => {
-      jsOutputRef.current.push({
-        detail: "original",
-        image_url: normalizeImageDataUrl(base64Image),
-        type: "input_image",
-      });
-    },
-    page: input.session.page,
-    __setToolOutputs(outputs: ToolOutput[]) {
-      jsOutputRef.current = outputs;
-    },
-  };
-  const vmContext = vm.createContext(sandbox);
   let previousResponseId: string | undefined;
   let nextInput: unknown = input.prompt ?? input.context.detail.run.prompt;
   let finalAssistantMessage: string | undefined;
@@ -413,16 +304,22 @@ export async function runResponsesCodeLoop(
       },
       input.context.signal,
     );
-    ensureResponseSucceeded(response);
+    const classified = classifyResponse(response);
     await emitModelTurnEvent(input.context, response, turn);
 
     previousResponseId = response.id;
-    const functionCalls = getFunctionCallItems(response);
-
-    if (functionCalls.length === 0) {
-      finalAssistantMessage = extractAssistantMessageText(response) || undefined;
+    if (classified.commentary) {
+      await input.context.emitEvent({ type: "run_progress", level: "pending", message: "Model progress.", detail: classified.commentary });
+    }
+    if (classified.kind === "final") {
+      finalAssistantMessage = classified.text;
       break;
     }
+    if (classified.kind === "commentary") {
+      nextInput = [];
+      continue;
+    }
+    const functionCalls = classified.calls;
 
     const toolOutputs = [];
 
@@ -431,7 +328,7 @@ export async function runResponsesCodeLoop(
         throw new Error("Unexpected function call returned from the model.");
       }
 
-      const output = await executeFunctionToolCall(input, functionCall, vmContext);
+      const output = await executeFunctionToolCall(input, functionCall);
 
       toolOutputs.push({
         call_id: functionCall.call_id,

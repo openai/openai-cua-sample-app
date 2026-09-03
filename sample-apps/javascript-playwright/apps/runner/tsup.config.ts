@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: { index: "src/index.ts", "javascript-worker": "../../packages/runner-core/src/javascript-worker.ts" },
   format: ["esm"],
   platform: "node",
   target: "node22",
@@ -16,6 +16,7 @@ export default defineConfig({
   noExternal: [
     "@cua-sample/replay-schema",
     "@cua-sample/runner-core",
+    "@cua-sample/browser-runtime",
     "@cua-sample/scenario-kit",
   ],
 });

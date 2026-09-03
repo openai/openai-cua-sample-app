@@ -4,13 +4,14 @@ import {
   mkdir,
   readdir,
   readFile,
+  rename,
   rm,
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
-import { type BrowserSession } from "@cua-sample/browser-runtime";
+import { type BrowserObservationSession } from "@cua-sample/browser-runtime";
 import {
   browserScreenshotArtifactSchema,
   browserStateSchema,
@@ -40,6 +41,8 @@ type RunSubscriber = (event: RunEvent) => void;
 type InternalRunContext = {
   abortController: AbortController;
   detail: RunDetail;
+  execution?: Promise<void>;
+  stopping?: Promise<RunDetail>;
   subscribers: Set<RunSubscriber>;
 };
 
@@ -85,6 +88,8 @@ export class RunnerManager {
   private readonly runContexts = new Map<string, InternalRunContext>();
   private readonly scenarioWorkspaceStates = new Map<string, ScenarioWorkspaceState>();
   private readonly stepDelayMs: number;
+  private startingRun = false;
+  private shuttingDown = false;
 
   constructor(options: RunnerManagerOptions) {
     this.dataRoot = resolve(options.dataRoot);
@@ -96,6 +101,13 @@ export class RunnerManager {
 
   async startRun(input: StartRunRequest): Promise<RunDetail> {
     const request = startRunRequestSchema.parse(input);
+    if (this.shuttingDown) {
+      throw new RunnerCoreError("Runner is shutting down.", {
+        code: "runner_shutting_down",
+        hint: "Restart the runner before starting another run.",
+        statusCode: 503,
+      });
+    }
     const scenario = getScenarioById(request.scenarioId);
 
     if (!scenario) {
@@ -108,9 +120,11 @@ export class RunnerManager {
 
     const activeRun = this.getActiveRun();
 
-    if (activeRun) {
+    if (this.startingRun || activeRun) {
       throw new RunnerCoreError(
-        `Run ${activeRun.detail.run.id} is already active. Stop it before starting another run.`,
+        activeRun
+          ? `Run ${activeRun.detail.run.id} is already active. Stop it before starting another run.`
+          : "A run is already starting. Wait for it before starting another run.",
         {
           code: "run_already_active",
           hint: "Stop the active run before starting another scenario.",
@@ -120,6 +134,7 @@ export class RunnerManager {
     }
 
     const runId = this.idGenerator();
+    this.assertValidRunId(runId);
     const startedAt = this.now().toISOString();
     const workspacePath = this.getRunWorkspacePath(runId);
     const runRecord = runRecordSchema.parse({
@@ -135,50 +150,61 @@ export class RunnerManager {
       verificationEnabled: request.verificationEnabled ?? false,
     });
 
-    await this.ensureBaseDirectories();
-    await this.prepareRunWorkspace(scenario.workspaceTemplatePath, workspacePath);
+    // Reserve the run slot before the first asynchronous workspace operation.
+    this.startingRun = true;
+    try {
+      await this.ensureBaseDirectories();
+      await this.prepareRunWorkspace(scenario.workspaceTemplatePath, workspacePath);
 
-    const detail = runDetailSchema.parse({
-      browser: undefined,
-      eventStreamUrl: `/api/runs/${runId}/events`,
-      events: [],
-      replayUrl: `/api/runs/${runId}/replay`,
-      run: runRecord,
-      scenario,
-      workspacePath,
-    });
+      const detail = runDetailSchema.parse({
+        browser: undefined,
+        eventStreamUrl: `/api/runs/${runId}/events`,
+        events: [],
+        replayUrl: `/api/runs/${runId}/replay`,
+        run: runRecord,
+        scenario,
+        workspacePath,
+      });
 
-    const context: InternalRunContext = {
-      abortController: new AbortController(),
-      detail,
-      subscribers: new Set(),
-    };
+      const context: InternalRunContext = {
+        abortController: new AbortController(),
+        detail,
+        subscribers: new Set(),
+      };
 
-    this.runContexts.set(runId, context);
-    this.activeRunIds.add(runId);
+      this.runContexts.set(runId, context);
+      this.activeRunIds.add(runId);
 
-    await this.initializeRunArtifacts(runId);
-    await this.persistContext(context);
+      await this.initializeRunArtifacts(runId);
+      await this.persistContext(context);
 
-    await this.emitEvent(context, {
-      detail: `${scenario.title} · ${request.browserMode ?? "headless"} · ${runRecord.maxResponseTurns ?? defaultMaxResponseTurns} turns`,
-      level: "ok",
-      message: `Run ${runId} started.`,
-      type: "run_started",
-    });
-    await this.emitEvent(context, {
-      detail: workspacePath,
-      level: "ok",
-      message: "Workspace copied into mutable run directory.",
-      type: "workspace_prepared",
-    });
+      await this.emitEvent(context, {
+        detail: `${scenario.title} · ${request.browserMode ?? "headless"} · ${runRecord.maxResponseTurns ?? defaultMaxResponseTurns} turns`,
+        level: "ok",
+        message: `Run ${runId} started.`,
+        type: "run_started",
+      });
+      await this.emitEvent(context, {
+        detail: workspacePath,
+        level: "ok",
+        message: "Workspace copied into mutable run directory.",
+        type: "workspace_prepared",
+      });
 
-    void this.executeRun(context);
+      context.execution = this.executeRun(context);
 
-    return structuredClone(context.detail);
+      return structuredClone(context.detail);
+    } catch (error) {
+      this.activeRunIds.delete(runId);
+      this.runContexts.delete(runId);
+      throw error;
+    } finally {
+      this.startingRun = false;
+    }
   }
 
   async getRunDetail(runId: string): Promise<RunDetail> {
+    this.assertValidRunId(runId);
     const inMemory = this.runContexts.get(runId);
 
     if (inMemory) {
@@ -188,7 +214,19 @@ export class RunnerManager {
     return this.readRunDetail(runId);
   }
 
+  async shutdown(): Promise<void> {
+    this.shuttingDown = true;
+    // A start already past admission must finish registering its context first.
+    while (this.startingRun) {
+      await sleep(10);
+    }
+    await Promise.all(
+      [...this.activeRunIds].map((runId) => this.stopRun(runId, "Runner shutting down.")),
+    );
+  }
+
   async getReplayBundle(runId: string): Promise<ReplayBundle> {
+    this.assertValidRunId(runId);
     const replayJsonPath = this.getRunReplayPath(runId);
 
     try {
@@ -199,6 +237,7 @@ export class RunnerManager {
   }
 
   subscribe(runId: string, subscriber: RunSubscriber) {
+    this.assertValidRunId(runId);
     const context = this.runContexts.get(runId);
 
     if (!context) {
@@ -217,6 +256,7 @@ export class RunnerManager {
   }
 
   async stopRun(runId: string, reason = "Operator requested stop."): Promise<RunDetail> {
+    this.assertValidRunId(runId);
     const context = this.runContexts.get(runId);
 
     if (!context) {
@@ -237,11 +277,23 @@ export class RunnerManager {
       return persisted;
     }
 
+    if (context.stopping) {
+      return context.stopping;
+    }
     if (context.detail.run.status !== "running") {
+      await context.execution;
       return structuredClone(context.detail);
     }
 
     context.abortController.abort();
+    context.stopping = this.finishStoppingRun(context, reason);
+    return context.stopping;
+  }
+
+  private async finishStoppingRun(context: InternalRunContext, reason: string): Promise<RunDetail> {
+    // Do not advertise cancellation until browser and worker teardown has finished.
+    await context.execution;
+    const runId = context.detail.run.id;
     const artifactCounts = await this.readArtifactCounts(runId);
     context.detail.run = this.buildTerminalRunRecord(context.detail.run, {
       commandCount: artifactCounts.commandCount,
@@ -258,8 +310,6 @@ export class RunnerManager {
       message: "Run cancelled before completion.",
       type: "run_cancelled",
     });
-
-    this.activeRunIds.delete(runId);
 
     return structuredClone(context.detail);
   }
@@ -395,7 +445,7 @@ export class RunnerManager {
 
   private async captureScreenshot(
     context: InternalRunContext,
-    session: BrowserSession,
+    session: BrowserObservationSession,
     label: string,
   ): Promise<BrowserScreenshotArtifact> {
     const snapshot = await session.captureScreenshot(label);
@@ -438,11 +488,14 @@ export class RunnerManager {
       verificationPassed: boolean;
     },
   ) {
-    if (context.detail.run.status !== "running") {
+    if (!this.ensureRunIsActive(context)) {
       return;
     }
 
     const artifactCounts = await this.readArtifactCounts(context.detail.run.id);
+    if (!this.ensureRunIsActive(context)) {
+      return;
+    }
     context.detail.run = this.buildTerminalRunRecord(context.detail.run, {
       commandCount: artifactCounts.commandCount,
       notes: options.notes,
@@ -458,8 +511,6 @@ export class RunnerManager {
       message: "Run completed and replay bundle persisted.",
       type: "run_completed",
     });
-
-    this.activeRunIds.delete(context.detail.run.id);
   }
 
   private ensureRunIsActive(context: InternalRunContext) {
@@ -470,9 +521,8 @@ export class RunnerManager {
   }
 
   private async executeRun(context: InternalRunContext) {
-    const executor = this.executorFactory(context.detail);
-
     try {
+      const executor = this.executorFactory(context.detail);
       await executor.execute({
         captureScreenshot: (session, label) =>
           this.captureScreenshot(context, session, label),
@@ -494,6 +544,9 @@ export class RunnerManager {
       }
 
       await this.failRun(context, error);
+    } finally {
+      // Executors release their browser resources before this slot is reused.
+      this.activeRunIds.delete(context.detail.run.id);
     }
   }
 
@@ -508,6 +561,9 @@ export class RunnerManager {
     ];
 
     const artifactCounts = await this.readArtifactCounts(context.detail.run.id);
+    if (!this.ensureRunIsActive(context)) {
+      return;
+    }
     context.detail.run = this.buildTerminalRunRecord(context.detail.run, {
       commandCount: artifactCounts.commandCount,
       notes,
@@ -523,15 +579,13 @@ export class RunnerManager {
       message: "Run failed during execution.",
       type: "run_failed",
     });
-
-    this.activeRunIds.delete(context.detail.run.id);
   }
 
   private getActiveRun() {
     for (const runId of this.activeRunIds) {
       const context = this.runContexts.get(runId);
 
-      if (context && this.ensureRunIsActive(context)) {
+      if (context) {
         return context;
       }
 
@@ -542,7 +596,18 @@ export class RunnerManager {
   }
 
   private getRunDirectory(runId: string) {
+    this.assertValidRunId(runId);
     return join(this.dataRoot, "runs", runId);
+  }
+
+  private assertValidRunId(runId: string) {
+    if (!/^[A-Za-z0-9_-]+$/.test(runId)) {
+      throw new RunnerCoreError("Invalid run ID.", {
+        code: "invalid_run_id",
+        hint: "Use the run ID returned when starting a run.",
+        statusCode: 400,
+      });
+    }
   }
 
   private getRunEventsPath(runId: string) {
@@ -646,16 +711,25 @@ export class RunnerManager {
     }
 
     await mkdir(dirname(this.getRunRecordPath(runId)), { recursive: true });
-    await writeFile(
+    await this.writeSnapshot(
       this.getRunRecordPath(runId),
       JSON.stringify(context.detail.run, null, 2),
-      "utf8",
     );
-    await writeFile(
+    await this.writeSnapshot(
       this.getRunReplayPath(runId),
       JSON.stringify(this.buildReplayBundle(context.detail), null, 2),
-      "utf8",
     );
+  }
+
+  private async writeSnapshot(path: string, contents: string) {
+    // Publish complete snapshots so readers never observe a truncated JSON file.
+    const temporaryPath = `${path}.${randomUUID()}.tmp`;
+    try {
+      await writeFile(temporaryPath, contents, "utf8");
+      await rename(temporaryPath, path);
+    } finally {
+      await rm(temporaryPath, { force: true }).catch(() => undefined);
+    }
   }
 
   private async prepareRunWorkspace(templatePath: string, workspacePath: string) {
@@ -722,7 +796,7 @@ export class RunnerManager {
 
   private async syncBrowserState(
     context: InternalRunContext,
-    session: BrowserSession,
+    session: BrowserObservationSession,
   ) {
     const state = await session.readState();
 

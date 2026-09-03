@@ -4,6 +4,7 @@ import { RunnerCoreError } from "../src/errors.js";
 import {
   createDefaultResponsesClient,
   runResponsesCodeLoop,
+  classifyResponse,
 } from "../src/responses-loop.js";
 
 const originalEnv = {
@@ -31,14 +32,10 @@ afterEach(() => {
 
 function createMockSession() {
   return {
-    browser: {},
-    context: {},
     mode: "headless" as const,
-    page: {
-      screenshot: async () => Buffer.from("png"),
-      title: async () => "Mock Lab",
-      url: () => "http://127.0.0.1:3102",
-    },
+    execute: vi.fn()
+      .mockResolvedValueOnce([{ text: "Board updated.", type: "input_text" }, { detail: "original", image_url: "data:image/png;base64,cG5n", type: "input_image" }])
+      .mockResolvedValueOnce([{ text: "updated -> verified", type: "input_text" }, { detail: "original", image_url: "data:image/png;base64,cG5n", type: "input_image" }]),
   };
 }
 
@@ -109,7 +106,7 @@ describe("createDefaultResponsesClient", () => {
 });
 
 describe("runResponsesCodeLoop", () => {
-  it("chains exec_js outputs while preserving REPL state, images, and replay artifacts", async () => {
+  it("chains worker outputs, images, and replay artifacts", async () => {
     const requests: Record<string, unknown>[] = [];
     const client = {
       async create(request: Record<string, unknown>) {
@@ -117,6 +114,7 @@ describe("runResponsesCodeLoop", () => {
 
         if (requests.length === 1) {
           return {
+            status: "completed",
             id: "resp_code_1",
             output: [
               {
@@ -137,6 +135,7 @@ describe("runResponsesCodeLoop", () => {
 
         if (requests.length === 2) {
           return {
+            status: "completed",
             id: "resp_code_2",
             output: [
               {
@@ -156,6 +155,7 @@ describe("runResponsesCodeLoop", () => {
         }
 
         return {
+          status: "completed",
           id: "resp_code_3",
           output: [
             {
@@ -245,5 +245,50 @@ describe("runResponsesCodeLoop", () => {
       session,
       expect.stringMatching(/^responses-code-turn-/),
     );
+  });
+});
+
+
+describe("response completion", () => {
+  const text = (phase?: string) => ({ type: "message", role: "assistant", ...(phase ? { phase } : {}), content: [{ type: "output_text", text: "Working." }] });
+  const response = (output: unknown[], status = "completed") => ({ id: "response", status, output }) as never;
+
+  it.each(["incomplete", "cancelled", "failed", "in_progress", "queued"])("rejects %s before any tool dispatch", status => {
+    expect(() => classifyResponse(response([text("final_answer")], status))).toThrow(/status/);
+  });
+  it("accepts completed final answers with optional phases", () => {
+    expect(classifyResponse(response([text()]))).toMatchObject({ kind: "final", text: "Working." });
+    expect(classifyResponse(response([text("final_answer")]))).toMatchObject({ kind: "final" });
+    expect(classifyResponse(response([text("commentary")]))).toMatchObject({ kind: "commentary" });
+  });
+  it.each([
+    [{ type: "computer_call", call_id: "computer" }],
+    [{ type: "function_call", name: "exec_py", call_id: "python", arguments: '{"code":"pass"}' }],
+    [{ type: "function_call", name: "exec_js", call_id: "js", arguments: '{"code":1}' }],
+    [{ type: "message", role: "assistant", status: "in_progress", content: [{ type: "output_text", text: "unfinished" }] }],
+    [],
+  ])("rejects malformed or unsupported output %j", (...output) => {
+    expect(() => classifyResponse(response(output))).toThrow();
+  });
+  it("rejects duplicate calls and terminal refusals", () => {
+    const call = { type: "function_call", name: "exec_js", call_id: "same", arguments: '{"code":"console.log(1)"}' };
+    expect(() => classifyResponse(response([call, call]))).toThrow();
+    expect(() => classifyResponse(response([call, { type: "message", role: "assistant", content: [{ type: "refusal", refusal: "No." }] }]))).toThrow("No.");
+  });
+  it("continues commentary through previous_response_id before accepting a final answer", async () => {
+    const { context } = createMockExecutionContext();
+    const client = { create: vi.fn().mockResolvedValueOnce(response([text("commentary")])).mockResolvedValueOnce(response([text("final_answer")])) };
+    await expect(runResponsesCodeLoop({ context: context as never, session: createMockSession() as never, instructions: "test", maxResponseTurns: 2 }, client)).resolves.toMatchObject({ finalAssistantMessage: "Working." });
+    expect(client.create.mock.calls[1]![0]).toMatchObject({ previous_response_id: "response", input: [] });
+  });
+  it("validates every call before executing the first", async () => {
+    const { context } = createMockExecutionContext();
+    const session = createMockSession();
+    const client = { create: vi.fn().mockResolvedValue(response([
+      { type: "function_call", name: "exec_js", call_id: "ok", arguments: '{"code":"console.log(1)"}' },
+      { type: "computer_call", call_id: "unsupported" },
+    ])) };
+    await expect(runResponsesCodeLoop({ context: context as never, session: session as never, instructions: "test", maxResponseTurns: 1 }, client)).rejects.toThrow();
+    expect(session.execute).not.toHaveBeenCalled();
   });
 });
