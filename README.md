@@ -6,7 +6,13 @@ TypeScript sample app for browser-focused computer-use workflows with GPT-5.4. T
 - `apps/runner`: a Fastify runner that manages mutable workspaces, browser sessions, SSE, and replay bundles
 - `packages/*`: shared scenario, runtime, and contract packages that make it easy to add new labs later
 
-The legacy Python sample does not ship in this release branch. Keep that history on a separate `v1` or `legacy` branch.
+For the computer-use guide's standalone code-execution clients, see
+[Code-execution containers](containers/README.md). Build `gpt6-js-image` for
+JavaScript/Playwright or `gpt6-py-image` for Python/PyAutoGUI. That setup includes
+the execution service, browser or desktop initialization, and a check that runs
+without an API key.
+
+The legacy Python sample app does not ship in this release branch. Keep that history on a separate `v1` or `legacy` branch.
 
 ## What This Repo Demonstrates
 
