@@ -154,16 +154,6 @@ export function buildKanbanCodeInstructions(currentUrl: string) {
   ].join("\n");
 }
 
-export function buildKanbanNativeInstructions(currentUrl: string) {
-  return [
-    "You are controlling a browser-based kanban app through the built-in computer tool.",
-    `The kanban app is already open at ${currentUrl}.`,
-    "Use only the operator prompt as the source of truth.",
-    "Rearrange the live board so every column matches the requested column membership and exact card order.",
-    "Reply briefly once the board matches the requested final state.",
-  ].join("\n");
-}
-
 async function readBoardStateFromPage(session: BrowserSession) {
   return session.page.evaluate(() => {
     const scope = globalThis as unknown as Record<

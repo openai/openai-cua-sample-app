@@ -1092,10 +1092,6 @@ code,
   background: rgba(77, 107, 165, 0.55);
 }
 
-.activityRow.family-action::before {
-  background: rgba(67, 120, 198, 0.7);
-}
-
 .activityRow.family-tool::before {
   background: rgba(76, 115, 73, 0.65);
 }
@@ -1176,11 +1172,6 @@ code,
 .activityFamily.observe {
   background: rgba(67, 120, 198, 0.1);
   color: #315fbc;
-}
-
-.activityFamily.action {
-  background: rgba(53, 101, 177, 0.12);
-  color: #2d5ea6;
 }
 
 .activityFamily.tool {

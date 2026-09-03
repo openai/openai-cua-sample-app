@@ -20,8 +20,6 @@ export const defaultRunModel =
 export const defaultMaxResponseTurns = Number(
   process.env.NEXT_PUBLIC_CUA_DEFAULT_MAX_RESPONSE_TURNS ?? "24",
 ) as ResponseTurnBudget;
-export const engineHelpText =
-  "Native drives the browser runtime directly for clicks, drags, typing, and screenshots. Code uses a persistent Playwright REPL for scripted browser control.";
 export const browserHelpText =
   "Headless runs the browser off-screen. Visible opens the browser window so you can watch the session live as it runs.";
 export const turnBudgetHelpText =
@@ -39,8 +37,6 @@ function titleForIssueCode(code: string) {
       return "Runner missing API key";
     case "live_mode_unavailable":
       return "Live mode unavailable";
-    case "unsupported_safety_acknowledgement":
-      return "Safety acknowledgement unavailable";
     case "run_already_active":
       return "Run already active";
     case "invalid_request":
@@ -239,103 +235,6 @@ function summarizeToolCall(label: string, payload: Record<string, unknown>) {
   }
 }
 
-function formatCoordinate(xValue: unknown, yValue: unknown) {
-  const x = Number(xValue);
-  const y = Number(yValue);
-
-  return Number.isFinite(x) && Number.isFinite(y)
-    ? ` @ ${Math.round(x)},${Math.round(y)}`
-    : "";
-}
-
-function summarizeComputerAction(action: Record<string, unknown>) {
-  const type = typeof action.type === "string" ? action.type : "action";
-
-  switch (type) {
-    case "click":
-      return `Click${formatCoordinate(action.x, action.y)}`;
-    case "double_click":
-      return `Double-click${formatCoordinate(action.x, action.y)}`;
-    case "drag":
-      return "Drag";
-    case "move":
-      return `Move pointer${formatCoordinate(action.x, action.y)}`;
-    case "scroll": {
-      const deltaY = Number(action.delta_y ?? action.deltaY ?? action.scroll_y);
-
-      if (!Number.isFinite(deltaY) || deltaY === 0) {
-        return "Scroll";
-      }
-
-      return `Scroll ${Math.abs(Math.round(deltaY))} px ${
-        deltaY > 0 ? "down" : "up"
-      }`;
-    }
-    case "type": {
-      const text = typeof action.text === "string" ? action.text : "";
-      const preview =
-        text.length > 28 ? `${text.slice(0, 25).trimEnd()}...` : text;
-
-      return preview ? `Type "${preview}"` : "Type text";
-    }
-    case "keypress": {
-      const keys = Array.isArray(action.keys)
-        ? action.keys.map((key) => String(key))
-        : typeof action.key === "string"
-          ? [action.key]
-          : [];
-
-      return keys.length > 0 ? `Press ${keys.join(" + ")}` : "Press key";
-    }
-    case "wait": {
-      const durationMs = Number(action.ms ?? action.duration_ms ?? 1_000);
-
-      if (!Number.isFinite(durationMs)) {
-        return "Wait";
-      }
-
-      return durationMs >= 1_000
-        ? `Wait ${(durationMs / 1_000).toFixed(1)} s`
-        : `Wait ${Math.round(durationMs)} ms`;
-    }
-    case "screenshot":
-      return "Capture screenshot";
-    default:
-      return humanizeToken(type);
-  }
-}
-
-function parseActionBatchDetail(detail: string | undefined) {
-  if (!detail) {
-    return null;
-  }
-
-  const separator = detail.indexOf(" :: ");
-  const payloadText = separator >= 0 ? detail.slice(separator + 4) : detail;
-
-  try {
-    const payload = JSON.parse(payloadText) as unknown;
-
-    if (!Array.isArray(payload)) {
-      return null;
-    }
-
-    const actions = payload.filter(
-      (value): value is Record<string, unknown> =>
-        Boolean(value) && typeof value === "object",
-    );
-
-    return {
-      detail: JSON.stringify(actions, null, 2),
-      preview:
-        actions.map((action) => summarizeComputerAction(action)).join(" • ") ||
-        "No browser actions",
-    };
-  } catch {
-    return null;
-  }
-}
-
 function findRelatedScreenshot(
   detail: string | undefined,
   screenshots: BrowserScreenshotArtifact[],
@@ -362,7 +261,6 @@ export function mapRunEventToActivity(
   screenshots: BrowserScreenshotArtifact[],
 ): ActivityItem {
   const parsedPayload = parseToolPayload(event.detail);
-  const parsedActionBatch = parseActionBatchDetail(event.detail);
   const relatedScreenshot = findRelatedScreenshot(event.detail, screenshots);
 
   switch (event.type) {
@@ -452,55 +350,6 @@ export function mapRunEventToActivity(
         key: `activity-${event.id}`,
         level: event.level,
         summary: event.message,
-        time: formatClock(event.createdAt),
-      };
-    case "computer_call_requested":
-      return {
-        createdAt: event.createdAt,
-        ...withOptionalDetail(parsedActionBatch?.detail ?? event.detail),
-        family: "action",
-        headline: "Browser action batch queued",
-        key: `activity-${event.id}`,
-        level: event.level,
-        summary: parsedActionBatch?.preview ?? event.message,
-        time: formatClock(event.createdAt),
-      };
-    case "computer_actions_executed":
-      return {
-        createdAt: event.createdAt,
-        ...withOptionalDetail(parsedActionBatch?.detail ?? event.detail),
-        family: "action",
-        headline: "Browser action batch executed",
-        key: `activity-${event.id}`,
-        level: event.level,
-        summary: parsedActionBatch?.preview ?? event.message,
-        time: formatClock(event.createdAt),
-      };
-    case "computer_call_output_recorded":
-      return {
-        createdAt: event.createdAt,
-        ...withOptionalDetail(
-          relatedScreenshot
-            ? JSON.stringify(
-                {
-                  capturedAt: relatedScreenshot.capturedAt,
-                  label: relatedScreenshot.label,
-                  pageTitle: relatedScreenshot.pageTitle,
-                  pageUrl: relatedScreenshot.pageUrl,
-                },
-                null,
-                2,
-              )
-            : event.detail,
-        ),
-        family: "snapshot",
-        headline: "Browser frame captured",
-        key: `activity-${event.id}`,
-        level: event.level,
-        ...(relatedScreenshot ? { screenshotId: relatedScreenshot.id } : {}),
-        summary: relatedScreenshot
-          ? formatScreenshotSummary(relatedScreenshot)
-          : event.message,
         time: formatClock(event.createdAt),
       };
     case "screenshot_captured":
@@ -632,8 +481,6 @@ export function mapManualTranscriptToActivity(entry: TranscriptEntry): ActivityI
 
 export function activityFamilyLabel(family: ActivityItem["family"]) {
   switch (family) {
-    case "action":
-      return "Act";
     case "observe":
       return "Observe";
     case "operator":

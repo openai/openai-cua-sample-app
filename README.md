@@ -11,7 +11,7 @@ The legacy Python sample does not ship in this release branch. Keep that history
 ## What This Repo Demonstrates
 
 - how to integrate the Responses API from one canonical place: `packages/runner-core/src/responses-loop.ts`
-- how to switch between `code` mode and `native` computer mode against the same browser lab
+- how to drive browser labs through a persistent Playwright JavaScript REPL using `exec_js`
 - how to define scenario manifests, launch isolated run workspaces, and verify outcomes
 - how to build an operator-facing console that is understandable even when the runner is offline or a run fails
 
@@ -88,12 +88,15 @@ Live smoke tests stay opt-in and secret-gated:
 OPENAI_API_KEY=your_key_here pnpm test:live
 ```
 
-## Execution Modes
+## Browser Execution
 
-- `native`: exposes the Responses API computer tool directly. The model requests clicks, drags, typing, waits, and screenshots against the live browser session.
-- `code`: exposes a persistent Playwright JavaScript REPL through `exec_js`. The model scripts the browser rather than emitting raw computer actions.
+Every run uses a persistent Playwright JavaScript REPL exposed through `exec_js`. The model scripts the live browser session, and the runner records tool activity, screenshots, and scenario verification results. Browser visibility remains configurable as `headless` or `headful`.
 
-Both modes use the same scenario manifests and replay pipeline. `native` is the closest sample of the computer tool itself. `code` is the clearest sample of a browser REPL harness.
+## API And Replay Changes
+
+Execution mode has been removed from the API. Omit `mode` when calling `POST /api/runs`; requests containing `mode: "code"`, `mode: "native"`, or any other unknown field receive HTTP 400. Run records no longer include `mode`, and scenario manifests no longer include `defaultMode`.
+
+New replay bundles use version `2` and contain function-call events from the REPL. Existing saved replay files remain untouched. This release does not migrate old bundles or support displaying historical native runs.
 
 ## Official Scenarios
 
@@ -144,7 +147,6 @@ See [.env.example](.env.example) for a minimal local template.
 
 - Computer use remains high risk. Do not point this sample at authenticated, financial, medical, or otherwise high-stakes environments.
 - This repo is intentionally browser-focused. Workspace patching and file-editing scenarios are out of scope for the OSS release branch.
-- Pending computer-use safety acknowledgements are not implemented in this sample yet. Runs fail with the stable code `unsupported_safety_acknowledgement` when the API asks for one.
 - The public scenarios are local labs designed for deterministic verification. They are not intended as proofs of general web autonomy.
 
 ## Release Validation Checklist

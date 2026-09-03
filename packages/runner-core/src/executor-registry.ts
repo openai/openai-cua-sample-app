@@ -8,11 +8,11 @@ import { createPaintExecutor } from "./scenarios/paint.js";
 export function createDefaultRunExecutor(detail: RunDetail): RunExecutor {
   switch (detail.scenario.id) {
     case "kanban-reprioritize-sprint":
-      return createKanbanExecutor(detail.run.mode);
+      return createKanbanExecutor();
     case "paint-draw-poster":
-      return createPaintExecutor(detail.run.mode);
+      return createPaintExecutor();
     case "booking-complete-reservation":
-      return createBookingExecutor(detail.run.mode);
+      return createBookingExecutor();
     default:
       throw createUnsupportedScenarioError(detail.scenario.id);
   }

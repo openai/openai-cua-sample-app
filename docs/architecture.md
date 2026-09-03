@@ -79,9 +79,15 @@ The UI is split into a hook (`useRunStream`) plus focused presentational compone
 1. The operator console requests the public scenario registry from the runner.
 2. Starting a run asks `RunnerManager` to create a mutable workspace and replay bundle.
 3. `RunnerManager` selects a scenario executor through `executor-registry.ts`.
-4. The executor launches the lab and hands control to `responses-loop.ts`.
+4. The executor launches the lab and hands control to `responses-loop.ts`, which exposes a persistent Playwright JavaScript REPL through `exec_js`.
 5. The loop emits events, screenshots, and final verification results back into the replay bundle.
 6. The web app reads the run detail and follows SSE updates until the run finishes.
+
+## Request And Replay Contracts
+
+Runs have a single browser execution path. Start-run requests omit `mode`; the strict request schema rejects unknown fields, including both former execution-mode values, with HTTP 400. Run records omit `mode`, and scenario manifests omit `defaultMode`. The separate browser mode still selects headless or headful Chromium.
+
+New replay bundles use version `2`. Their event vocabulary includes REPL function calls and excludes the former computer-call events. Saved replay files are left untouched, with no migration or historical native-run display support.
 
 ## Extensibility
 

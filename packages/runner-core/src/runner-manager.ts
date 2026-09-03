@@ -65,7 +65,7 @@ type ReplayBundle = {
   events: RunEvent[];
   run: RunRecord;
   scenario: RunDetail["scenario"];
-  version: 1;
+  version: 2;
 };
 
 const defaultStepDelayMs = 650;
@@ -127,7 +127,6 @@ export class RunnerManager {
       id: runId,
       labId: scenario.labId,
       maxResponseTurns: request.maxResponseTurns ?? defaultMaxResponseTurns,
-      mode: request.mode,
       model: request.model ?? defaultRunModel,
       prompt: request.prompt,
       scenarioId: scenario.id,
@@ -162,7 +161,7 @@ export class RunnerManager {
     await this.persistContext(context);
 
     await this.emitEvent(context, {
-      detail: `${scenario.title} · ${request.mode} · ${request.browserMode ?? "headless"} · ${runRecord.maxResponseTurns ?? defaultMaxResponseTurns} turns`,
+      detail: `${scenario.title} · ${request.browserMode ?? "headless"} · ${runRecord.maxResponseTurns ?? defaultMaxResponseTurns} turns`,
       level: "ok",
       message: `Run ${runId} started.`,
       type: "run_started",
@@ -357,7 +356,7 @@ export class RunnerManager {
       events: structuredClone(detail.events),
       run: structuredClone(detail.run),
       scenario: structuredClone(detail.scenario),
-      version: 1,
+      version: 2,
     };
   }
 

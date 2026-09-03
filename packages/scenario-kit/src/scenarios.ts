@@ -28,7 +28,6 @@ const scenarioCatalog = scenarioManifestSchema.array().parse([
       label: "run-scoped HTTP kanban lab",
       url: "http://127.0.0.1:3102",
     },
-    defaultMode: "code",
     supportsCodeEdits: false,
     verification: [
       {
@@ -54,7 +53,6 @@ const scenarioCatalog = scenarioManifestSchema.array().parse([
       label: "run-scoped HTTP paint lab",
       url: "http://127.0.0.1:3103",
     },
-    defaultMode: "code",
     supportsCodeEdits: false,
     verification: [
       {
@@ -80,7 +78,6 @@ const scenarioCatalog = scenarioManifestSchema.array().parse([
       label: "run-scoped HTTP booking lab",
       url: "http://127.0.0.1:3104",
     },
-    defaultMode: "code",
     supportsCodeEdits: false,
     verification: [
       {

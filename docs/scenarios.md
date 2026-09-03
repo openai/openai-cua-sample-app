@@ -57,8 +57,6 @@ How verification works:
 - the verifier checks the applied filters in the UI
 - the local confirmation record must match the requested hotel, guest, dates, and special request
 
-## Notes On Modes
+## Browser Execution And Verification
 
-- `code` mode uses the browser REPL tool (`exec_js`) to drive the same lab.
-- `native` mode uses the computer tool directly.
-- Verification is the same either way because it reads the final lab state, not the agent transcript.
+All scenarios use a persistent Playwright JavaScript REPL through `exec_js`. Verification reads the final lab state, independently of the agent transcript.

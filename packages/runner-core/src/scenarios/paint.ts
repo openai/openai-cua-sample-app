@@ -1,16 +1,12 @@
-import { type ExecutionMode } from "@cua-sample/replay-schema";
-
 import {
   assertPaintOutcome,
   buildPaintCodeInstructions,
-  buildPaintNativeInstructions,
   buildPaintRunnerPrompt,
   readPaintSaveRecord,
 } from "../paint-plan.js";
 import {
   createDefaultResponsesClient,
   runResponsesCodeLoop,
-  runResponsesNativeComputerLoop,
 } from "../responses-loop.js";
 import {
   failLiveResponsesUnavailable,
@@ -73,57 +69,6 @@ class PaintCodeExecutor implements RunExecutor {
   }
 }
 
-class PaintNativeExecutor implements RunExecutor {
-  async execute(context: RunExecutionContext) {
-    const client = createDefaultResponsesClient();
-
-    if (!client) {
-      await failLiveResponsesUnavailable(context, liveOnlyMessage);
-      return;
-    }
-
-    await context.emitEvent({
-      detail: context.detail.run.model,
-      level: "ok",
-      message: "Using the live Responses API native computer loop for the paint lab.",
-      type: "run_progress",
-    });
-
-    await runWorkspaceLabBrowserFlow(context, {
-      assertOutcome: assertPaintOutcome,
-      buildVerificationDetail: async (session) => {
-        const saveRecord = await readPaintSaveRecord(session);
-
-        return saveRecord
-          ? `checksum=${saveRecord.checksum} · painted=${saveRecord.paintedCellCount}`
-          : "checksum=none · painted=0";
-      },
-      loadedScreenshotLabel: "paint-loaded",
-      navigationMessage: "Browser navigated to the paint lab.",
-      runner: async ({ session }) => {
-        const result = await runResponsesNativeComputerLoop(
-          {
-            context,
-            instructions: buildPaintNativeInstructions(session.page.url()),
-            maxResponseTurns: context.detail.run.maxResponseTurns ?? 24,
-            prompt: buildPaintRunnerPrompt(context.detail.run.prompt),
-            session,
-          },
-          client,
-        );
-
-        return {
-          notes: result.notes,
-          verificationMessage:
-            "Paint verification passed after the full Responses native loop.",
-        };
-      },
-      sessionLabel: "run-scoped paint lab",
-      verifiedScreenshotLabel: "paint-verified",
-    });
-  }
-}
-
-export function createPaintExecutor(mode: ExecutionMode): RunExecutor {
-  return mode === "code" ? new PaintCodeExecutor() : new PaintNativeExecutor();
+export function createPaintExecutor(): RunExecutor {
+  return new PaintCodeExecutor();
 }

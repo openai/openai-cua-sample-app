@@ -8,7 +8,6 @@ import {
   scenarioWorkspaceStateSchema,
   startRunResponseSchema,
   type BrowserMode,
-  type ExecutionMode,
   type ResponseTurnBudget,
   type RunDetail,
   type RunEvent,
@@ -81,9 +80,6 @@ export function useRunStream({
   const [selectedScenarioId, setSelectedScenarioId] = useState(
     initialScenario?.id ?? "",
   );
-  const [mode, setMode] = useState<ExecutionMode>(
-    initialScenario?.defaultMode ?? "code",
-  );
   const [browserMode, setBrowserMode] = useState<BrowserMode>("headless");
   const [verificationEnabled, setVerificationEnabled] = useState(false);
   const [maxResponseTurns, setMaxResponseTurns] =
@@ -125,20 +121,7 @@ export function useRunStream({
   const currentIssue = runIssue ?? actionIssue ?? initialRunnerIssue;
 
   const activityItems = [
-    ...runEvents.flatMap((event, index) => {
-      const nextEvent = runEvents[index + 1];
-
-      if (
-        event.type === "screenshot_captured" &&
-        nextEvent?.type === "computer_call_output_recorded" &&
-        nextEvent.detail &&
-        nextEvent.detail === event.detail
-      ) {
-        return [];
-      }
-
-      return [mapRunEventToActivity(event, screenshots)];
-    }),
+    ...runEvents.map((event) => mapRunEventToActivity(event, screenshots)),
     ...manualLogs.map(mapManualLogToActivity),
     ...manualTranscript.map(mapManualTranscriptToActivity),
   ].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
@@ -371,7 +354,6 @@ export function useRunStream({
       setRunEvents([]);
     }
 
-    setMode(nextScenario.defaultMode);
     setPrompt(nextScenario.defaultPrompt);
   };
 
@@ -410,7 +392,6 @@ export function useRunStream({
           body: JSON.stringify({
             browserMode,
             maxResponseTurns,
-            mode,
             model: defaultRunModel,
             prompt,
             scenarioId: selectedScenario.id,
@@ -666,7 +647,6 @@ export function useRunStream({
     latestScreenshot,
     matchingWorkspaceState,
     maxResponseTurns,
-    mode,
     pendingAction,
     prompt,
     runnerOnline,
@@ -679,7 +659,6 @@ export function useRunStream({
     selectedScenarioId,
     setBrowserMode,
     setMaxResponseTurns,
-    setMode,
     setPrompt,
     setStreamLogs,
     setVerificationEnabled,

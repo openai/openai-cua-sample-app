@@ -55,18 +55,6 @@ async function waitForTerminalRun(
   throw new Error(`Timed out waiting for run ${runId} to reach a terminal status.`);
 }
 
-function assertNativeHarnessSmoke(detail: Awaited<ReturnType<RunnerManager["getRunDetail"]>>) {
-  expect(["completed", "failed"]).toContain(detail.run.status);
-  expect(
-    detail.events.some(
-      (event) =>
-        event.type === "computer_call_requested" ||
-        event.type === "function_call_requested",
-    ),
-  ).toBe(true);
-  expect(detail.run.summary?.screenshotCount).toBeGreaterThanOrEqual(1);
-}
-
 describe("live Responses smoke", () => {
   it(
     "completes the kanban code path against the live Responses API",
@@ -74,7 +62,6 @@ describe("live Responses smoke", () => {
       const manager = await createLiveManager();
       const detail = await manager.startRun({
         browserMode: "headless",
-        mode: "code",
         prompt: [
           "Reorganize the board to match this requested final board state exactly.",
           "",
@@ -88,8 +75,9 @@ describe("live Responses smoke", () => {
 
       const completed = await waitForTerminalRun(manager, detail.run.id);
 
-      expect(completed.run.status).toBe("completed");
-      expect(completed.run.summary?.verificationPassed).toBe(true);
+      const runNotes = completed.run.summary?.notes.join("\n");
+      expect(completed.run.status, runNotes).toBe("completed");
+      expect(completed.run.summary?.verificationPassed, runNotes).toBe(true);
     },
     130_000,
   );
@@ -100,7 +88,6 @@ describe("live Responses smoke", () => {
       const manager = await createLiveManager();
       const detail = await manager.startRun({
         browserMode: "headless",
-        mode: "code",
         prompt: "Paint me a smiley face as simple pixel art and save the draft.",
         scenarioId: "paint-draw-poster",
         verificationEnabled: true,
@@ -108,8 +95,9 @@ describe("live Responses smoke", () => {
 
       const completed = await waitForTerminalRun(manager, detail.run.id);
 
-      expect(completed.run.status).toBe("completed");
-      expect(completed.run.summary?.verificationPassed).toBe(true);
+      const runNotes = completed.run.summary?.notes.join("\n");
+      expect(completed.run.status, runNotes).toBe("completed");
+      expect(completed.run.summary?.verificationPassed, runNotes).toBe(true);
     },
     130_000,
   );
@@ -120,7 +108,6 @@ describe("live Responses smoke", () => {
       const manager = await createLiveManager();
       const detail = await manager.startRun({
         browserMode: "headless",
-        mode: "code",
         prompt: [
           "Complete the reservation flow using only the request below.",
           "",
@@ -139,87 +126,10 @@ describe("live Responses smoke", () => {
 
       const completed = await waitForTerminalRun(manager, detail.run.id);
 
-      expect(completed.run.status).toBe("completed");
-      expect(completed.run.summary?.verificationPassed).toBe(true);
+      const runNotes = completed.run.summary?.notes.join("\n");
+      expect(completed.run.status, runNotes).toBe("completed");
+      expect(completed.run.summary?.verificationPassed, runNotes).toBe(true);
     },
     130_000,
   );
-
-});
-
-describe("live native hero smoke", () => {
-  it(
-    "exercises the kanban native path against the live Responses API",
-    async () => {
-      const manager = await createLiveManager();
-      const detail = await manager.startRun({
-        browserMode: "headless",
-        maxResponseTurns: 16,
-        mode: "native",
-        prompt: [
-          "Reorganize the board to match this requested final board state exactly.",
-          "",
-          "backlog: Refresh workspace docs",
-          "in_progress: Close nav bug triage -> Finalize analytics spec",
-          "done: Circulate launch brief -> Audit replay artifacts -> Polish stage tooltips",
-        ].join("\n"),
-        scenarioId: "kanban-reprioritize-sprint",
-      });
-
-      const completed = await waitForTerminalRun(manager, detail.run.id, 180_000);
-
-      assertNativeHarnessSmoke(completed);
-    },
-    190_000,
-  );
-
-  it(
-    "exercises the paint native path against the live Responses API",
-    async () => {
-      const manager = await createLiveManager();
-      const detail = await manager.startRun({
-        browserMode: "headless",
-        maxResponseTurns: 16,
-        mode: "native",
-        prompt: "Paint me a smiley face as simple pixel art and save the draft.",
-        scenarioId: "paint-draw-poster",
-      });
-
-      const completed = await waitForTerminalRun(manager, detail.run.id, 180_000);
-
-      assertNativeHarnessSmoke(completed);
-    },
-    190_000,
-  );
-
-  it(
-    "exercises the booking native path against the live Responses API",
-    async () => {
-      const manager = await createLiveManager();
-      const detail = await manager.startRun({
-        browserMode: "headless",
-        maxResponseTurns: 16,
-        mode: "native",
-        prompt: [
-          "Complete the reservation flow using only the request below.",
-          "",
-          "hotel: Luma Harbor Hotel",
-          "neighborhood: Marina District",
-          "check_in: 2026-04-18",
-          "check_out: 2026-04-21",
-          "guest_name: Ada Lovelace",
-          "guest_email: ada.lovelace@example.com",
-          "requires: breakfast included, workspace desk",
-          "special_request: Late arrival after 9pm.",
-        ].join("\n"),
-        scenarioId: "booking-complete-reservation",
-      });
-
-      const completed = await waitForTerminalRun(manager, detail.run.id, 180_000);
-
-      assertNativeHarnessSmoke(completed);
-    },
-    190_000,
-  );
-
 });

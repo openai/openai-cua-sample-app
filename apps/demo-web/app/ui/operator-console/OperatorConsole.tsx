@@ -33,7 +33,6 @@ export function OperatorConsole({
     handleStopRun,
     matchingWorkspaceState,
     maxResponseTurns,
-    mode,
     pendingAction,
     prompt,
     runnerOnline,
@@ -46,7 +45,6 @@ export function OperatorConsole({
     selectedScenarioId,
     setBrowserMode,
     setMaxResponseTurns,
-    setMode,
     setPrompt,
     setStreamLogs,
     setVerificationEnabled,
@@ -145,10 +143,8 @@ export function OperatorConsole({
               browserMode={browserMode}
               controlsLocked={controlsLocked}
               maxResponseTurns={maxResponseTurns}
-              mode={mode}
               onBrowserModeChange={setBrowserMode}
               onMaxResponseTurnsChange={setMaxResponseTurns}
-              onModeChange={setMode}
               onPromptChange={setPrompt}
               onResetWorkspace={handleResetWorkspace}
               onScenarioChange={handleScenarioChange}

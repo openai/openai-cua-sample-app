@@ -146,17 +146,6 @@ export function buildBookingCodeInstructions(currentUrl: string) {
   ].join("\n");
 }
 
-export function buildBookingNativeInstructions(currentUrl: string) {
-  return [
-    "You are controlling a browser-based booking app through the built-in computer tool.",
-    `The booking app is already open at ${currentUrl}.`,
-    "Use only the operator prompt as the source of truth.",
-    "Apply the requested search filters, select the requested hotel, complete the reservation form, and confirm the booking.",
-    "Only stop requesting computer actions once the reservation panel shows the booking as confirmed.",
-    "Reply briefly once the booking is confirmed.",
-  ].join("\n");
-}
-
 async function readBookingValue<T>(
   session: BrowserSession,
   accessorName:

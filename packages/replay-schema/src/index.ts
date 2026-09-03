@@ -6,9 +6,6 @@ export type LabId = z.infer<typeof labIdSchema>;
 export const categorySchema = z.enum(["productivity", "creativity", "commerce"]);
 export type ScenarioCategory = z.infer<typeof categorySchema>;
 
-export const executionModeSchema = z.enum(["code", "native"]);
-export type ExecutionMode = z.infer<typeof executionModeSchema>;
-
 export const browserModeSchema = z.enum(["headless", "headful"]);
 export type BrowserMode = z.infer<typeof browserModeSchema>;
 
@@ -52,7 +49,6 @@ export const scenarioManifestSchema = z.object({
   defaultPrompt: z.string().min(1),
   workspaceTemplatePath: z.string().min(1),
   startTarget: startTargetSchema,
-  defaultMode: executionModeSchema,
   supportsCodeEdits: z.boolean(),
   verification: z.array(verificationSpecSchema).min(1),
   tags: z.array(z.string().min(1)).min(1),
@@ -93,9 +89,6 @@ export const runEventTypeSchema = z.enum([
   "browser_navigated",
   "function_call_requested",
   "function_call_completed",
-  "computer_call_requested",
-  "computer_actions_executed",
-  "computer_call_output_recorded",
   "screenshot_captured",
   "run_progress",
   "verification_completed",
@@ -121,7 +114,6 @@ export const runRecordSchema = z.object({
   id: z.string().min(1),
   scenarioId: z.string().min(1),
   labId: labIdSchema,
-  mode: executionModeSchema,
   browserMode: browserModeSchema,
   verificationEnabled: z.boolean().optional(),
   model: z.string().min(1),
@@ -165,15 +157,16 @@ export const browserStateSchema = z.object({
 });
 export type BrowserState = z.infer<typeof browserStateSchema>;
 
-export const startRunRequestSchema = z.object({
-  scenarioId: z.string().min(1),
-  mode: executionModeSchema,
-  browserMode: browserModeSchema.optional(),
-  verificationEnabled: z.boolean().optional(),
-  maxResponseTurns: responseTurnBudgetSchema.optional(),
-  prompt: z.string().min(1),
-  model: z.string().min(1).optional(),
-});
+export const startRunRequestSchema = z
+  .object({
+    scenarioId: z.string().min(1),
+    browserMode: browserModeSchema.optional(),
+    verificationEnabled: z.boolean().optional(),
+    maxResponseTurns: responseTurnBudgetSchema.optional(),
+    prompt: z.string().min(1),
+    model: z.string().min(1).optional(),
+  })
+  .strict();
 export type StartRunRequest = z.infer<typeof startRunRequestSchema>;
 
 export const startRunResponseSchema = z.object({

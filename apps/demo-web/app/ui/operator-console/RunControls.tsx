@@ -2,14 +2,12 @@
 
 import type {
   BrowserMode,
-  ExecutionMode,
   ResponseTurnBudget,
   ScenarioManifest,
 } from "@cua-sample/replay-schema";
 
 import {
   browserHelpText,
-  engineHelpText,
   turnBudgetHelpText,
   verificationHelpText,
 } from "./helpers";
@@ -19,10 +17,8 @@ type RunControlsProps = ActionButtonsProps & {
   browserMode: BrowserMode;
   controlsLocked: boolean;
   maxResponseTurns: ResponseTurnBudget;
-  mode: ExecutionMode;
   onBrowserModeChange: (value: BrowserMode) => void;
   onMaxResponseTurnsChange: (value: ResponseTurnBudget) => void;
-  onModeChange: (value: ExecutionMode) => void;
   onPromptChange: (value: string) => void;
   onScenarioChange: (value: string) => void;
   onVerificationEnabledChange: (value: boolean) => void;
@@ -131,10 +127,8 @@ export function RunControls({
   browserMode,
   controlsLocked,
   maxResponseTurns,
-  mode,
   onBrowserModeChange,
   onMaxResponseTurnsChange,
-  onModeChange,
   onPromptChange,
   onScenarioChange,
   onVerificationEnabledChange,
@@ -186,33 +180,12 @@ export function RunControls({
           <span className="advancedSummaryCopy">
             <span className="advancedLabel">Advanced settings</span>
             <span className="advancedHint">
-              Engine, browser, verification, and turn budget
+              Browser, verification, and turn budget
             </span>
           </span>
         </summary>
 
         <div className="advancedContent">
-          <div className="railField">
-            <div className="fieldLabel">
-              <span>Engine</span>
-              <InfoPopover
-                id="engine-help-popover"
-                label="Engine"
-                text={engineHelpText}
-              />
-            </div>
-            <SegmentControl
-              ariaLabel="Execution mode"
-              disabled={controlsLocked}
-              onChange={onModeChange}
-              options={[
-                { label: "Code", value: "code" },
-                { label: "Native", value: "native" },
-              ]}
-              value={mode}
-            />
-          </div>
-
           <div className="railField">
             <div className="fieldLabel">
               <span>Browser</span>
