@@ -13,11 +13,12 @@ import { useRunStream } from "./useRunStream";
 type WorkspacePanel = "controls" | "preview" | "activity";
 
 export function OperatorConsole({
+  initialRun = null,
   initialRunnerIssue,
   runnerBaseUrl,
   scenarios,
 }: OperatorConsoleProps) {
-  const [activePanel, setActivePanel] = useState<WorkspacePanel>("controls");
+  const [activePanel, setActivePanel] = useState<WorkspacePanel>(initialRun ? "preview" : "controls");
   const {
     activityFeedLabel,
     activityFeedRef,
@@ -57,6 +58,7 @@ export function OperatorConsole({
     verificationEnabled,
     viewingLiveFrame,
   } = useRunStream({
+    initialRun,
     initialRunnerIssue,
     runnerBaseUrl,
     scenarios,

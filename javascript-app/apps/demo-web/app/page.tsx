@@ -1,4 +1,5 @@
 import {
+  runDetailSchema,
   scenariosResponseSchema,
   type ScenarioManifest,
 } from "@cua-sample/replay-schema";
@@ -9,6 +10,7 @@ import {
 } from "./ui/operator-console/helpers";
 import { OperatorConsole } from "./ui/operator-console";
 import type { RunnerIssue } from "./ui/operator-console/types";
+import { requestRunnerJson } from "./ui/operator-console/runner-request";
 
 export const dynamic = "force-dynamic";
 
@@ -24,25 +26,27 @@ function isRunnerIssue(value: unknown): value is RunnerIssue {
   );
 }
 
-async function loadScenarios() {
+async function loadRunnerState() {
   try {
-    const response = await fetch(`${runnerBaseUrl}/api/scenarios`, {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      const payload = await response.json().catch(() => null);
-
-      throw parseRunnerIssue(payload) ??
-        createRunnerUnavailableIssue(`Runner returned ${response.status}.`);
+    const [registry, active] = await Promise.all([
+      requestRunnerJson(`${runnerBaseUrl}/api/scenarios`, { cache: "no-store" }, 5_000),
+      requestRunnerJson(`${runnerBaseUrl}/api/runs/active`, { cache: "no-store" }, 5_000),
+    ]);
+    for (const { response, payload } of [registry, active]) {
+      if (!response.ok) {
+        throw parseRunnerIssue(payload) ??
+          createRunnerUnavailableIssue(`Runner returned ${response.status}.`);
+      }
     }
 
     return {
+      initialRun: runDetailSchema.nullable().parse(active.payload),
       runnerIssue: null,
-      scenarios: scenariosResponseSchema.parse(await response.json()),
+      scenarios: scenariosResponseSchema.parse(registry.payload),
     };
   } catch (error) {
     return {
+      initialRun: null,
       runnerIssue: isRunnerIssue(error)
         ? error
         : createRunnerUnavailableIssue(
@@ -54,10 +58,11 @@ async function loadScenarios() {
 }
 
 export default async function HomePage() {
-  const { runnerIssue, scenarios } = await loadScenarios();
+  const { initialRun, runnerIssue, scenarios } = await loadRunnerState();
 
   return (
     <OperatorConsole
+      initialRun={initialRun}
       initialRunnerIssue={runnerIssue}
       runnerBaseUrl={runnerBaseUrl}
       scenarios={scenarios}

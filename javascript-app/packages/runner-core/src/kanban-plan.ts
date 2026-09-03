@@ -37,8 +37,8 @@ function normalizeToken(token: string) {
 function resolveCardId(token: string) {
   const normalized = normalizeToken(token);
 
-  if ((cardTitleToId as Record<string, string>)[normalized]) {
-    return (cardTitleToId as Record<string, string>)[normalized];
+  if (Object.hasOwn(cardTitleToId, normalized)) {
+    return cardTitleToId[normalized as keyof typeof cardTitleToId];
   }
 
   const candidateId = normalized.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");

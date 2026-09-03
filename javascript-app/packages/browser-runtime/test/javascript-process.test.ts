@@ -120,6 +120,40 @@ describe("persistent JavaScript worker", () => {
     expect(await session.execute("console.log(keep)")).toEqual([{ type: "input_text", text: "7" }]);
   }, 20_000);
 
+  it("finishes cleanup when a descendant keeps the worker's stdio open", async () => {
+    const session = await start(300);
+    await rememberWorker(session);
+    let descendantPid: number | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const output = await session.execute(`
+        const proc = Buffer.constructor("return process")();
+        const child = proc.getBuiltinModule("child_process").spawn(
+          proc.execPath,
+          ["-e", "setInterval(() => {}, 1000)"],
+          { stdio: "inherit" },
+        );
+        console.log(child.pid);
+      `);
+      descendantPid = Number(output[0]?.type === "input_text" ? output[0].text : "");
+      expect(descendantPid).toBeGreaterThan(0);
+
+      await expect(Promise.race([
+        session.execute("while (true) {}"),
+        new Promise((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error("Cleanup waited for descendant stdio.")), 2_000);
+        }),
+      ])).rejects.toMatchObject({ code: "javascript_execution_timeout" });
+      for (const pid of pids) expect(isAlive(pid)).toBe(false);
+      // Descendants are outside this cancellation boundary. The test owns its
+      // fixture process and must remove it even when the assertion above fails.
+      expect(isAlive(descendantPid)).toBe(true);
+    } finally {
+      clearTimeout(timer);
+      if (descendantPid && isAlive(descendantPid)) process.kill(descendantPid, "SIGKILL");
+    }
+  }, 15_000);
+
   it("treats an unexpected worker exit as terminal and cleans up Chromium", async () => {
     const session = await start();
     await rememberWorker(session);

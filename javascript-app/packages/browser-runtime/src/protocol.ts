@@ -7,16 +7,30 @@ export type JavaScriptOutput =
 export type ScenarioFinalization = {
   notes: string[];
   verificationPassed: boolean;
+  // Failed verification preserves artifact paths and explains the failure here.
   verificationDetail?: string;
   artifacts?: { imagePath: string; projectPath: string };
 };
 
 export type WorkerOperation =
-  | { operation: "initialize"; endpoint: string; url: string; targetLabel: string; browserMode: BrowserMode; screenshotDir: string; workspacePath: string }
+  | {
+    operation: "initialize";
+    endpoint: string;
+    url: string;
+    targetLabel: string;
+    browserMode: BrowserMode;
+    screenshotDir: string;
+    workspacePath: string;
+  }
   | { operation: "execute"; code: string }
   | { operation: "inspect" }
   | { operation: "capture"; label: string }
-  | { operation: "finalize"; scenarioId: string; prompt: string; verificationEnabled: boolean }
+  | {
+    operation: "finalize";
+    scenarioId: string;
+    prompt: string;
+    verificationEnabled: boolean;
+  }
   | { operation: "close" };
 
 export const maxCodeBytes = 64 * 1024;

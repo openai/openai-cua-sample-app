@@ -261,6 +261,28 @@ describe("response completion", () => {
     expect(classifyResponse(response([text("final_answer")]))).toMatchObject({ kind: "final" });
     expect(classifyResponse(response([text("commentary")]))).toMatchObject({ kind: "commentary" });
   });
+  it.each([undefined, null])("accepts an unphased final answer alongside explicit commentary (phase %s)", async phase => {
+    const { context, events } = createMockExecutionContext();
+    const client = {
+      create: vi.fn().mockResolvedValue(response([
+        text("commentary"),
+        {
+          type: "message",
+          role: "assistant",
+          phase,
+          content: [{ type: "output_text", text: "Finished." }],
+        },
+      ])),
+    };
+    await expect(runResponsesCodeLoop({
+      context: context as never,
+      session: createMockSession() as never,
+      instructions: "test",
+      maxResponseTurns: 1,
+    }, client)).resolves.toMatchObject({ finalAssistantMessage: "Finished." });
+    expect(client.create).toHaveBeenCalledOnce();
+    expect(events).toContainEqual(expect.objectContaining({ message: "Model progress.", detail: "Working." }));
+  });
   it.each([
     [{ type: "computer_call", call_id: "computer" }],
     [{ type: "function_call", name: "exec_py", call_id: "python", arguments: '{"code":"pass"}' }],

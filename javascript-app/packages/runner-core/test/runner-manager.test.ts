@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -37,6 +37,12 @@ function waitForAbort(signal: AbortSignal) {
     if (signal.aborted) resolve();
     else signal.addEventListener("abort", () => resolve(), { once: true });
   });
+}
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => { resolve = done; });
+  return { promise, resolve };
 }
 
 describe("RunnerManager", () => {
@@ -85,6 +91,7 @@ describe("RunnerManager", () => {
         failures.push(error);
       }
     }
+    await manager.waitForRunStatus(run.run.id, "completed");
     await manager.shutdown();
     expect(failures).toEqual([]);
     const replay = await manager.getReplayBundle(run.run.id);
@@ -158,8 +165,13 @@ describe("RunnerManager", () => {
     const request = { scenarioId: "paint-draw-poster", prompt: "Draw a circle." };
     const started = await manager.startRun(request);
     try {
-      await manager.waitForRunStatus(started.run.id, "completed");
+      expect((await manager.getRunDetail(started.run.id)).run.status).toBe("running");
+      expect((await manager.getActiveRunDetail())?.run.id).toBe(started.run.id);
       await expect(manager.startRun(request)).rejects.toMatchObject({ code: "run_already_active" });
+      releaseCleanup();
+      const completed = await manager.waitForRunStatus(started.run.id, "completed");
+      expect(completed.events.filter((event) => event.type === "run_completed")).toHaveLength(1);
+      expect(await manager.getActiveRunDetail()).toBeNull();
     } finally {
       releaseCleanup();
       await manager.shutdown();
@@ -191,6 +203,202 @@ describe("RunnerManager", () => {
     expect(one).toEqual(two);
     expect(one.events.filter((event) => event.type === "run_cancelled")).toHaveLength(1);
     expect(one.run.status).toBe("cancelled");
+  });
+
+  it("reports the admitted run during startup and returns an independent detail snapshot", async () => {
+    const { dataRoot } = await createManager();
+    const manager = new RunnerManager({ dataRoot, executorFactory: () => ({
+      execute: async ({ signal }) => waitForAbort(signal),
+    }) });
+    expect(await manager.getActiveRunDetail()).toBeNull();
+    const starting = manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+    const [started, active] = await Promise.all([starting, manager.getActiveRunDetail()]);
+    expect(active?.run.id).toBe(started.run.id);
+    active!.run.prompt = "Mutated client copy";
+    active!.events.length = 0;
+    expect(await manager.getActiveRunDetail()).toEqual(started);
+    await manager.stopRun(started.run.id);
+    expect(await manager.getActiveRunDetail()).toBeNull();
+  });
+
+  it.each(["completed", "cancelled"] as const)(
+    "holds admission through %s persistence and publishes one terminal event when Stop races it",
+    async (status) => {
+      const { dataRoot } = await createManager();
+      const finishExecution = deferred();
+      const persisting = deferred();
+      const finishPersistence = deferred();
+      const manager = new RunnerManager({ dataRoot, executorFactory: () => ({
+        execute: async (context) => {
+          if (status === "cancelled") await waitForAbort(context.signal);
+          else {
+            await finishExecution.promise;
+            await context.completeRun({ notes: [], outcome: "success", verificationPassed: true });
+          }
+        },
+      }) });
+      const snapshots = manager as unknown as { writeSnapshot(path: string, contents: string): Promise<void> };
+      const writeSnapshot = snapshots.writeSnapshot.bind(manager);
+      const writer = vi.spyOn(snapshots, "writeSnapshot").mockImplementation(async (path, contents) => {
+        if (JSON.parse(contents).status === status) {
+          persisting.resolve();
+          await finishPersistence.promise;
+        }
+        await writeSnapshot(path, contents);
+      });
+      const request = { scenarioId: "paint-draw-poster", prompt: "Draw a circle." };
+      const started = await manager.startRun(request);
+      const terminalEvents: RunEvent[] = [];
+      manager.subscribe(started.run.id, (event) => terminalEvents.push(event));
+      try {
+        const firstStop = status === "cancelled" ? manager.stopRun(started.run.id) : undefined;
+        finishExecution.resolve();
+        await persisting.promise;
+        expect((await manager.getActiveRunDetail())?.run.status).toBe("running");
+        await expect(manager.startRun(request)).rejects.toMatchObject({ code: "run_already_active" });
+        let stopped = false;
+        const secondStop = manager.stopRun(started.run.id).then((result) => { stopped = true; return result; });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(stopped).toBe(false);
+        finishPersistence.resolve();
+        const result = await secondStop;
+        await firstStop;
+        expect(result.run.status).toBe(status);
+        expect(terminalEvents.map((event) => event.type)).toEqual([`run_${status}`]);
+        expect((await manager.getReplayBundle(started.run.id)).run.status).toBe(status);
+        expect(await manager.getActiveRunDetail()).toBeNull();
+      } finally {
+        finishExecution.resolve();
+        finishPersistence.resolve();
+        await manager.shutdown();
+        writer.mockRestore();
+      }
+    },
+  );
+
+  it.each(["complete", "throw", "cancel"] as const)(
+    "keeps a recoverable failed live result when %s cannot be persisted",
+    async (outcome) => {
+      const { dataRoot } = await createManager();
+      const ready = deferred();
+      let cleanedUp = false;
+      let attempts = 0;
+      const manager = new RunnerManager({ dataRoot, executorFactory: () => ({
+        execute: async (context) => {
+          if (++attempts > 1) {
+            await context.completeRun({ notes: [], outcome: "success", verificationPassed: true });
+            return;
+          }
+          await ready.promise;
+          try {
+            if (outcome === "throw") throw new Error("Executor failed");
+            if (outcome === "cancel") await waitForAbort(context.signal);
+            else await context.completeRun({ notes: [], outcome: "success", verificationPassed: true });
+          } finally { cleanedUp = true; }
+        },
+      }) });
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const request = { scenarioId: "paint-draw-poster", prompt: "Draw a circle." };
+      const started = await manager.startRun(request);
+      const received: RunEvent[] = [];
+      manager.subscribe(started.run.id, (event) => received.push(event));
+      try {
+        // A real filesystem failure, including during failRun's own publication.
+        const eventsPath = join(dataRoot, "runs", started.run.id, "events.jsonl");
+        await rm(eventsPath);
+        await mkdir(eventsPath);
+        ready.resolve();
+        if (outcome === "cancel") await manager.stopRun(started.run.id);
+        const failed = await manager.waitForRunStatus(started.run.id, "failed");
+        expect(cleanedUp).toBe(true);
+        expect(failed.run.summary?.notes.join(" ")).toContain("could not be persisted");
+        expect(failed.events.some((event) => event.type === "run_completed")).toBe(false);
+        expect(received.map((event) => event.type)).toEqual(["run_failed"]);
+        expect(log).toHaveBeenCalled();
+        await expect(manager.stopRun(started.run.id)).resolves.toEqual(failed);
+        expect(await manager.getActiveRunDetail()).toBeNull();
+        // The last durable replay stays intact when storage becomes unusable.
+        const restarted = new RunnerManager({ dataRoot });
+        expect((await restarted.getRunDetail(started.run.id)).run.status).toBe("running");
+        const next = await manager.startRun(request);
+        await manager.waitForRunStatus(next.run.id, "completed");
+      } finally {
+        ready.resolve();
+        await manager.shutdown();
+        log.mockRestore();
+      }
+    },
+  );
+
+  it("fails cleanup errors after completion is requested without publishing success", async () => {
+    const { dataRoot } = await createManager();
+    const manager = new RunnerManager({ dataRoot, executorFactory: () => ({ execute: async (context) => {
+      await context.completeRun({ notes: [], outcome: "success", verificationPassed: true });
+      throw new Error("Browser cleanup failed");
+    } }) });
+    const started = await manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+    const failed = await manager.waitForRunStatus(started.run.id, "failed");
+    expect(failed.run.summary?.notes).toContain("Browser cleanup failed");
+    expect(failed.events.filter((event) => event.type.startsWith("run_")).map((event) => event.type))
+      .toEqual(["run_started", "run_failed"]);
+    await manager.shutdown();
+  });
+
+  it("fails an executor that returns without completing instead of leaving a stranded run", async () => {
+    const { dataRoot } = await createManager();
+    const manager = new RunnerManager({ dataRoot, executorFactory: () => ({ execute: async () => {} }) });
+    const started = await manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+    const failed = await manager.waitForRunStatus(started.run.id, "failed");
+    expect(failed.run.summary?.notes).toContain("Executor returned without completing the run.");
+    expect(await manager.getActiveRunDetail()).toBeNull();
+  });
+
+  it("publishes failure if the final replay write fails after the record and event log were written", async () => {
+    const { dataRoot } = await createManager();
+    const manager = new RunnerManager({ dataRoot, executorFactory: () => ({ execute: async (context) => {
+      await context.completeRun({ notes: [], outcome: "success", verificationPassed: true });
+    } }) });
+    const snapshots = manager as unknown as { writeSnapshot(path: string, contents: string): Promise<void> };
+    const writeSnapshot = snapshots.writeSnapshot.bind(manager);
+    const writer = vi.spyOn(snapshots, "writeSnapshot").mockImplementation(async (path, contents) => {
+      if (path.endsWith("replay.json") && JSON.parse(contents).run.status === "completed") {
+        throw new Error("Final replay write failed");
+      }
+      await writeSnapshot(path, contents);
+    });
+    try {
+      const started = await manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+      const failed = await manager.waitForRunStatus(started.run.id, "failed");
+      expect(failed.run.summary?.notes).toContain("Final replay write failed");
+      expect(failed.events.some((event) => event.type === "run_completed")).toBe(false);
+      // The append-only log contains the attempted completion, but reload uses
+      // the authoritative replay, which only contains the published failure.
+      expect(await readFile(join(dataRoot, "runs", started.run.id, "events.jsonl"), "utf8"))
+        .toContain("run_completed");
+      const restarted = new RunnerManager({ dataRoot });
+      expect(await restarted.getRunDetail(started.run.id)).toEqual(failed);
+      expect((await restarted.getReplayBundle(started.run.id)).run.status).toBe("failed");
+    } finally { await manager.shutdown(); writer.mockRestore(); }
+  });
+
+  it("contains subscriber exceptions so remaining subscribers and execution still complete", async () => {
+    const { dataRoot } = await createManager();
+    const ready = deferred();
+    const manager = new RunnerManager({ dataRoot, executorFactory: () => ({ execute: async (context) => {
+      await ready.promise;
+      await context.completeRun({ notes: [], outcome: "success", verificationPassed: true });
+    } }) });
+    const started = await manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const observer = vi.fn();
+    manager.subscribe(started.run.id, () => { throw new Error("Disconnected subscriber"); });
+    manager.subscribe(started.run.id, observer);
+    try {
+      ready.resolve();
+      await manager.waitForRunStatus(started.run.id, "completed");
+      expect(observer).toHaveBeenCalledWith(expect.objectContaining({ type: "run_completed" }));
+      expect(log).toHaveBeenCalled();
+    } finally { await manager.shutdown(); log.mockRestore(); }
   });
 
   it("persists executor construction failures and releases the run slot", async () => {
@@ -344,6 +552,7 @@ describe("RunnerManager", () => {
       verificationEnabled: true,
     });
     await executionFinished;
+    await manager.waitForRunStatus(started.run.id, "completed");
 
     const completed = await manager.getRunDetail(started.run.id);
     const restartedManager = new RunnerManager({ dataRoot });

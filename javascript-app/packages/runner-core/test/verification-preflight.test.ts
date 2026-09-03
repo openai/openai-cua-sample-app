@@ -16,8 +16,8 @@ describe("verification preflight", () => {
     expect(parseKanbanTargetBoardState(allDone.replace("backlog:", "backlog: empty").replace("in_progress:", "in_progress: []"))).toEqual(parseKanbanTargetBoardState(allDone));
   });
 
-  it("rejects unknown cards rather than dropping them", () => {
-    expect(() => parseKanbanTargetBoardState(`${allDone} -> imaginary card`)).toThrow('unknown card "imaginary card"');
+  it.each(["imaginary card", "constructor", "__proto__"])("rejects unknown card %s", (card) => {
+    expect(() => parseKanbanTargetBoardState(`${allDone} -> ${card}`)).toThrow(`unknown card "${card}"`);
   });
 
   it.each([createBookingExecutor, createKanbanExecutor])("validates the prompt before constructing an API client", async factory => {

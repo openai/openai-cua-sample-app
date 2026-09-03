@@ -34,15 +34,28 @@ import { getScenarioById } from "@cua-sample/scenario-kit";
 
 import { createDefaultRunExecutor } from "./executor-registry.js";
 import { RunnerCoreError } from "./errors.js";
-import { RunAbortedError, type RunExecutor } from "./scenario-runtime.js";
+import { type RunExecutor } from "./scenario-runtime.js";
 
 type RunSubscriber = (event: RunEvent) => void;
+type RunCompletion = {
+  notes: string[];
+  outcome: RunOutcome;
+  verificationPassed: boolean;
+};
+type RunEventInput = {
+  detail?: string;
+  level: RunEventLevel;
+  message: string;
+  type: RunEventType;
+};
 
 type InternalRunContext = {
   abortController: AbortController;
   detail: RunDetail;
   execution?: Promise<void>;
+  finalizing?: boolean;
   stopping?: Promise<RunDetail>;
+  completion?: RunCompletion;
   subscribers: Set<RunSubscriber>;
 };
 
@@ -214,6 +227,14 @@ export class RunnerManager {
     return this.readRunDetail(runId);
   }
 
+  async getActiveRunDetail(): Promise<RunDetail | null> {
+    // Admission starts before the context is allocated. Do not report idle
+    // while a start already owns the run slot.
+    while (this.startingRun) await sleep(10);
+    const active = this.getActiveRun();
+    return active ? structuredClone(active.detail) : null;
+  }
+
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
     // A start already past admission must finish registering its context first.
@@ -280,7 +301,7 @@ export class RunnerManager {
     if (context.stopping) {
       return context.stopping;
     }
-    if (context.detail.run.status !== "running") {
+    if (context.finalizing || context.detail.run.status !== "running") {
       await context.execution;
       return structuredClone(context.detail);
     }
@@ -292,26 +313,17 @@ export class RunnerManager {
 
   private async finishStoppingRun(context: InternalRunContext, reason: string): Promise<RunDetail> {
     // Do not advertise cancellation until browser and worker teardown has finished.
-    await context.execution;
-    const runId = context.detail.run.id;
-    const artifactCounts = await this.readArtifactCounts(runId);
-    context.detail.run = this.buildTerminalRunRecord(context.detail.run, {
-      commandCount: artifactCounts.commandCount,
-      notes: [reason],
-      outcome: "partial",
-      patchCount: artifactCounts.patchCount,
-      status: "cancelled",
-      verificationPassed: false,
-    });
-
-    await this.emitEvent(context, {
-      detail: reason,
-      level: "warn",
-      message: "Run cancelled before completion.",
-      type: "run_cancelled",
-    });
-
-    return structuredClone(context.detail);
+    try {
+      await context.execution;
+      await this.publishTerminalRun(context, {
+        notes: [reason], outcome: "partial", status: "cancelled", verificationPassed: false,
+      }, {
+        detail: reason, level: "warn", message: "Run cancelled before completion.", type: "run_cancelled",
+      });
+      return structuredClone(context.detail);
+    } finally {
+      this.activeRunIds.delete(context.detail.run.id);
+    }
   }
 
   async resetScenario(scenarioId: string): Promise<ScenarioWorkspaceState> {
@@ -480,37 +492,10 @@ export class RunnerManager {
     return artifact;
   }
 
-  private async completeRun(
-    context: InternalRunContext,
-    options: {
-      notes: string[];
-      outcome: RunOutcome;
-      verificationPassed: boolean;
-    },
-  ) {
-    if (!this.ensureRunIsActive(context)) {
-      return;
-    }
-
-    const artifactCounts = await this.readArtifactCounts(context.detail.run.id);
-    if (!this.ensureRunIsActive(context)) {
-      return;
-    }
-    context.detail.run = this.buildTerminalRunRecord(context.detail.run, {
-      commandCount: artifactCounts.commandCount,
-      notes: options.notes,
-      outcome: options.outcome,
-      patchCount: artifactCounts.patchCount,
-      status: "completed",
-      verificationPassed: options.verificationPassed,
-    });
-
-    await this.emitEvent(context, {
-      detail: context.detail.replayUrl,
-      level: "ok",
-      message: "Run completed and replay bundle persisted.",
-      type: "run_completed",
-    });
+  private async completeRun(context: InternalRunContext, options: RunCompletion) {
+    // The executor still has its finally/cleanup work to do. Publish success
+    // only once execute() has returned and all owned resources are released.
+    if (this.ensureRunIsActive(context)) context.completion = options;
   }
 
   private ensureRunIsActive(context: InternalRunContext) {
@@ -534,19 +519,23 @@ export class RunnerManager {
         stepDelayMs: this.stepDelayMs,
         syncBrowserState: (session) => this.syncBrowserState(context, session),
       });
+      if (context.abortController.signal.aborted) return;
+      context.finalizing = true;
+      if (!context.completion) throw new Error("Executor returned without completing the run.");
+      await this.publishTerminalRun(context, { ...context.completion, status: "completed" }, {
+        detail: context.detail.replayUrl,
+        level: "ok",
+        message: "Run completed and replay bundle persisted.",
+        type: "run_completed",
+      });
     } catch (error) {
-      if (
-        error instanceof RunAbortedError ||
-        context.abortController.signal.aborted ||
-        context.detail.run.status !== "running"
-      ) {
-        return;
-      }
-
+      if (context.abortController.signal.aborted) return;
+      context.finalizing = true;
       await this.failRun(context, error);
     } finally {
-      // Executors release their browser resources before this slot is reused.
-      this.activeRunIds.delete(context.detail.run.id);
+      // Stop owns the slot through cancellation publication; other paths have
+      // finished both executor cleanup and terminal publication at this point.
+      if (!context.stopping) this.activeRunIds.delete(context.detail.run.id);
     }
   }
 
@@ -560,25 +549,44 @@ export class RunnerManager {
       ...(runnerError?.hint ? [`Hint: ${runnerError.hint}`] : []),
     ];
 
-    const artifactCounts = await this.readArtifactCounts(context.detail.run.id);
-    if (!this.ensureRunIsActive(context)) {
-      return;
-    }
-    context.detail.run = this.buildTerminalRunRecord(context.detail.run, {
-      commandCount: artifactCounts.commandCount,
-      notes,
-      outcome: "failure",
-      patchCount: artifactCounts.patchCount,
-      status: "failed",
-      verificationPassed: false,
-    });
-
-    await this.emitEvent(context, {
+    await this.publishTerminalRun(context, {
+      notes, outcome: "failure", status: "failed", verificationPassed: false,
+    }, {
       detail: runnerError?.hint ? `${message} Hint: ${runnerError.hint}` : message,
       level: "error",
       message: "Run failed during execution.",
       type: "run_failed",
     });
+  }
+
+  private async publishTerminalRun(
+    context: InternalRunContext,
+    options: RunCompletion & { status: "completed" | "failed" | "cancelled" },
+    event: RunEventInput,
+  ) {
+    const artifactCounts = await this.readArtifactCounts(context.detail.run.id);
+    const run = this.buildTerminalRunRecord(context.detail.run, { ...options, ...artifactCounts });
+    try {
+      await this.emitEvent(context, event, run);
+    } catch (error) {
+      // A failed success publication becomes a failed run. If even the failure
+      // cannot be saved, preserve a truthful live result and keep HTTP/SSE alive.
+      if (options.status === "completed") throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Could not persist terminal run ${run.id}:`, error);
+      const failedRun = this.buildTerminalRunRecord(run, {
+        ...artifactCounts,
+        notes: [...options.notes, `Run artifacts could not be persisted: ${message}`],
+        outcome: "failure", status: "failed", verificationPassed: false,
+      });
+      const failure = this.createRunEvent(context, {
+        detail: message, level: "error", message: "Run artifacts could not be persisted.", type: "run_failed",
+      });
+      context.detail.run = failedRun;
+      context.detail.events.push(failure);
+      this.updateSummaryCounts(context.detail);
+      this.notifySubscribers(context, failure);
+    }
   }
 
   private getActiveRun() {
@@ -652,16 +660,8 @@ export class RunnerManager {
     await mkdir(join(this.dataRoot, "scenario-workspaces"), { recursive: true });
   }
 
-  private async emitEvent(
-    context: InternalRunContext,
-    input: {
-      detail?: string;
-      level: RunEventLevel;
-      message: string;
-      type: RunEventType;
-    },
-  ) {
-    const event = runEventSchema.parse({
+  private createRunEvent(context: InternalRunContext, input: RunEventInput) {
+    return runEventSchema.parse({
       createdAt: this.now().toISOString(),
       detail: input.detail,
       id: `${context.detail.run.id}:${context.detail.events.length}`,
@@ -671,22 +671,34 @@ export class RunnerManager {
       sequence: context.detail.events.length,
       type: input.type,
     });
+  }
 
-    context.detail.events.push(event);
-
-    if (context.detail.run.summary) {
-      context.detail.run.summary.stepCount = context.detail.events.length;
-    }
+  private async emitEvent(context: InternalRunContext, input: RunEventInput, terminalRun?: RunRecord) {
+    const event = this.createRunEvent(context, input);
+    // Keep terminal state private until its complete replay has been saved.
+    // Progress events reserve their sequence immediately, as before.
+    const detail = terminalRun
+      ? { ...context.detail, run: terminalRun, events: [...context.detail.events, event] }
+      : context.detail;
+    if (!terminalRun) detail.events.push(event);
 
     await appendFile(
       this.getRunEventsPath(context.detail.run.id),
       `${JSON.stringify(event)}\n`,
       "utf8",
     );
-    await this.persistContext(context);
+    await this.persistContext({ ...context, detail });
+    if (terminalRun) Object.assign(context.detail, detail);
+    this.notifySubscribers(context, event);
+  }
 
+  private notifySubscribers(context: InternalRunContext, event: RunEvent) {
     for (const subscriber of context.subscribers) {
-      subscriber(event);
+      try {
+        subscriber(event);
+      } catch (error) {
+        console.error(`Run event subscriber failed for ${context.detail.run.id}:`, error);
+      }
     }
   }
 
@@ -701,14 +713,16 @@ export class RunnerManager {
     await writeFile(this.getRunEventsPath(runId), "", "utf8");
   }
 
+  private updateSummaryCounts(detail: RunDetail) {
+    if (detail.run.summary) {
+      detail.run.summary.screenshotCount = detail.browser?.screenshots.length ?? 0;
+      detail.run.summary.stepCount = detail.events.length;
+    }
+  }
+
   private async persistContext(context: InternalRunContext) {
     const runId = context.detail.run.id;
-    const screenshotCount = context.detail.browser?.screenshots.length ?? 0;
-
-    if (context.detail.run.summary) {
-      context.detail.run.summary.screenshotCount = screenshotCount;
-      context.detail.run.summary.stepCount = context.detail.events.length;
-    }
+    this.updateSummaryCounts(context.detail);
 
     await mkdir(dirname(this.getRunRecordPath(runId)), { recursive: true });
     await this.writeSnapshot(
@@ -752,9 +766,10 @@ export class RunnerManager {
 
   private async readRunDetail(runId: string): Promise<RunDetail> {
     try {
-      const run = runRecordSchema.parse(
-        JSON.parse(await readFile(this.getRunRecordPath(runId), "utf8")),
-      );
+      // replay.json is published last and contains one consistent snapshot.
+      // The separate run record and event log may be ahead after a write fails.
+      const replayBundle = await this.getReplayBundle(runId);
+      const run = runRecordSchema.parse(replayBundle.run);
       const scenario = getScenarioById(run.scenarioId);
 
       if (!scenario) {
@@ -768,13 +783,10 @@ export class RunnerManager {
         );
       }
 
-      const events = await this.readRunEvents(runId);
-      const replayBundle = await this.getReplayBundle(runId);
-
       return runDetailSchema.parse({
         browser: replayBundle.browser,
         eventStreamUrl: `/api/runs/${runId}/events`,
-        events,
+        events: replayBundle.events,
         replayUrl: `/api/runs/${runId}/replay`,
         run,
         scenario,
@@ -783,15 +795,6 @@ export class RunnerManager {
     } catch (error) {
       throw this.wrapMissingRunError(runId, error);
     }
-  }
-
-  private async readRunEvents(runId: string) {
-    const raw = await readFile(this.getRunEventsPath(runId), "utf8");
-
-    return raw
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => runEventSchema.parse(JSON.parse(line)));
   }
 
   private async syncBrowserState(

@@ -137,6 +137,7 @@ export function createServer(options: CreateServerOptions = {}) {
       return;
     }
 
+    console.error("Unexpected runner request error:", error);
     reply.code(500).send(
       runnerErrorResponseSchema.parse({
         code: "internal_runner_error",
@@ -176,6 +177,11 @@ export function createServer(options: CreateServerOptions = {}) {
       runId: detail.run.id,
       status: detail.run.status,
     });
+  });
+
+  app.get("/api/runs/active", async () => {
+    const detail = await manager.getActiveRunDetail();
+    return detail === null ? null : runDetailSchema.parse(detail);
   });
 
   app.get("/api/runs/:id", async (request) =>

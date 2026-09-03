@@ -95,9 +95,10 @@ export async function startWorkspaceLabServer(
     throw new Error("Workspace lab server did not bind to a TCP port.");
   }
 
+  let closing: Promise<void> | undefined;
   return {
-    close: async () => {
-      await new Promise<void>((resolvePromise, reject) => {
+    close: () => {
+      closing ??= new Promise<void>((resolvePromise, reject) => {
         server.close((error) => {
           if (error) {
             reject(error);
@@ -106,7 +107,10 @@ export async function startWorkspaceLabServer(
 
           resolvePromise();
         });
+        // Slow readers must not keep an owned lab alive after run cleanup.
+        server.closeAllConnections();
       });
+      return closing;
     },
     urlFor: (pathname = entryPath) =>
       `http://${host}:${address.port}/${pathname.replace(/^\/+/, "")}`,

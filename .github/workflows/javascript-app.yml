@@ -1,0 +1,41 @@
+name: JavaScript sample app
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: javascript-app-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: javascript-app
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: javascript-app/.node-version
+          package-manager-cache: false
+      - name: Enable the pinned pnpm version
+        run: corepack enable
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium and system libraries
+        run: pnpm playwright:install:with-deps
+      - name: Lint, typecheck, test, and build
+        run: pnpm check
+      - name: Exercise the paint lab in Chromium
+        run: pnpm test:paint:browser

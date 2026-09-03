@@ -76,10 +76,20 @@ async function setup(verificationEnabled: boolean, code: string) {
     }),
     finalizeScenario: vi.fn(async (input: { verificationEnabled: boolean }) => {
       const artifacts = await retainPaintArtifacts(session as never, workspacePath);
-      if (input.verificationEnabled) await assertPaintOutcome(session as never);
+      let verificationPassed = false;
+      let verificationDetail = "Verification was skipped.";
+      if (input.verificationEnabled) {
+        try {
+          await assertPaintOutcome(session as never);
+          verificationPassed = true;
+          verificationDetail = "Saved artwork verified.";
+        } catch (error) {
+          verificationDetail = error instanceof Error ? error.message : String(error);
+        }
+      }
       return {
-        verificationPassed: input.verificationEnabled,
-        verificationDetail: "Saved artwork verified.",
+        verificationPassed,
+        verificationDetail,
         ...(artifacts ? { artifacts } : {}),
         notes: artifacts ? [`Saved artwork: ${artifacts.imagePath}`, `Layered project: ${artifacts.projectPath}`] : ["No draft was saved; no paint artifacts were retained."],
       };
@@ -202,6 +212,12 @@ describe("paint executor integration", () => {
     const { context, session, workspacePath, saved } = await setup(true, code);
     await expect(createPaintExecutor().execute(context)).rejects.toThrow(message);
     expect(JSON.parse(await readFile(join(workspacePath, "artwork", "draft.sketch.json"), "utf8"))).toEqual(saved());
+    expect(context.emitEvent).toHaveBeenCalledWith(expect.objectContaining({
+      type: "run_progress",
+      message: "Saved paint artifacts retained in the run workspace.",
+      detail: `PNG: ${join(workspacePath, "artwork", "draft.png")} · Project: ${join(workspacePath, "artwork", "draft.sketch.json")}`,
+    }));
+    expect(context.emitEvent).not.toHaveBeenCalledWith(expect.objectContaining({ type: "verification_completed" }));
     expect(context.completeRun).not.toHaveBeenCalled();
     expect(session.close).toHaveBeenCalledOnce();
     expect(mocks.closeLab).toHaveBeenCalledOnce();

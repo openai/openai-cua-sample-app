@@ -53,6 +53,9 @@ describe("runner server", () => {
     });
 
     try {
+      const idleResponse = await app.inject({ method: "GET", url: "/api/runs/active" });
+      expect(idleResponse.statusCode).toBe(200);
+      expect(idleResponse.json()).toBeNull();
       const startResponse = await app.inject({
         method: "POST",
         payload: {
@@ -74,6 +77,10 @@ describe("runner server", () => {
       const started = startRunResponseSchema.parse(startResponse.json());
       expect(started.detail?.run.id).toBe(started.runId);
       expect(started.detail?.run.browserMode).toBe("headless");
+
+      const activeResponse = await app.inject({ method: "GET", url: "/api/runs/active" });
+      expect(activeResponse.statusCode).toBe(200);
+      expect(runDetailSchema.parse(activeResponse.json()).run.id).toBe(started.runId);
 
       const runResponse = await app.inject({
         method: "GET",
@@ -101,6 +108,7 @@ describe("runner server", () => {
       expect(runDetailSchema.parse(stopResponse.json()).run.status).toBe(
         "cancelled",
       );
+      expect((await app.inject({ method: "GET", url: "/api/runs/active" })).json()).toBeNull();
 
       const resetResponse = await app.inject({
         method: "POST",
@@ -134,6 +142,25 @@ describe("runner server", () => {
     } finally {
       await app.close();
     }
+  });
+
+  it("logs unexpected failures while returning the generic error envelope", async () => {
+    const failure = new Error("Private filesystem error details");
+    const manager = {
+      getActiveRunDetail: async () => { throw failure; },
+      shutdown: async () => {},
+    } as unknown as RunnerManager;
+    const app = createServer({ manager });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const response = await app.inject({ method: "GET", url: "/api/runs/active" });
+      expect(response.statusCode).toBe(500);
+      expect(runnerErrorResponseSchema.parse(response.json())).toMatchObject({
+        code: "internal_runner_error", error: "Internal runner error",
+      });
+      expect(response.body).not.toContain(failure.message);
+      expect(log).toHaveBeenCalledWith("Unexpected runner request error:", failure);
+    } finally { await app.close(); log.mockRestore(); }
   });
 
   it.each(["native", "code"])("rejects the removed mode field (%s)", async (mode) => {

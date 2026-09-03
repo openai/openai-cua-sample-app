@@ -7,6 +7,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { RunnerManager } from "../src/index.js";
 
 const tempRoots: string[] = [];
+const managers: RunnerManager[] = [];
 
 beforeAll(() => {
   process.env.CUA_RESPONSES_MODE = "live";
@@ -19,6 +20,8 @@ beforeAll(() => {
 });
 
 afterEach(async () => {
+  // Stop any run still active after an assertion or test timeout before removing its files.
+  await Promise.all(managers.splice(0).map((manager) => manager.shutdown()));
   for (const root of tempRoots.splice(0)) {
     await rm(root, { force: true, recursive: true });
   }
@@ -28,10 +31,12 @@ async function createLiveManager(stepDelayMs = 10) {
   const dataRoot = await mkdtemp(join(tmpdir(), "cua-sample-live-smoke-"));
   tempRoots.push(dataRoot);
 
-  return new RunnerManager({
+  const manager = new RunnerManager({
     dataRoot,
     stepDelayMs,
   });
+  managers.push(manager);
+  return manager;
 }
 
 async function waitForTerminalRun(

@@ -2,8 +2,24 @@ import { fork } from "node:child_process";
 import { createRequire } from "node:module";
 import { chromium } from "playwright";
 
-import { defaultViewport, resolveBrowserStartTarget, type BrowserObservationSession, type BrowserScreenshot, type BrowserSessionState, type LaunchBrowserSessionOptions } from "./index.js";
-import { isRecord, maxCodeBytes, maxOutputBytes, parseFinalization, parseJavaScriptOutput, type JavaScriptOutput, type ScenarioFinalization, type WorkerOperation } from "./protocol.js";
+import {
+  defaultViewport,
+  resolveBrowserStartTarget,
+  type BrowserObservationSession,
+  type BrowserScreenshot,
+  type BrowserSessionState,
+  type LaunchBrowserSessionOptions,
+} from "./index.js";
+import {
+  isRecord,
+  maxCodeBytes,
+  maxOutputBytes,
+  parseFinalization,
+  parseJavaScriptOutput,
+  type JavaScriptOutput,
+  type ScenarioFinalization,
+  type WorkerOperation,
+} from "./protocol.js";
 
 export class JavaScriptRuntimeError extends Error {
   constructor(message: string, readonly code: string) {
@@ -14,7 +30,11 @@ export class JavaScriptRuntimeError extends Error {
 
 export type JavaScriptSession = BrowserObservationSession & {
   execute: (code: string, signal?: AbortSignal) => Promise<JavaScriptOutput[]>;
-  finalizeScenario: (input: { scenarioId: string; prompt: string; verificationEnabled: boolean }) => Promise<ScenarioFinalization>;
+  finalizeScenario: (input: {
+    scenarioId: string;
+    prompt: string;
+    verificationEnabled: boolean;
+  }) => Promise<ScenarioFinalization>;
 };
 
 type Options = LaunchBrowserSessionOptions & {
@@ -45,7 +65,9 @@ const aborted = () => new JavaScriptRuntimeError("Run aborted.", "run_aborted");
 export async function launchJavaScriptSession(options: Options): Promise<JavaScriptSession> {
   if (options.signal?.aborted) throw aborted();
   const target = resolveBrowserStartTarget(options.startTarget, options.workspacePath);
-  const childEnvironment = Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== "OPENAI_API_KEY"));
+  const childEnvironment = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => name.toUpperCase() !== "OPENAI_API_KEY"),
+  );
   // The parent retains a browser handle even if model code blocks the worker.
   const browserServer = await chromium.launchServer({
     host: "127.0.0.1",
@@ -65,7 +87,9 @@ export async function launchJavaScriptSession(options: Options): Promise<JavaScr
   try {
     child = fork(options.workerPath, [], {
       // Do not inherit the runner's --env-file or watch arguments.
-      execArgv: options.workerPath.endsWith(".ts") ? ["--import", createRequire(import.meta.url).resolve("tsx")] : [],
+      execArgv: options.workerPath.endsWith(".ts")
+        ? ["--import", createRequire(import.meta.url).resolve("tsx")]
+        : [],
       env: childEnvironment,
       stdio: ["ignore", "pipe", "pipe", "ipc"],
     });
@@ -73,15 +97,28 @@ export async function launchJavaScriptSession(options: Options): Promise<JavaScr
     await browserServer.kill();
     throw error;
   }
-  const exited = new Promise<void>(resolve => child.once("close", () => resolve()));
+  const exited = new Promise<void>(resolve => {
+    child.once("exit", () => resolve());
+    child.once("error", () => {
+      // A failed spawn has no process and may never emit an exit event.
+      if (child.pid === undefined) resolve();
+    });
+  });
   let closed = false;
   let closing: Promise<void> | undefined;
   let terminalError: Error | undefined;
   let sequence = 0;
   let stderr = "";
-  let pending: { id: number; resolve: (value: unknown) => void; reject: (error: Error) => void } | undefined;
+  let pending: {
+    id: number;
+    resolve: (value: unknown) => void;
+    reject: (error: Error) => void;
+  } | undefined;
 
-  const close = (reason: Error = new JavaScriptRuntimeError("JavaScript session closed.", "javascript_session_closed"), force = false): Promise<void> => {
+  const close = (
+    reason: Error = new JavaScriptRuntimeError("JavaScript session closed.", "javascript_session_closed"),
+    force = false,
+  ): Promise<void> => {
     if (closing) return closing;
     closed = true;
     terminalError = reason;
@@ -93,7 +130,10 @@ export async function launchJavaScriptSession(options: Options): Promise<JavaScr
         if (!force && child.connected) {
           child.send({ id: -1, operation: "close" }, () => undefined);
           let timer: ReturnType<typeof setTimeout> | undefined;
-          await Promise.race([exited, new Promise<void>(resolve => { timer = setTimeout(resolve, 250); })]);
+          await Promise.race([
+            exited,
+            new Promise<void>(resolve => { timer = setTimeout(resolve, 250); }),
+          ]);
           clearTimeout(timer);
         }
         if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
@@ -105,13 +145,22 @@ export async function launchJavaScriptSession(options: Options): Promise<JavaScr
           try {
             await Promise.race([
               browserServer.close(),
-              new Promise<void>((_resolve, reject) => { timer = setTimeout(() => reject(new Error("Browser close timed out.")), 1_000); }),
+              new Promise<void>((_resolve, reject) => {
+                timer = setTimeout(() => reject(new Error("Browser close timed out.")), 1_000);
+              }),
             ]);
-          } catch { await browserServer.kill(); }
-          finally { clearTimeout(timer); }
+          } catch {
+            await browserServer.kill();
+          } finally {
+            clearTimeout(timer);
+          }
         }
         await exited;
       } finally {
+        // Descendants can inherit these pipes. Their lifetime must not hold up
+        // worker cleanup; this session does not provide process-tree isolation.
+        child.stdout?.destroy();
+        child.stderr?.destroy();
         receiver?.reject(reason);
       }
     })();
@@ -123,10 +172,17 @@ export async function launchJavaScriptSession(options: Options): Promise<JavaScr
   const onAbort = () => fail(aborted());
   options.signal?.addEventListener("abort", onAbort, { once: true });
   child.stdout?.on("data", () => undefined);
-  child.stderr?.on("data", (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-4_000); });
-  child.on("error", error => fail(new JavaScriptRuntimeError(`JavaScript worker failed: ${error.message}`, "javascript_worker_crashed")));
+  child.stderr?.on("data", (chunk: Buffer) => {
+    stderr = (stderr + chunk.toString()).slice(-4_000);
+  });
+  child.on("error", error => fail(new JavaScriptRuntimeError(
+    `JavaScript worker failed: ${error.message}`,
+    "javascript_worker_crashed",
+  )));
   child.on("exit", () => {
-    if (!closed) fail(new JavaScriptRuntimeError(`JavaScript worker exited unexpectedly. ${stderr}`.trim(), "javascript_worker_crashed"));
+    if (!closed) {
+      fail(new JavaScriptRuntimeError(`JavaScript worker exited unexpectedly. ${stderr}`.trim(), "javascript_worker_crashed"));
+    }
   });
   child.on("message", (message: unknown) => {
     if (closed) return;
@@ -145,16 +201,27 @@ export async function launchJavaScriptSession(options: Options): Promise<JavaScr
     pending.resolve(message.result);
   });
 
-  async function request<T>(operation: WorkerOperation, parse: (value: unknown) => T, signal?: AbortSignal, timeoutMs = options.executionTimeoutMs ?? 20_000): Promise<T> {
+  async function request<T>(
+    operation: WorkerOperation,
+    parse: (value: unknown) => T,
+    signal?: AbortSignal,
+    timeoutMs = options.executionTimeoutMs ?? 20_000,
+  ): Promise<T> {
     if (closed) throw terminalError ?? new Error("JavaScript session closed.");
     if (pending) throw new Error("A JavaScript operation is already running.");
-    if (signal?.aborted || options.signal?.aborted) { await close(aborted(), true); throw aborted(); }
+    if (signal?.aborted || options.signal?.aborted) {
+      await close(aborted(), true);
+      throw aborted();
+    }
     const id = ++sequence;
     if (signal !== options.signal) signal?.addEventListener("abort", onAbort, { once: true });
     try {
       return await new Promise<T>((resolve, reject) => {
         // This watchdog runs in the HTTP/API process, before any code is sent.
-        const timer = setTimeout(() => fail(new JavaScriptRuntimeError(`JavaScript execution exceeded ${timeoutMs}ms. Start a new run.`, "javascript_execution_timeout")), timeoutMs);
+        const timer = setTimeout(() => fail(new JavaScriptRuntimeError(
+          `JavaScript execution exceeded ${timeoutMs}ms. Start a new run.`,
+          "javascript_execution_timeout",
+        )), timeoutMs);
         pending = {
           id,
           resolve: value => {
@@ -167,7 +234,10 @@ export async function launchJavaScriptSession(options: Options): Promise<JavaScr
               fail(new JavaScriptRuntimeError(error instanceof Error ? error.message : String(error), "javascript_worker_protocol_error"));
             }
           },
-          reject: error => { clearTimeout(timer); reject(error); },
+          reject: error => {
+            clearTimeout(timer);
+            reject(error);
+          },
         };
         child.send({ id, ...operation }, error => {
           if (error) fail(new JavaScriptRuntimeError(error.message, "javascript_worker_crashed"));
@@ -179,8 +249,15 @@ export async function launchJavaScriptSession(options: Options): Promise<JavaScr
   }
 
   try {
-    await request({ operation: "initialize", endpoint: browserServer.wsEndpoint(), url: target.url,
-      targetLabel: target.targetLabel, browserMode: options.browserMode, screenshotDir: options.screenshotDir, workspacePath: options.workspacePath }, parseState, options.signal, 15_000);
+    await request({
+      operation: "initialize",
+      endpoint: browserServer.wsEndpoint(),
+      url: target.url,
+      targetLabel: target.targetLabel,
+      browserMode: options.browserMode,
+      screenshotDir: options.screenshotDir,
+      workspacePath: options.workspacePath,
+    }, parseState, options.signal, 15_000);
     return {
       mode: options.browserMode,
       viewport: defaultViewport,

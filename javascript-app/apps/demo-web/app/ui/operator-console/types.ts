@@ -1,10 +1,12 @@
 import type {
   ResponseTurnBudget,
+  RunDetail,
   RunEventLevel,
   ScenarioManifest,
 } from "@cua-sample/replay-schema";
 
 export type OperatorConsoleProps = {
+  initialRun?: RunDetail | null;
   initialRunnerIssue: RunnerIssue | null;
   runnerBaseUrl: string;
   scenarios: ScenarioManifest[];

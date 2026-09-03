@@ -235,19 +235,26 @@ export function classifyResponse(response: ResponsesApiResponse) {
   const callIds = new Set<string>();
   const commentary: string[] = [];
   const final: string[] = [];
-  const unphased: string[] = [];
-  let hasExplicitPhase = false;
   let refusal: string | undefined;
   for (const item of response.output) {
     if (!item || typeof item !== "object") throw invalidResponse("Malformed response output item.");
     if (item.type === "reasoning") continue;
     if (item.type === "function_call") {
       const call = item as FunctionCallItem;
-      if (call.name !== "exec_js" || typeof call.call_id !== "string" || !call.call_id.trim() || callIds.has(call.call_id) ||
-        (call.status !== undefined && call.status !== "completed")) throw invalidResponse("Invalid, incomplete, or unsupported function call.");
+      if (call.name !== "exec_js" ||
+        typeof call.call_id !== "string" || !call.call_id.trim() || callIds.has(call.call_id) ||
+        (call.status !== undefined && call.status !== "completed")) {
+        throw invalidResponse("Invalid, incomplete, or unsupported function call.");
+      }
       let args: unknown;
-      try { args = JSON.parse(call.arguments ?? ""); } catch { throw invalidResponse("Function call arguments are not valid JSON."); }
-      if (!args || typeof args !== "object" || Array.isArray(args) || !("code" in args) || typeof args.code !== "string" || Object.keys(args).some(key => key !== "code")) {
+      try {
+        args = JSON.parse(call.arguments ?? "");
+      } catch {
+        throw invalidResponse("Function call arguments are not valid JSON.");
+      }
+      if (!args || typeof args !== "object" || Array.isArray(args) ||
+        !("code" in args) || typeof args.code !== "string" ||
+        Object.keys(args).some(key => key !== "code")) {
         throw invalidResponse("exec_js requires a code string and no other arguments.");
       }
       callIds.add(call.call_id);
@@ -256,19 +263,25 @@ export function classifyResponse(response: ResponsesApiResponse) {
     }
     if (item.type !== "message") throw invalidResponse(`Unsupported response item: ${item.type}.`);
     const message = item as MessageItem;
-    if (message.role !== "assistant" || !Array.isArray(message.content) || (message.status !== undefined && message.status !== "completed")) {
+    if (message.role !== "assistant" || !Array.isArray(message.content) ||
+      (message.status !== undefined && message.status !== "completed")) {
       throw invalidResponse("The response contains an invalid or unfinished assistant message.");
     }
     if (message.phase != null) {
-      hasExplicitPhase = true;
       if (message.phase !== "commentary" && message.phase !== "final_answer") throw invalidResponse("Unknown assistant message phase.");
     }
     for (const part of message.content) {
-      if (part.type === "refusal") { refusal = part.refusal?.trim() || "The model declined this task."; continue; }
+      if (part.type === "refusal") {
+        refusal = part.refusal?.trim() || "The model declined this task.";
+        continue;
+      }
       if (part.type !== "output_text" || !part.text?.trim()) continue;
-      if (message.phase === "commentary") commentary.push(part.text.trim());
-      else if (message.phase === "final_answer") final.push(part.text.trim());
-      else unphased.push(part.text.trim());
+      if (message.phase === "commentary") {
+        commentary.push(part.text.trim());
+      } else {
+        // Phase is optional per message, including alongside explicit commentary.
+        final.push(part.text.trim());
+      }
     }
   }
   if (refusal) throw new RunnerCoreError(refusal, { code: "model_refusal", statusCode: 400 });
@@ -277,7 +290,6 @@ export function classifyResponse(response: ResponsesApiResponse) {
   if (calls.length) return { kind: "calls" as const, calls, commentary: progress };
   if (final.length) return { kind: "final" as const, text: final.join("\n\n"), commentary: progress };
   if (commentary.length) return { kind: "commentary" as const, commentary: progress };
-  if (!hasExplicitPhase && unphased.length) return { kind: "final" as const, text: unphased.join("\n\n"), commentary: progress };
   throw invalidResponse("Response contains no supported tool calls, progress, or final answer.");
 }
 
@@ -309,7 +321,12 @@ export async function runResponsesCodeLoop(
 
     previousResponseId = response.id;
     if (classified.commentary) {
-      await input.context.emitEvent({ type: "run_progress", level: "pending", message: "Model progress.", detail: classified.commentary });
+      await input.context.emitEvent({
+        type: "run_progress",
+        level: "pending",
+        message: "Model progress.",
+        detail: classified.commentary,
+      });
     }
     if (classified.kind === "final") {
       finalAssistantMessage = classified.text;

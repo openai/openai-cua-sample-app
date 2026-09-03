@@ -1,125 +1,72 @@
 # Architecture
 
-The JavaScript sample app is an independent pnpm workspace under `javascript-app`. Its packages follow one browser-focused runner pipeline. The repository-root `labs/` templates are copied into fresh run workspaces; they are never edited during a run.
+The JavaScript sample is a pnpm workspace under `javascript-app/`. The runner copies a shared root `labs/` template into a fresh workspace for each run.
 
-## Package Boundaries
+## Process boundary
 
-### `packages/replay-schema`
+The main runner owns the Responses API client, HTTP/SSE server, run records, request deadlines, and Chromium browser-server handle. A child Node.js process connects to Chromium and owns the Playwright context, page, persistent JavaScript globals, and scenario verification.
 
-Shared contracts for:
+The worker provides a separate process that the parent can terminate. It is **not an operating-system security sandbox** and runs with the host user's permissions. The parent removes `OPENAI_API_KEY` from the worker and Chromium environments; this does not provide filesystem or network isolation. The HTTP runner binds to loopback by default and has no authentication.
 
-- scenario manifests
-- run start requests and responses
-- replay bundle metadata
-- SSE event payloads
-- structured runner errors
-- versioned paint document snapshots and save records
+An internal [protocol](../packages/browser-runtime/src/protocol.ts) carries initialization, JavaScript execution, browser observations, screenshots, finalization, and close requests. The parent does not expose the full Playwright API over that protocol.
 
-If an HTTP route or UI state is public, its shape should be defined here first.
+## Package boundaries
 
-### `packages/scenario-kit`
+| Location | Responsibility |
+| --- | --- |
+| [`packages/replay-schema`](../packages/replay-schema/src/index.ts) | Public request, response, event, replay, and paint-save contracts. |
+| [`packages/scenario-kit`](../packages/scenario-kit/src/scenarios.ts) | Scenario registry, template locations, and default prompts. |
+| [`packages/browser-runtime`](../packages/browser-runtime/src/javascript-process.ts) | Chromium and worker lifecycle, protocol validation, observations, and deadlines. |
+| [`packages/runner-core`](../packages/runner-core/src/runner-manager.ts) | Run lifecycle, workspaces, model loop, scenario executors, and verification. |
+| [`apps/runner`](../apps/runner/src/server.ts) | Fastify routes, SSE, and screenshot serving. |
+| [`apps/demo-web`](../apps/demo-web/app/ui/operator-console/useRunStream.ts) | Console state, run actions, connection recovery, and replay presentation. |
 
-Scenario manifests and default prompts for the three public labs:
+## A run from start to finish
 
-- kanban
-- paint
-- booking
+1. The console loads scenarios and checks for an active run. A page refresh can reattach to that run.
+2. `POST /api/runs` validates the request. `RunnerManager` reserves the single active-run slot, copies the lab template, and creates the initial run and replay records.
+3. The scenario executor starts a local lab server, parent-owned Chromium, and a JavaScript worker.
+4. The [Responses loop](../packages/runner-core/src/responses-loop.ts) exposes `exec_js` and sends requested code to the worker. It records tool results and captures screenshots.
+5. Commentary continues the loop. A final assistant message with no pending tool calls completes it. API failure states, unsupported tools, and an exhausted turn budget fail the run.
+6. The worker's `finalizeScenario` handler retains scenario artifacts and runs verification when enabled. Paint capture happens before its optional verification.
+7. Worker, Chromium, and lab-server cleanup finishes. The parent then publishes the terminal run status and releases the active-run slot. Replay snapshots are written atomically.
 
-This package is the public scenario registry. Adding a new scenario starts here.
+The start response includes initial run detail. The console follows SSE and polls every two seconds to recover missed updates. Requests have client-side deadlines so an unavailable runner does not leave an action pending indefinitely. `GET /api/runs/active` returns the active `RunDetail` or `null`; it does not provide completed-run history. Persisted runs remain available through their detail, replay, and event endpoints.
 
-### `packages/browser-runtime`
+## JavaScript execution and cleanup
 
-Browser lifecycle and execution boundaries for:
+The worker exposes `browser`, `context`, `page`, `Buffer`, `console.log`, and `display()`. Each tool call runs in an async function, so use `globalThis` to retain custom state between calls. A new run gets fresh JavaScript and browser state.
 
-- launching the browser
-- resolving the start target
-- reading browser state
-- capturing screenshots
-- starting one JavaScript child process per run and enforcing request deadlines
+The parent starts a 20-second deadline before sending a JavaScript request. Ordinary script exceptions return as tool output, allowing the model to correct them. Playwright actions default to a 10-second timeout and navigation to 15 seconds.
 
-The parent owns a Playwright browser-server handle. The child connects to that browser and owns its page, context, and persistent JavaScript state. A small internal protocol covers initialization, execution, state and screenshots, finalization, and closing. It does not forward the full Playwright API.
+Stop, execution timeout, worker failure, or an invalid worker response ends the session and awaits process cleanup. The watchdog and browser handle remain in the parent, so synchronous loops, loops after `await`, and unresolved promises in the worker can be terminated. Stop and runner shutdown tolerate repeated calls.
 
-### `packages/runner-core`
+## HTTP and replay contracts
 
-Core orchestration for:
+The [shared schema](../packages/replay-schema/src/index.ts) defines accepted start fields: `scenarioId`, `prompt`, optional `model`, `browserMode`, `maxResponseTurns`, and `verificationEnabled`. Unknown fields receive HTTP 400. Browser visibility uses `headless` or `headful`.
 
-- mutable run workspaces
-- run lifecycle management
-- the Responses API loop
-- scenario executors
-- verification
+The main endpoints are:
 
-The [model loop](../packages/runner-core/src/responses-loop.ts) stays in the main process, along with the API key. The [execution worker](../packages/runner-core/src/javascript-worker.ts) owns script evaluation and scenario verification and does not inherit the API key. The runner build emits the worker explicitly; development starts it from TypeScript.
+- `GET /api/scenarios` and `POST /api/scenarios/:id/reset`
+- `POST /api/runs` and `GET /api/runs/active`
+- `GET /api/runs/:id` and `POST /api/runs/:id/stop`
+- `GET /api/runs/:id/events` and `GET /api/runs/:id/replay`
+- `GET /api/runs/:id/artifacts/screenshots/:name`
 
-### `apps/runner`
+Version-2 replay bundles contain the run record, workspace reference, screenshots, summary, and ordered events, including function calls. Files live under `javascript-app/data/`.
 
-Fastify HTTP layer for:
+`replay.json` is the authoritative snapshot. An interrupted write can leave the separate run record or event log ahead of it.
 
-- `POST /api/runs`
-- `GET /api/runs/:id`
-- `POST /api/runs/:id/stop`
-- `GET /api/runs/:id/events`
-- `GET /api/runs/:id/replay`
-- scenario reset and screenshot artifact routes
+The console fills the viewport, with independent scrolling for controls and activity. On narrow screens, Controls, Preview, and Activity navigation preserves panel state. The timeline remains available with thumbnails collapsed, and reviewing older activity or a selected frame preserves that position as new events arrive.
 
-This app should stay thin. The logic belongs in `runner-core`.
+## Paint persistence and verification
 
-### `apps/demo-web`
+Sketch Studio is a static application with a 1024 × 768 raster document and up to eight Canvas 2D layers. The document engine owns pixels, layers, history, and persistence; the view maps pointer coordinates through zoom and pan. Resizing changes the view without resizing document buffers.
 
-Next.js operator console for:
+The runner reads `__paintReadDocumentSnapshot()` and `__paintReadSaveRecord()` after `__paintLabReady`. Verification compares current and saved metadata and pixel hashes, independently decodes the saved PNGs, composites layers, and checks for visible nonwhite pixels. It establishes a consistent, nonblank save. Visual review determines whether the artwork matches the requested subject.
 
-- selecting a scenario
-- starting and stopping runs
-- reviewing streamed activity
-- scrubbing captured screenshots
-- surfacing actionable runner guidance
+After normal model completion, paint finalization writes the last saved draft to `artwork/draft.sketch.json` and `artwork/draft.png` in the run workspace, even when verification is off. No draft produces no retained paint files. Invalid image data or filesystem errors fail the run; cancellation may happen before capture.
 
-The UI is split into a hook (`useRunStream`) plus focused presentational components.
+IndexedDB recovery is scoped to the lab origin and browser context. New runs start fresh, and the editor does not import retained project JSON. The paint save-record version is independent of the replay-bundle version.
 
-The console fills the viewport. Run actions stay above the workspace; controls and activity scroll independently, and screenshots scale to the available space without cropping. Below 960px, Controls, Preview, and Activity navigation shows one panel while keeping all panel state mounted. Starting a run or selecting an activity frame opens Preview. Thumbnails are collapsed initially, with the timeline slider always available. Resize observers restore activity following when its panel becomes visible and keep the selected thumbnail within the horizontal filmstrip without scrolling the page. Manually reviewing older activity or a pinned frame preserves that position as new events arrive.
-
-## Runtime Flow
-
-1. The operator console requests the public scenario registry from the runner.
-2. `RunnerManager` reserves the active-run slot before creating a mutable workspace and replay bundle.
-3. `RunnerManager` selects a scenario executor through `executor-registry.ts`.
-4. The executor starts the lab server, parent-owned Chromium, and the JavaScript worker. The model loop exposes `exec_js`, sending code to the worker.
-5. The loop records tool output and screenshots, continuing after commentary and completing on a final assistant message with no pending tool calls. Explicit API failure states, unsupported tools, and exhausted turn budgets fail the run.
-6. After normal model completion, the worker captures saved artwork and performs optional verification. The parent records results and writes replay snapshots atomically.
-7. Worker, browser, and lab-server cleanup completes before the active-run slot is released. Stop and shutdown may be called repeatedly.
-8. The console receives initial run detail in the start response, follows SSE, and polls to recover missed updates or connections. Completed persisted runs can also replay their events.
-
-## Execution Deadline And Cleanup
-
-The parent starts a 20-second deadline before sending JavaScript to the child. Ordinary script exceptions are returned as tool output. Stop, timeout, a worker crash, or a malformed worker response closes the session and awaits process cleanup. Because the deadline and browser handle live outside the worker, synchronous loops, loops after `await`, and unresolved promises cannot block the HTTP server or prevent termination. A new run starts with fresh JavaScript and browser state.
-
-The worker is an execution boundary for cancellation, not an operating-system security sandbox. Run this sample only against the local labs or other environments you control.
-
-## Request And Replay Contracts
-
-Runs have a single browser execution path. Start-run requests omit `mode`; the strict request schema rejects unknown fields, including both former execution-mode values, with HTTP 400. Run records omit `mode`, and scenario manifests omit `defaultMode`. The separate browser mode still selects headless or headful Chromium.
-
-New replay bundles use version `2`. Their event vocabulary includes REPL function calls and excludes the former computer-call events. Saved replay files are left untouched, with no migration or historical native-run display support.
-
-## Sketch Studio
-
-The paint lab is a static HTML/CSS application with browser ES modules. Its document engine owns a fixed 1024 × 768 raster document with up to eight transparent Canvas 2D layers over a white background. The renderer composites these layers into the display canvas and maps pointer coordinates through zoom and pan. Transient previews and selections use a separate overlay; resizing changes the view without resizing document buffers.
-
-The tool engine implements drawing transactions, shapes, text, fill, and selection editing. History retains pixel-region deltas and metadata/layer changes, bounded to 50 actions and 64 MiB. Eviction removes undo entries without changing current artwork. Persistence captures immutable version-2 save records, stores completed drafts in IndexedDB, restores validated layers on reload, and exports the composite PNG.
-
-The runner waits for `__paintLabReady` and reads `__paintReadDocumentSnapshot()` and `__paintReadSaveRecord()`. These accessors do not edit or save the document. The verifier compares current and saved metadata and pixel hashes, independently decodes saved PNGs, recomposites layers, and checks for visible nonwhite pixels. This verifies a consistent, nonblank save; matching the operator's requested subject requires visual review.
-
-After the Responses loop completes normally, the paint executor captures the last saved draft under `artwork/` in the run workspace before optional verification and teardown. It writes `draft.sketch.json` and `draft.png` through temporary files, reports their paths in events and summary notes, and propagates image-validation or filesystem failures. Capture also runs when verification is disabled. No saved draft produces no retained paint files. Cancelled or interrupted runs may close the browser before capture.
-
-Draft recovery is scoped to the lab origin and browser context. Each new run starts fresh, and the editor does not import retained project JSON. The paint save-record version is independent of the existing replay-bundle version `2`.
-
-## Extensibility
-
-The public branch intentionally exposes only three scenarios, but the architecture is meant to be forked:
-
-- add a manifest in `scenario-kit`
-- add a verifier and instructions in `runner-core`
-- register the executor in `executor-registry.ts`
-- add a lab template under `labs`
-
-That path is documented in [docs/contributing.md](./contributing.md).
+See [contributing](contributing.md) for the complete scenario-extension path, including the worker's finalization handler.

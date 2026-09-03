@@ -1,5 +1,5 @@
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import { request } from "node:http";
+import { request, type IncomingMessage } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
@@ -39,10 +39,10 @@ afterEach(async () => {
   }
 });
 
-async function createServer() {
+async function createServer(content: string | Buffer = "<h1>Lab</h1>") {
   const workspacePath = await mkdtemp(join(tmpdir(), "cua-lab-server-test-"));
   cleanups.push(() => rm(workspacePath, { force: true, recursive: true }));
-  await writeFile(join(workspacePath, "index.html"), "<h1>Lab</h1>");
+  await writeFile(join(workspacePath, "index.html"), content);
   await mkdir(join(workspacePath, "assets"));
   const server = await startWorkspaceLabServer({ workspacePath });
   cleanups.push(server.close);
@@ -86,5 +86,30 @@ describe("workspace lab asset serving", () => {
     readFailure.next = true;
     await expect(get(server.urlFor())).rejects.toThrow();
     expect((await get(server.urlFor())).status).toBe(200);
+  });
+
+  it("closes active slow readers and supports repeated close calls", async () => {
+    const server = await createServer(Buffer.alloc(32 * 1024 * 1024, "x"));
+    const response = await new Promise<IncomingMessage>((resolve, reject) => {
+      const req = request(server.urlFor(), resolve);
+      req.on("error", reject);
+      req.end();
+    });
+    response.on("error", () => {});
+    response.pause();
+    const closing = server.close();
+    try {
+      expect(server.close()).toBe(closing);
+      const finished = await Promise.race([
+        closing.then(() => true),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 300)),
+      ]);
+      expect(finished).toBe(true);
+      await expect(get(server.urlFor())).rejects.toThrow();
+      await expect(server.close()).resolves.toBeUndefined();
+    } finally {
+      response.destroy();
+      await closing;
+    }
   });
 });

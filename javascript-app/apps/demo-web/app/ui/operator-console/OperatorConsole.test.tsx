@@ -240,7 +240,7 @@ describe("OperatorConsole", () => {
     ).toBeGreaterThan(0);
     expect(
       screen.getAllByText(
-        /Start `pnpm dev` or `OPENAI_API_KEY=... pnpm dev:runner`/,
+        /Start `pnpm dev` from `javascript-app`/,
       ).length,
     ).toBeGreaterThan(0);
     expect(screen.getByText("Runner Offline")).toBeTruthy();
@@ -323,13 +323,38 @@ describe("OperatorConsole", () => {
     expect(options?.method).toBe("POST");
     expect(payload).toMatchObject({
       browserMode: "headful",
-      model: "gpt-5.6-sol",
       maxResponseTurns: 24,
       prompt: scenario.defaultPrompt,
       scenarioId: scenario.id,
       verificationEnabled: true,
     });
     expect(payload).not.toHaveProperty("mode");
+    expect(payload).not.toHaveProperty("model");
+  });
+
+  it("restores the active scenario, options, screenshot and Stop after a page refresh", async () => {
+    const activeScenario: ScenarioManifest = { ...scenario, id: "paint-draw-poster", labId: "paint", title: "Sketch Studio" };
+    const active = runWithFrames([capturedFrame(1)]);
+    active.scenario = activeScenario;
+    active.run = {
+      ...active.run, scenarioId: activeScenario.id, labId: activeScenario.labId,
+      prompt: "Finish this drawing", browserMode: "headful", verificationEnabled: true, maxResponseTurns: 32,
+    };
+    render(<OperatorConsole initialRun={active} initialRunnerIssue={null}
+      runnerBaseUrl="http://127.0.0.1:4001" scenarios={[scenario, activeScenario]} />);
+
+    expect((screen.getByRole("combobox", { name: "Scenario" }) as HTMLSelectElement).value).toBe(activeScenario.id);
+    expect((screen.getByRole("textbox", { name: "Run prompt" }) as HTMLTextAreaElement).value).toBe("Finish this drawing");
+    expect(screen.getByRole("button", { name: "Preview" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("img", { name: "Captured frame 1 for Sketch Studio" }).getAttribute("src")).toContain(active.browser!.screenshots[0]!.url);
+    expect((screen.getByRole("button", { name: "Start Run" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Stop" }) as HTMLButtonElement).disabled).toBe(false);
+
+    await userEvent.setup().click(screen.getByText("Advanced settings"));
+    expect(screen.getByRole("button", { name: "Visible" }).getAttribute("aria-pressed")).toBe("true");
+    expect((screen.getByRole("checkbox", { name: "Run verification checks" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("slider", { name: "Turn budget" }) as HTMLInputElement).value).toBe("32");
+    expect(MockEventSource.instances).toHaveLength(1);
   });
 
   it("enables Stop from the accepted start response without a follow-up snapshot", async () => {

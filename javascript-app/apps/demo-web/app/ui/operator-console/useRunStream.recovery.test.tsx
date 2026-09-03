@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunDetail, RunEvent, ScenarioManifest } from "@cua-sample/replay-schema";
 
 import { useRunStream } from "./useRunStream";
+import { runnerRequestTimeoutMs } from "./runner-request";
 
 const scenario: ScenarioManifest = {
   id: "kanban-reprioritize-sprint", labId: "kanban", category: "productivity",
@@ -35,8 +36,8 @@ function response(payload: unknown, status = 200) {
   return { ok: status < 400, status, json: async () => payload } as Response;
 }
 
-function mount() {
-  return renderHook(() => useRunStream({ initialRunnerIssue: null, runnerBaseUrl: "http://127.0.0.1:4001", scenarios: [scenario] }));
+function mount(initialRun: RunDetail | null = null) {
+  return renderHook(() => useRunStream({ initialRun, initialRunnerIssue: null, runnerBaseUrl: "http://127.0.0.1:4001", scenarios: [scenario] }));
 }
 
 describe("useRunStream recovery", () => {
@@ -70,7 +71,7 @@ describe("useRunStream recovery", () => {
     await act(async () => { await hook.result.current.handleStopRun(); });
     expect(hook.result.current.selectedRun?.run.status).toBe("cancelled");
     expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith("/api/runs"))).toHaveLength(1);
-    expect(fetch).toHaveBeenLastCalledWith("http://127.0.0.1:4001/api/runs/run-test/stop", { method: "POST" });
+    expect(fetch).toHaveBeenLastCalledWith("http://127.0.0.1:4001/api/runs/run-test/stop", expect.objectContaining({ method: "POST" }));
   });
 
   it("keeps one connection when replayed browser events refresh the run", async () => {
@@ -171,6 +172,16 @@ describe("useRunStream recovery", () => {
     expect(hook.result.current.selectedRun?.run.status).toBe("running");
   });
 
+  it("reports the completed outcome when Stop races run completion", async () => {
+    const hook = mount(structuredClone(detail));
+    detail.run.status = "completed";
+    vi.mocked(fetch).mockResolvedValueOnce(response(structuredClone(detail)));
+    await act(async () => { await hook.result.current.handleStopRun(); });
+    expect(hook.result.current.selectedRun?.run.status).toBe("completed");
+    expect(hook.result.current.activityItems.some((item) => item.summary === "Run run-test is already completed.")).toBe(true);
+    expect(hook.result.current.activityItems.some((item) => item.summary.includes("stopped by operator request"))).toBe(false);
+  });
+
   it("keeps watching a run when a workspace reset fails", async () => {
     const hook = mount();
     await act(async () => { await hook.result.current.handleStartRun(); });
@@ -193,5 +204,49 @@ describe("useRunStream recovery", () => {
     await act(async () => { await hook.result.current.handleResetWorkspace(); });
     await act(async () => { resolveSnapshot(response(makeDetail())); });
     expect(hook.result.current.selectedRun?.run.status).toBe("cancelled");
+  });
+
+  it("recovers polling when a snapshot body stalls after the headers arrive", async () => {
+    const hook = mount(structuredClone(detail));
+    let signal!: AbortSignal;
+    vi.mocked(fetch).mockImplementationOnce(async (_url, init) => {
+      signal = init!.signal!;
+      return {
+        ok: true,
+        status: 200,
+        json: () => new Promise((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+        }),
+      } as Response;
+    });
+    await act(async () => { MockEventSource.instances[0]!.onopen?.(); });
+    detail.run.status = "completed";
+    await act(async () => { await vi.advanceTimersByTimeAsync(runnerRequestTimeoutMs); });
+    expect(signal.aborted).toBe(true);
+    expect(hook.result.current.selectedRun?.run.status).toBe("completed");
+    expect(hook.result.current.controlsLocked).toBe(false);
+  });
+
+  it.each(["start", "stop", "reset"] as const)("unlocks a stalled %s request after its deadline", async (action) => {
+    const hook = mount(action === "start" ? null : structuredClone(detail));
+    let signal!: AbortSignal;
+    vi.mocked(fetch).mockImplementationOnce((_url, init) => new Promise((_resolve, reject) => {
+      signal = init!.signal!;
+      signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    }));
+    let pending!: Promise<void>;
+    act(() => {
+      pending = action === "start" ? hook.result.current.handleStartRun()
+        : action === "stop" ? hook.result.current.handleStopRun()
+          : hook.result.current.handleResetWorkspace();
+    });
+    expect(hook.result.current.pendingAction).toBe(action);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(runnerRequestTimeoutMs);
+      await pending;
+    });
+    expect(signal.aborted).toBe(true);
+    expect(hook.result.current.pendingAction).toBeNull();
+    expect(hook.result.current.currentIssue?.error).toContain("timed out");
   });
 });

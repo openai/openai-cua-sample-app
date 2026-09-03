@@ -21,7 +21,7 @@ import {
   createRunnerIssue,
   createRunnerUnavailableIssue,
   defaultMaxResponseTurns,
-  defaultRunModel,
+  configuredRunModel,
   deriveRunFailureIssue,
   formatRunnerIssueMessage,
   mapManualLogToActivity,
@@ -30,6 +30,7 @@ import {
   parseRunnerIssue,
 } from "./helpers";
 import type { LogEntry, PendingAction, RunnerIssue, TranscriptEntry } from "./types";
+import { requestRunnerJson } from "./runner-request";
 
 const emptyScreenshots: NonNullable<RunDetail["browser"]>["screenshots"] = [];
 const runRefreshIntervalMs = 2_000;
@@ -59,6 +60,7 @@ class RunnerApiError extends Error {
 }
 
 type UseRunStreamOptions = {
+  initialRun?: RunDetail | null;
   initialRunnerIssue: RunnerIssue | null;
   runnerBaseUrl: string;
   scenarios: ScenarioManifest[];
@@ -85,23 +87,24 @@ function toRunnerIssue(
 }
 
 export function useRunStream({
+  initialRun = null,
   initialRunnerIssue,
   runnerBaseUrl,
   scenarios,
 }: UseRunStreamOptions) {
-  const initialScenario = scenarios[0] ?? null;
+  const initialScenario = scenarios.find((scenario) => scenario.id === initialRun?.run.scenarioId) ?? scenarios[0] ?? null;
   const [selectedScenarioId, setSelectedScenarioId] = useState(
     initialScenario?.id ?? "",
   );
-  const [browserMode, setBrowserMode] = useState<BrowserMode>("headless");
-  const [verificationEnabled, setVerificationEnabled] = useState(false);
+  const [browserMode, setBrowserMode] = useState<BrowserMode>(initialRun?.run.browserMode ?? "headless");
+  const [verificationEnabled, setVerificationEnabled] = useState(initialRun?.run.verificationEnabled ?? false);
   const [maxResponseTurns, setMaxResponseTurns] =
-    useState<ResponseTurnBudget>(defaultMaxResponseTurns);
-  const [prompt, setPrompt] = useState(initialScenario?.defaultPrompt ?? "");
+    useState<ResponseTurnBudget>(initialRun?.run.maxResponseTurns ?? defaultMaxResponseTurns);
+  const [prompt, setPrompt] = useState(initialRun?.run.prompt ?? initialScenario?.defaultPrompt ?? "");
   const [streamLogs, setStreamLogs] = useState(true);
   const [streamState, setStreamState] = useState("live");
-  const [activeRun, setActiveRun] = useState<RunDetail | null>(null);
-  const [runEvents, setRunEvents] = useState<RunEvent[]>([]);
+  const [activeRun, setActiveRun] = useState<RunDetail | null>(initialRun);
+  const [runEvents, setRunEvents] = useState<RunEvent[]>(initialRun?.events ?? []);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [workspaceState, setWorkspaceState] =
     useState<ScenarioWorkspaceState | null>(null);
@@ -175,9 +178,10 @@ export function useRunStream({
     fallbackIssue: RunnerIssue,
   ) {
     let response: Response;
+    let payload: unknown;
 
     try {
-      response = await fetch(url, init);
+      ({ response, payload } = await requestRunnerJson(url, init));
     } catch (error) {
       throw new RunnerApiError(
         createRunnerUnavailableIssue(
@@ -188,14 +192,13 @@ export function useRunStream({
     }
 
     if (!response.ok) {
-      const payload = await response.json().catch(() => null);
       throw new RunnerApiError(
         parseRunnerIssue(payload) ?? fallbackIssue,
         response.status,
       );
     }
 
-    return parser.parse(await response.json());
+    return parser.parse(payload);
   }
 
   const fetchRunDetail = useCallback(
@@ -449,7 +452,7 @@ export function useRunStream({
           body: JSON.stringify({
             browserMode,
             maxResponseTurns,
-            model: defaultRunModel,
+            ...(configuredRunModel ? { model: configuredRunModel } : {}),
             prompt,
             scenarioId: selectedScenario.id,
             verificationEnabled,
@@ -526,7 +529,9 @@ export function useRunStream({
         createManualTranscript(
           "control",
           "operator",
-          `Run ${detail.run.id} stopped by operator request.`,
+          detail.run.status === "cancelled"
+            ? `Run ${detail.run.id} stopped by operator request.`
+            : `Run ${detail.run.id} is already ${detail.run.status}.`,
         ),
       );
     } catch (error) {

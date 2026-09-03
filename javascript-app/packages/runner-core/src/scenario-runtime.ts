@@ -1,5 +1,9 @@
 import { fileURLToPath } from "node:url";
-import { launchJavaScriptSession, type BrowserObservationSession, type JavaScriptSession } from "@cua-sample/browser-runtime";
+import {
+  launchJavaScriptSession,
+  type BrowserObservationSession,
+  type JavaScriptSession,
+} from "@cua-sample/browser-runtime";
 import {
   type BrowserMode,
   type BrowserScreenshotArtifact,
@@ -105,12 +109,19 @@ function isVerificationEnabled(context: RunExecutionContext) {
   return context.detail.run.verificationEnabled ?? false;
 }
 
-export function validateVerificationPrompt(context: RunExecutionContext, parse: (prompt: string) => unknown, hint: string) {
+export function validateVerificationPrompt(
+  context: RunExecutionContext,
+  parse: (prompt: string) => unknown,
+  hint: string,
+) {
   if (!isVerificationEnabled(context)) return;
-  try { parse(context.detail.run.prompt); }
-  catch (error) {
+  try {
+    parse(context.detail.run.prompt);
+  } catch (error) {
     throw new RunnerCoreError(error instanceof Error ? error.message : "Invalid verification prompt.", {
-      code: "invalid_verification_prompt", hint, statusCode: 400,
+      code: "invalid_verification_prompt",
+      hint,
+      statusCode: 400,
     });
   }
 }
@@ -174,17 +185,20 @@ export async function runWorkspaceLabBrowserFlow(
   try {
     assertActive(context.signal);
     session = await launchJavaScriptSession({
-    browserMode: context.detail.run.browserMode,
-    screenshotDir: context.screenshotDirectory,
-    startTarget: {
-      kind: "remote_url",
-      label: options.sessionLabel,
-      url: labUrl,
-    },
-    workspacePath: context.detail.workspacePath,
-    workerPath: fileURLToPath(new URL(import.meta.url.endsWith(".ts") ? "./javascript-worker.ts" : "./javascript-worker.js", import.meta.url)),
-    signal: context.signal,
-  });
+      browserMode: context.detail.run.browserMode,
+      screenshotDir: context.screenshotDirectory,
+      startTarget: {
+        kind: "remote_url",
+        label: options.sessionLabel,
+        url: labUrl,
+      },
+      workspacePath: context.detail.workspacePath,
+      workerPath: fileURLToPath(new URL(
+        import.meta.url.endsWith(".ts") ? "./javascript-worker.ts" : "./javascript-worker.js",
+        import.meta.url,
+      )),
+      signal: context.signal,
+    });
     assertActive(context.signal);
     await context.emitEvent({
       detail: labUrl,
@@ -215,9 +229,16 @@ export async function runWorkspaceLabBrowserFlow(
     });
     if (finalization.artifacts) {
       await context.emitEvent({
-        type: "run_progress", level: "ok",
+        type: "run_progress",
+        level: "ok",
         message: "Saved paint artifacts retained in the run workspace.",
         detail: `PNG: ${finalization.artifacts.imagePath} · Project: ${finalization.artifacts.projectPath}`,
+      });
+    }
+    if (isVerificationEnabled(context) && !finalization.verificationPassed) {
+      throw new RunnerCoreError(finalization.verificationDetail ?? "Scenario verification failed.", {
+        code: "verification_failed",
+        statusCode: 400,
       });
     }
     await context.captureScreenshot(session, options.verifiedScreenshotLabel);
@@ -241,7 +262,11 @@ export async function runWorkspaceLabBrowserFlow(
       verificationPassed: finalization.verificationPassed,
     });
   } finally {
-    try { await session?.close(); } finally { await labServer.close(); }
+    try {
+      await session?.close();
+    } finally {
+      await labServer.close();
+    }
   }
 }
 

@@ -15,8 +15,8 @@ import type {
   TranscriptEntry,
 } from "./types";
 
-export const defaultRunModel =
-  process.env.NEXT_PUBLIC_CUA_DEFAULT_MODEL ?? "gpt-5.6-sol";
+export const configuredRunModel =
+  process.env.NEXT_PUBLIC_CUA_DEFAULT_MODEL?.trim() || undefined;
 export const defaultMaxResponseTurns = Number(
   process.env.NEXT_PUBLIC_CUA_DEFAULT_MAX_RESPONSE_TURNS ?? "24",
 ) as ResponseTurnBudget;
@@ -27,7 +27,7 @@ export const turnBudgetHelpText =
 export const verificationHelpText =
   "Runs the scenario's built-in checks after the model stops. Leave this off to treat the model's completed action loop as the success condition.";
 export const runnerUnavailableHint =
-  "Start `pnpm dev` or `OPENAI_API_KEY=... pnpm dev:runner`, then refresh the page.";
+  "Start `pnpm dev` from `javascript-app`, check the runner terminal, then refresh the page.";
 
 function titleForIssueCode(code: string) {
   switch (code) {
