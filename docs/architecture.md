@@ -75,6 +75,8 @@ Next.js operator console for:
 
 The UI is split into a hook (`useRunStream`) plus focused presentational components.
 
+The console fills the viewport. Run actions stay above the workspace; controls and activity scroll independently, and screenshots scale to the available space without cropping. Below 960px, Controls, Preview, and Activity navigation shows one panel while keeping all panel state mounted. Starting a run or selecting an activity frame opens Preview. Thumbnails are collapsed initially, with the timeline slider always available. Resize observers restore activity following when its panel becomes visible and keep the selected thumbnail within the horizontal filmstrip without scrolling the page. Manually reviewing older activity or a pinned frame preserves that position as new events arrive.
+
 ## Runtime Flow
 
 1. The operator console requests the public scenario registry from the runner.

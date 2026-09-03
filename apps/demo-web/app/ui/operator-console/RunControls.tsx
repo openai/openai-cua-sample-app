@@ -140,7 +140,7 @@ export function RunControls({
   ...actionButtons
 }: RunControlsProps) {
   return (
-    <aside className="panel controlsPanel">
+    <aside aria-label="Run controls" className="panel controlsPanel" id="controls-pane">
       <div className="controlsHeader">
         <h2>Controls</h2>
       </div>
@@ -168,8 +168,8 @@ export function RunControls({
             disabled={controlsLocked}
             id="run-prompt"
             onChange={(event) => onPromptChange(event.target.value)}
-            placeholder="Describe the operator task for gpt-5.6-sol."
-            rows={5}
+            placeholder="Describe the operator task for GPT-5.6."
+            rows={4}
             value={prompt}
           />
         </div>

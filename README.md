@@ -1,6 +1,6 @@
-# gpt-5.6-sol CUA Sample App
+# GPT-5.6 CUA Sample App
 
-TypeScript sample app for browser-focused computer-use workflows with gpt-5.6-sol. The repo includes:
+TypeScript sample app for browser-focused computer-use workflows with GPT-5.6. The repo includes:
 
 - `apps/demo-web`: a Next.js operator console for starting runs and reviewing screenshots, events, and replay artifacts
 - `apps/runner`: a Fastify runner that manages mutable workspaces, browser sessions, SSE, and replay bundles
@@ -62,6 +62,8 @@ pnpm dev
 ```
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000), choose a scenario, keep `Headless` selected, and start a run.
+
+The console fits the window, with run actions at the top and controls and activity scrolling in their own panels. Below 960px, use **Controls**, **Preview**, and **Activity** to switch panels without losing your draft or selected frame. The timeline slider stays visible; **Show thumbnails** expands the frame strip.
 
 ## Local Development
 

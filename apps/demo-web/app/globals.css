@@ -31,6 +31,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   color: var(--text-primary);
   font-family: "SF Pro Text", "Helvetica Neue", "Segoe UI", sans-serif;
 }
@@ -689,17 +690,27 @@ code,
 }
 
 .consoleShell {
-  padding: 20px;
+  height: 100dvh;
+  min-height: 0;
+  padding: 12px;
+  overflow: hidden;
 }
 
 .consoleFrame {
-  width: min(1560px, 100%);
-  padding: 14px;
-  border-radius: 22px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
+  width: min(1800px, 100%);
+  height: 100%;
+  min-height: 0;
+  padding: 12px;
+  border-radius: 20px;
 }
 
 .consoleTopbar {
-  padding: 12px 14px;
+  padding: 8px 12px;
+  flex-direction: row;
+  align-items: center;
 }
 
 .brandBlock {
@@ -707,10 +718,11 @@ code,
 }
 
 .brandMark {
-  width: 56px;
-  height: 56px;
-  padding: 8px 6px;
-  border-radius: 14px;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  padding: 5px;
+  border-radius: 10px;
   text-align: center;
   line-height: 1;
 }
@@ -733,14 +745,19 @@ code,
 
 .brandCopy h1 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   letter-spacing: -0.03em;
 }
 
 .brandCopy p {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   color: var(--text-secondary);
-  font-size: 0.88rem;
+  font-size: 0.8rem;
+}
+
+.stackLabel {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .statusCluster {
@@ -758,33 +775,22 @@ code,
   padding: 6px 10px;
 }
 
-.benchLayout,
-.benchTop {
-  --bench-desktop-min-height: 1120px;
-}
-
-.benchLayout {
-  display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 14px;
-  margin-top: 14px;
-  min-height: max(calc(100vh - 170px), var(--bench-desktop-min-height));
+.workspacePanelNav {
+  display: none;
 }
 
 .benchTop {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 14px;
-  align-items: stretch;
-  margin-top: 14px;
-  height: max(calc(100vh - 170px), var(--bench-desktop-min-height));
-  min-height: var(--bench-desktop-min-height);
+  grid-template-columns: 310px minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
 }
 
 .controlColumn {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-width: 0;
   min-height: 0;
 }
@@ -822,14 +828,20 @@ code,
 }
 
 .controlsPanel {
-  display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 10px;
   min-height: 0;
-  height: 100%;
-  overflow: visible;
-  padding: 14px 16px;
-  border-radius: 18px;
+  max-height: calc(100% - 154px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.controlsPanel > * {
+  flex-shrink: 0;
 }
 
 .controlsHeader {
@@ -839,13 +851,13 @@ code,
 
 .controlsGrid {
   display: grid;
-  gap: 14px;
-  min-height: 0;
+  gap: 10px;
 }
 
 .railField {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .railField label,
@@ -858,8 +870,8 @@ code,
 }
 
 .fieldLabel {
-  position: relative;
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -871,9 +883,7 @@ code,
 }
 
 .fieldInfo {
-  position: static;
-  display: inline-flex;
-  align-items: center;
+  display: contents;
 }
 
 .fieldInfoButton {
@@ -903,46 +913,21 @@ code,
 }
 
 .fieldPopover {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 20;
-  width: min(280px, 68vw);
+  display: none;
+  width: 100%;
   padding: 10px 12px;
-  border: 1px solid rgba(23, 28, 39, 0.18);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #171c27;
-  box-shadow: 0 12px 28px rgba(15, 18, 26, 0.18);
   color: #eef1f6;
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.5;
   white-space: normal;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-4px);
-  transition:
-    opacity 140ms ease,
-    transform 140ms ease;
-}
-
-.fieldPopover::before {
-  content: "";
-  position: absolute;
-  top: -6px;
-  left: 14px;
-  width: 10px;
-  height: 10px;
-  border-left: 1px solid rgba(23, 28, 39, 0.18);
-  border-top: 1px solid rgba(23, 28, 39, 0.18);
-  background: #171c27;
-  transform: rotate(45deg);
 }
 
 .fieldInfo:hover .fieldPopover,
 .fieldInfo:focus-within .fieldPopover {
-  opacity: 1;
-  transform: translateY(0);
+  display: block;
 }
 
 .railField select,
@@ -985,20 +970,21 @@ code,
 
 .promptField textarea {
   display: block;
-  min-height: 0;
-  min-height: 128px;
+  min-height: 72px;
   max-height: 220px;
-  height: auto;
+  height: clamp(80px, 13dvh, 144px);
   min-width: 0;
-  padding: 12px;
+  padding: 10px;
   resize: vertical;
+  font-size: 0.84rem;
   line-height: 1.5;
 }
 
 .railActivity {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
+  flex: 1;
+  min-height: 144px;
   border: 1px solid var(--panel-border);
   border-radius: 14px;
   overflow: hidden;
@@ -1007,8 +993,8 @@ code,
 
 .feedHeader {
   display: grid;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--panel-border);
 }
 
@@ -1267,8 +1253,8 @@ code,
 .advancedPanel summary {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 10px 12px;
   cursor: pointer;
   list-style: none;
 }
@@ -1315,18 +1301,17 @@ code,
 
 .stageColumn {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
-  height: 100%;
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }
 
 .stageControlBar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+  min-width: 0;
 }
 
 .stageReviewMeta {
@@ -1337,6 +1322,7 @@ code,
 
 .stageToolbarActions {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
@@ -1351,8 +1337,11 @@ code,
 
 .stageNow {
   margin: 0;
+  max-height: 3em;
+  overflow: auto;
+  overflow-wrap: anywhere;
   color: var(--text-secondary);
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   line-height: 1.5;
   max-width: 76ch;
 }
@@ -1392,19 +1381,18 @@ code,
 .browserCanvas {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  height: 100%;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
 .reviewSummary {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 68px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -1429,8 +1417,11 @@ code,
 
 .reviewCopy h3 {
   margin: 0;
-  font-size: 1.05rem;
+  overflow: hidden;
+  font-size: 0.95rem;
   letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .reviewCopy p {
@@ -1451,7 +1442,13 @@ code,
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 4px;
+  max-width: 60%;
+}
+
+.reviewMeta .readoutChip {
+  padding: 4px 6px;
+  font-size: 0.68rem;
 }
 
 .stageCanvas.bench,
@@ -1463,27 +1460,26 @@ code,
   display: grid;
   place-items: center;
   min-height: 0;
+  min-width: 0;
   border: 1px solid var(--panel-border);
-  border-radius: 14px;
-  overflow: hidden;
+  border-radius: 12px;
+  overflow: auto;
   background: #10161f;
-}
-
-.stageMedia.hasCapture {
-  min-height: clamp(520px, 38vw, 680px);
 }
 
 .stageScreenshot {
   display: block;
   width: 100%;
   height: 100%;
+  min-height: 0;
+  min-width: 0;
   object-fit: contain;
   background: #10161f;
 }
 
 .stagePlaceholder {
   max-width: 58ch;
-  padding: 28px;
+  padding: 20px;
   color: #eef1f6;
 }
 
@@ -1500,12 +1496,12 @@ code,
 
 .scrubberPanel {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 12px;
-  min-height: 172px;
-  padding: 12px;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+  padding: 8px 10px;
   border: 1px solid var(--panel-border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.72);
   overflow: hidden;
 }
@@ -1516,9 +1512,10 @@ code,
 
 .scrubberRow {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 6px;
 }
 
 .scrubberCopy {
@@ -1542,8 +1539,7 @@ code,
 .scrubberActions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .scrubberRangeRow {
@@ -1568,11 +1564,12 @@ code,
 .filmstrip {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(108px, 128px);
-  gap: 10px;
-  min-height: 88px;
-  overflow: auto;
-  padding-bottom: 2px;
+  grid-auto-columns: 96px;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  padding: 2px 0 4px;
 }
 
 .filmstrip.isEmpty {
@@ -1583,16 +1580,12 @@ code,
 
 .filmstripFrame {
   display: grid;
-  gap: 6px;
-  padding: 8px;
+  gap: 4px;
+  padding: 5px;
   border: 1px solid var(--panel-border);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.82);
   text-align: left;
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    transform 120ms ease;
 }
 
 .filmstripFrame:hover {
@@ -1609,8 +1602,8 @@ code,
 .filmstripThumb {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  border-radius: 8px;
+  height: 44px;
+  border-radius: 5px;
   object-fit: cover;
   background: #10161f;
 }
@@ -1654,80 +1647,179 @@ code,
   line-height: 1.5;
 }
 
-@media (max-width: 1240px) {
-  .benchLayout,
-  .benchTop {
-    grid-template-columns: 1fr;
-    height: auto;
-    min-height: auto;
-  }
-
-  .stageControlBar,
-  .reviewSummary,
-  .scrubberRow {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .feedActions,
-  .reviewMeta,
-  .scrubberActions,
-  .stageToolbarActions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 760px) {
-  .consoleShell {
-    padding: 12px;
-  }
-
+@media (max-width: 959px) {
   .consoleFrame {
-    padding: 10px;
-    border-radius: 18px;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
   }
 
-  .consoleTopbar {
-    flex-direction: column;
-    align-items: flex-start;
+  .workspacePanelNav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    background: var(--surface-soft);
   }
 
-  .statusCluster,
-  .stageToolbarActions {
-    width: 100%;
+  .workspacePanelButton {
+    min-height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .workspacePanelButton[aria-pressed="true"] {
+    background: var(--surface-strong);
+    color: var(--text-primary);
+    box-shadow: 0 1px 4px rgba(24, 30, 40, 0.1);
+  }
+
+  .benchTop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .benchTop[data-panel="preview"] .controlColumn,
+  .benchTop:not([data-panel="preview"]) .stageColumn,
+  .benchTop[data-panel="controls"] .railActivity,
+  .benchTop[data-panel="activity"] .controlsPanel {
+    display: none;
+  }
+
+  .controlsPanel {
+    flex: 1;
+    max-height: none;
   }
 
   .promptField textarea {
-    min-height: 112px;
+    height: clamp(112px, 24dvh, 220px);
   }
 
-  .activitySummary {
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: flex-start;
+  .statusCluster {
+    width: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .consoleShell {
+    padding: 6px;
   }
 
-  .activityTime {
-    margin-left: 0;
+  .consoleFrame {
+    padding: 8px;
+    gap: 8px;
+    border-radius: 16px;
+  }
+
+  .consoleTopbar {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .brandBlock {
+    gap: 8px;
+  }
+
+  .brandCopy h1 {
+    font-size: 0.84rem;
+  }
+
+  .brandContext {
+    display: none;
+  }
+
+  .statusPill {
+    padding: 5px 6px;
+    font-size: 0.65rem;
+    gap: 4px;
+  }
+
+  .stageControlBar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .stageToolbarActions {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .stageToolbarActions button {
+    padding: 0 8px;
+    font-size: 0.76rem;
+  }
+
+  .browserCanvas {
+    padding: 8px;
+  }
+
+  .reviewSummary {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .reviewMeta {
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .reviewCopy {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .reviewCopy h3 {
+    min-width: 0;
+  }
+
+  .reviewMeta .readoutChip {
+    padding: 3px 5px;
+    font-size: 0.63rem;
+  }
+
+  .scrubberCopy {
+    display: none;
+  }
+
+  .scrubberRow {
+    display: block;
+  }
+
+  .scrubberActions {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .scrubberActions .utilityButton {
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 0.72rem;
+  }
+
+  .stagePlaceholder {
+    padding: 14px;
+  }
+
+  .stagePlaceholder h3 {
+    font-size: 1rem;
+  }
+
+  .stagePlaceholder p {
+    font-size: 0.84rem;
   }
 
   .activityDetail {
-    padding: 0 16px 16px;
-  }
-
-  .reviewCopy p {
-    white-space: normal;
-  }
-
-  .stageMedia {
-    min-height: 360px;
-  }
-
-  .scrubberPanel {
-    min-height: 176px;
-  }
-
-  .filmstrip {
-    grid-auto-columns: minmax(96px, 112px);
+    padding: 0 12px 12px;
   }
 }

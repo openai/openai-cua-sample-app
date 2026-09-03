@@ -22,8 +22,11 @@ export function ConsoleTopbar({
           <strong>5.6</strong>
         </div>
         <div className="brandCopy">
-          <h1>gpt-5.6-sol CUA Sample App</h1>
-          <p>{topbarSubtitle}</p>
+          <h1>GPT-5.6 CUA Sample App</h1>
+          <p>
+            <span className="stackLabel">TypeScript / Playwright</span>
+            <span className="brandContext"> · {topbarSubtitle}</span>
+          </p>
         </div>
       </div>
       <div className="statusCluster">

@@ -1,5 +1,13 @@
 import React from "react";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -62,6 +70,52 @@ const runDetail: RunDetail = {
   workspacePath: "/tmp/test-run/workspace",
 };
 
+function capturedFrame(index: number): BrowserScreenshotArtifact {
+  return {
+    capturedAt: `2026-04-18T12:00:0${index}.000Z`,
+    id: `browser-frame-${index}`,
+    label: `browser-step-${index}`,
+    mimeType: "image/png",
+    pageTitle: scenario.title,
+    pageUrl: "http://127.0.0.1:3102",
+    path: `/tmp/test-run/screenshots/browser-frame-${index}.png`,
+    url: `/api/runs/test-run/artifacts/screenshots/browser-frame-${index}.png`,
+  };
+}
+
+function capturedFrameEvent(
+  screenshot: BrowserScreenshotArtifact,
+  sequence: number,
+): RunEvent {
+  return {
+    createdAt: screenshot.capturedAt,
+    detail: screenshot.url,
+    id: `screenshot-captured-${sequence}`,
+    level: "ok",
+    message: "Browser screenshot captured.",
+    runId: runDetail.run.id,
+    sequence,
+    type: "screenshot_captured",
+  };
+}
+
+function runWithFrames(screenshots: BrowserScreenshotArtifact[]): RunDetail {
+  return {
+    ...runDetail,
+    browser: {
+      currentUrl: "http://127.0.0.1:3102",
+      mode: "headless",
+      pageTitle: scenario.title,
+      screenshots,
+      targetLabel: scenario.title,
+      viewport: { height: 800, width: 1280 },
+    },
+    events: screenshots.map((screenshot, index) =>
+      capturedFrameEvent(screenshot, index + 1),
+    ),
+  };
+}
+
 function jsonResponse(payload: unknown) {
   return {
     json: async () => payload,
@@ -113,6 +167,62 @@ describe("OperatorConsole", () => {
     vi.unstubAllGlobals();
   });
 
+  it("keeps drafts and advanced settings mounted while switching workspace panels", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <OperatorConsole
+        initialRunnerIssue={null}
+        runnerBaseUrl="http://127.0.0.1:4001"
+        scenarios={[scenario]}
+      />,
+    );
+    const navigation = screen.getByRole("navigation", { name: "Workspace panels" });
+    const controlsButton = within(navigation).getByRole("button", { name: "Controls" });
+    const previewButton = within(navigation).getByRole("button", { name: "Preview" });
+    const activityButton = within(navigation).getByRole("button", { name: "Activity" });
+    const controls = screen.getByRole("complementary", { name: "Run controls" });
+    const preview = screen.getByRole("region", { name: "Screenshot preview" });
+    const activity = screen.getByRole("region", { name: "Agent activity" });
+    const workspace = container.querySelector(".benchTop");
+    const prompt = screen.getByRole("textbox", { name: "Run prompt" }) as HTMLTextAreaElement;
+
+    expect(workspace?.getAttribute("data-panel")).toBe("controls");
+    expect(controlsButton.getAttribute("aria-pressed")).toBe("true");
+    expect(controlsButton.getAttribute("aria-controls")).toBe(controls.id);
+    expect(previewButton.getAttribute("aria-controls")).toBe(preview.id);
+    expect(activityButton.getAttribute("aria-controls")).toBe(activity.id);
+    expect(screen.getByRole("button", { name: "Start Run" }).closest(".benchTop")).toBeNull();
+
+    await user.clear(prompt);
+    await user.type(prompt, "Keep this unfinished prompt.");
+    await user.click(screen.getByText("Advanced settings"));
+    const advancedSettings = screen.getByText("Advanced settings").closest("details");
+    await user.click(screen.getByRole("button", { name: "Visible" }));
+    await user.click(screen.getByRole("checkbox", { name: "Run verification checks" }));
+    fireEvent.change(screen.getByRole("slider", { name: "Turn budget" }), {
+      target: { value: "32" },
+    });
+
+    await user.click(previewButton);
+    expect(workspace?.getAttribute("data-panel")).toBe("preview");
+    expect(previewButton.getAttribute("aria-pressed")).toBe("true");
+    expect(controlsButton.getAttribute("aria-pressed")).toBe("false");
+    await user.click(activityButton);
+    expect(workspace?.getAttribute("data-panel")).toBe("activity");
+    expect(activityButton.getAttribute("aria-pressed")).toBe("true");
+    await user.click(controlsButton);
+
+    expect(screen.getByRole("complementary", { name: "Run controls" })).toBe(controls);
+    expect(screen.getByRole("region", { name: "Screenshot preview" })).toBe(preview);
+    expect(screen.getByRole("region", { name: "Agent activity" })).toBe(activity);
+    expect(screen.getByRole("textbox", { name: "Run prompt" })).toBe(prompt);
+    expect(prompt.value).toBe("Keep this unfinished prompt.");
+    expect(advancedSettings?.open).toBe(true);
+    expect(screen.getByRole("button", { name: "Visible" }).getAttribute("aria-pressed")).toBe("true");
+    expect((screen.getByRole("checkbox", { name: "Run verification checks" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("slider", { name: "Turn budget" }) as HTMLInputElement).value).toBe("32");
+  });
+
   it("explains how to recover when the runner is offline", () => {
     render(
       <OperatorConsole
@@ -159,6 +269,8 @@ describe("OperatorConsole", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Start Run" }));
+
+    expect(screen.getByRole("button", { name: "Preview" }).getAttribute("aria-pressed")).toBe("true");
 
     await waitFor(() => {
       expect(screen.getByText("Runner missing API key")).toBeTruthy();
@@ -301,5 +413,75 @@ describe("OperatorConsole", () => {
     expect(screen.getByText("Frame 1 / 1")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Frame 1" })).toBeTruthy();
     expect(screen.getByText("Run browser script")).toBeTruthy();
+  });
+
+  it("opens activity frames in Preview and keeps a pinned frame when new captures arrive", async () => {
+    const user = userEvent.setup();
+    const first = capturedFrame(1);
+    const second = capturedFrame(2);
+    const third = capturedFrame(3);
+    mockRunStart(runWithFrames([first, second]));
+
+    render(
+      <OperatorConsole
+        initialRunnerIssue={null}
+        runnerBaseUrl="http://127.0.0.1:4001"
+        scenarios={[scenario]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start Run" }));
+    await waitFor(() => {
+      expect(screen.getByRole("img", { name: "Captured frame 2 for Launch Planner" })).toBeTruthy();
+    });
+    expect(screen.getByRole("button", { name: "Preview" }).getAttribute("aria-pressed")).toBe("true");
+    await user.click(screen.getByRole("button", { name: "Activity" }));
+    await user.click(screen.getByRole("button", { name: "Frame 1" }));
+    expect(screen.getByRole("button", { name: "Preview" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("img", { name: "Captured frame 1 for Launch Planner" }).getAttribute("src")).toBe(`http://127.0.0.1:4001${first.url}`);
+
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(runWithFrames([first, second, third])));
+    await act(async () => MockEventSource.instances.at(-1)!.emit(capturedFrameEvent(third, 3)));
+    await waitFor(() => {
+      expect(screen.getByText("Frame 1 / 3")).toBeTruthy();
+    });
+    expect((screen.getByRole("slider", { name: "Captured frame scrubber" }) as HTMLInputElement).value).toBe("0");
+    expect(screen.getByText("Pinned frame")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Jump to latest" }));
+    expect(screen.getByRole("img", { name: "Captured frame 3 for Launch Planner" })).toBeTruthy();
+    expect(screen.getByText("Live frame")).toBeTruthy();
+  });
+
+  it("collapses thumbnails by default and preserves selection when toggling them", async () => {
+    const user = userEvent.setup();
+    mockRunStart(runWithFrames([capturedFrame(1), capturedFrame(2)]));
+
+    render(
+      <OperatorConsole
+        initialRunnerIssue={null}
+        runnerBaseUrl="http://127.0.0.1:4001"
+        scenarios={[scenario]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start Run" }));
+    await waitFor(() => {
+      expect(screen.getByRole("img", { name: "Captured frame 2 for Launch Planner" })).toBeTruthy();
+    });
+    expect(screen.queryByRole("button", { name: "View frame 1" })).toBeNull();
+    expect(screen.getByRole("slider", { name: "Captured frame scrubber" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Show thumbnails" }));
+    expect(screen.getByRole("button", { name: "View frame 2" }).getAttribute("aria-pressed")).toBe("true");
+    await user.click(screen.getByRole("button", { name: "View frame 1" }));
+    expect(screen.getByRole("button", { name: "View frame 1" }).getAttribute("aria-pressed")).toBe("true");
+
+    await user.click(screen.getByRole("button", { name: "Controls" }));
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.getByRole("button", { name: "Hide thumbnails" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Hide thumbnails" }));
+    expect(screen.queryByRole("button", { name: "View frame 1" })).toBeNull();
+    expect(screen.getByRole("img", { name: "Captured frame 1 for Launch Planner" })).toBeTruthy();
+    expect((screen.getByRole("slider", { name: "Captured frame scrubber" }) as HTMLInputElement).value).toBe("0");
   });
 });

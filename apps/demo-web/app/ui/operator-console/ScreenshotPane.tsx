@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
 import type {
   BrowserScreenshotArtifact,
   BrowserState,
@@ -10,7 +12,6 @@ import { formatClock, humanizeToken } from "./helpers";
 
 type ScreenshotPaneProps = {
   emptyReviewMessage: string;
-  emptyTimelineMessage: string;
   onJumpToLatestScreenshot: () => void;
   onOpenReplay: () => void;
   onScrubberChange: (value: string) => void;
@@ -29,7 +30,6 @@ type ScreenshotPaneProps = {
 
 export function ScreenshotPane({
   emptyReviewMessage,
-  emptyTimelineMessage,
   onJumpToLatestScreenshot,
   onOpenReplay,
   onScrubberChange,
@@ -45,7 +45,36 @@ export function ScreenshotPane({
   stageUrl,
   viewingLiveFrame,
 }: ScreenshotPaneProps) {
+  const [showThumbnails, setShowThumbnails] = useState(false);
+  const filmstripRef = useRef<HTMLDivElement | null>(null);
+  const selectedThumbnailRef = useRef<HTMLButtonElement | null>(null);
   const screenshotCount = screenshots.length;
+
+  useEffect(() => {
+    const filmstrip = filmstripRef.current;
+    const thumbnail = selectedThumbnailRef.current;
+    if (!filmstrip || !thumbnail) return;
+
+    const revealSelectedThumbnail = () => {
+      if (filmstrip.clientWidth === 0) return;
+      const stripBounds = filmstrip.getBoundingClientRect();
+      const thumbnailBounds = thumbnail.getBoundingClientRect();
+      const left = thumbnailBounds.left - stripBounds.left - filmstrip.clientLeft;
+      const right = left + thumbnailBounds.width;
+      // Only move the filmstrip: scrollIntoView can also scroll the console.
+      if (left < 0) {
+        filmstrip.scrollLeft += left;
+      } else if (right > filmstrip.clientWidth) {
+        filmstrip.scrollLeft += right - filmstrip.clientWidth;
+      }
+    };
+
+    revealSelectedThumbnail();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(revealSelectedThumbnail);
+    observer.observe(filmstrip);
+    return () => observer.disconnect();
+  }, [selectedScreenshot?.id, showThumbnails, screenshotCount]);
 
   return (
     <div className="browserSurface">
@@ -69,11 +98,8 @@ export function ScreenshotPane({
               {selectedScreenshot
                 ? selectedScreenshot.pageTitle?.trim() ||
                   humanizeToken(selectedScreenshot.label)
-                : selectedRun
-                  ? "Browser capture pending"
-                  : "Ready to review"}
+                : selectedScenarioTitle}
             </h3>
-            {!selectedScreenshot ? <p>{emptyReviewMessage}</p> : null}
           </div>
           <div className="reviewMeta">
             {selectedScreenshot ? (
@@ -118,15 +144,18 @@ export function ScreenshotPane({
           <div className="scrubberRow">
             <div className="scrubberCopy">
               <h4>Review timeline</h4>
-              <p>
-                {screenshots.length === 0
-                  ? emptyTimelineMessage
-                  : viewingLiveFrame && selectedRun?.run.status === "running"
-                    ? "Following the latest capture as the run progresses."
-                    : "Scrub across captured browser frames and inspect the exact state the model saw."}
-              </p>
             </div>
             <div className="scrubberActions">
+              <button
+                aria-controls="frame-thumbnails"
+                aria-expanded={showThumbnails}
+                className="utilityButton"
+                disabled={screenshotCount === 0}
+                onClick={() => setShowThumbnails((shown) => !shown)}
+                type="button"
+              >
+                {showThumbnails ? "Hide thumbnails" : "Show thumbnails"}
+              </button>
               {!viewingLiveFrame && screenshots.length > 0 ? (
                 <button
                   className="utilityButton"
@@ -165,15 +194,18 @@ export function ScreenshotPane({
             <span className="scrubberCount">{screenshots.length}</span>
           </div>
 
-          <div className={`filmstrip ${screenshots.length === 0 ? "isEmpty" : ""}`}>
-            {screenshots.length > 0 ? (
-              screenshots.map((screenshot, index) => (
+          {showThumbnails && screenshots.length > 0 ? (
+            <div className="filmstrip" id="frame-thumbnails" ref={filmstripRef}>
+              {screenshots.map((screenshot, index) => (
                 <button
+                  aria-label={`View frame ${index + 1}`}
+                  aria-pressed={screenshot.id === selectedScreenshot?.id}
                   className={`filmstripFrame ${
                     screenshot.id === selectedScreenshot?.id ? "isActive" : ""
                   }`}
                   key={screenshot.id}
                   onClick={() => onSelectScreenshot(screenshot.id)}
+                  ref={screenshot.id === selectedScreenshot?.id ? selectedThumbnailRef : null}
                   type="button"
                 >
                   {/* Filmstrip thumbnails also come from dynamic replay artifacts served by the runner. */}
@@ -181,6 +213,7 @@ export function ScreenshotPane({
                   <img
                     alt={`Frame ${index + 1}`}
                     className="filmstripThumb"
+                    loading="lazy"
                     src={`${runnerBaseUrl}${screenshot.url}`}
                   />
                   <span className="filmstripMeta">
@@ -190,18 +223,9 @@ export function ScreenshotPane({
                     </span>
                   </span>
                 </button>
-              ))
-            ) : (
-              <div className="filmstripPlaceholder">
-                <span className="filmstripPlaceholderTitle">
-                  Timeline waiting for captures
-                </span>
-                <span className="filmstripPlaceholderText">
-                  {emptyTimelineMessage}
-                </span>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
