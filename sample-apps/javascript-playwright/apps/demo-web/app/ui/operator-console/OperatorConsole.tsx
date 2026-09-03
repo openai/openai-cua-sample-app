@@ -79,7 +79,7 @@ export function OperatorConsole({
     selectedRun.run.status !== "running" ||
     pendingAction !== null;
   const resetDisabled =
-    !runnerOnline || !selectedScenario || pendingAction === "start";
+    !runnerOnline || !selectedScenario || pendingAction !== null;
   const replayDisabled = !selectedRun;
   const issueMessage = currentIssue ? formatRunnerIssueMessage(currentIssue) : null;
   const stageHeadline = selectedRun

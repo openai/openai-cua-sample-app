@@ -34,13 +34,14 @@ Guidelines:
 
 ## Quality Gates
 
-Before opening a PR, run:
+Before opening a PR, run these checks from `sample-apps/javascript-playwright`, the repository's only pnpm workspace. Its lint command also checks the root labs.
 
 ```bash
 pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm test:paint:browser
 ```
 
 Use `pnpm test:live` only when you have an `OPENAI_API_KEY` and want the live Responses API smoke tests.

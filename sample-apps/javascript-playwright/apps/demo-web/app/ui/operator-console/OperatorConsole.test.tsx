@@ -332,6 +332,30 @@ describe("OperatorConsole", () => {
     expect(payload).not.toHaveProperty("mode");
   });
 
+  it("enables Stop from the accepted start response without a follow-up snapshot", async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({
+      eventStreamUrl: runDetail.eventStreamUrl,
+      replayUrl: runDetail.replayUrl,
+      runId: runDetail.run.id,
+      status: "running",
+      detail: runDetail,
+    })).mockRejectedValue(new Error("Snapshot unavailable"));
+    render(
+      <OperatorConsole
+        initialRunnerIssue={null}
+        runnerBaseUrl="http://127.0.0.1:4001"
+        scenarios={[scenario]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Start Run" }));
+    expect(screen.getByText("Run active")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Stop" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Preview" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
   it("streams browser script activity and displays captured frames", async () => {
     const user = userEvent.setup();
     const code = 'await page.getByRole("button", { name: "Save" }).click();';

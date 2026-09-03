@@ -20,6 +20,17 @@ How verification works:
 - the live board state is read from the lab
 - every card must appear exactly once in the requested column and order
 
+Example prompt:
+
+```text
+Reorganize the board to match this final state exactly.
+backlog: Refresh workspace docs
+in_progress: Close nav bug triage -> Finalize analytics spec
+done: Circulate launch brief -> Audit replay artifacts -> Polish stage tooltips
+```
+
+An empty column can be written as `backlog:` (or `backlog: empty`). All three columns must be present, and every known card must appear exactly once. Unknown cards are rejected before the model runs when verification is enabled.
+
 ## Paint
 
 - Scenario id: `paint-draw-poster`
@@ -66,6 +77,22 @@ How verification works:
 - the operator prompt is parsed into a booking request
 - the verifier checks the applied filters in the UI
 - the local confirmation record must match the requested hotel, guest, dates, and special request
+
+Example prompt:
+
+```text
+Complete the reservation flow using this request.
+hotel: Luma Harbor Hotel
+neighborhood: Marina District
+check_in: 2026-04-18
+check_out: 2026-04-21
+guest_name: Ada Lovelace
+guest_email: ada.lovelace@example.com
+requires: breakfast included, workspace desk
+special_request: Late arrival after 9pm.
+```
+
+With verification enabled, the runner checks that the required prompt fields can be parsed before starting model execution. These dates and the confirmation record belong to the local lab.
 
 ## Browser Execution And Verification
 

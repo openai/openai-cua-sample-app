@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.23.0",
-    "@next/eslint-plugin-next": "^15.2.0",
+    "@next/eslint-plugin-next": "15.5.24",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.13.10",
@@ -37,6 +37,23 @@
     "tsx": "^4.20.5",
     "typescript-eslint": "^8.29.0",
     "typescript": "^5.8.2",
-    "vitest": "^3.0.7"
+    "vitest": "^3.2.7"
+  },
+  "pnpm": {
+    "overrides": {
+      "@humanfs/node@>=0.16 <0.16.8": "^0.16.8",
+      "brace-expansion@>=1 <1.1.18": "^1.1.18",
+      "brace-expansion@>=5 <5.0.9": "^5.0.9",
+      "fast-uri@>=3 <3.1.6": "^3.1.6",
+      "flatted@>=3 <3.4.2": "^3.4.2",
+      "js-yaml@>=4 <4.3.1": "^4.3.1",
+      "nanoid@>=3 <3.3.18": "^3.3.18",
+      "next>sharp": "^0.35.4",
+      "picomatch@>=2 <2.3.2": "^2.3.2",
+      "picomatch@>=4 <4.0.4": "^4.0.7",
+      "postcss@>=8 <8.5.23": "^8.5.26",
+      "shell-quote@>=1 <1.9.0": "^1.9.0",
+      "ws@>=8 <8.21.0": "^8.21.3"
+    }
   }
 }

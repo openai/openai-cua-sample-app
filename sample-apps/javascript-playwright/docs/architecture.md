@@ -1,6 +1,6 @@
 # Architecture
 
-The public release branch is a TypeScript monorepo organized around one browser-focused runner pipeline.
+The JavaScript sample app is an independent pnpm workspace under `sample-apps/javascript-playwright`. Its packages follow one browser-focused runner pipeline. The repository-root `labs/` templates are copied into fresh run workspaces; they are never edited during a run.
 
 ## Package Boundaries
 
@@ -29,14 +29,15 @@ This package is the public scenario registry. Adding a new scenario starts here.
 
 ### `packages/browser-runtime`
 
-Thin Playwright session abstraction for:
+Browser lifecycle and execution boundaries for:
 
 - launching the browser
 - resolving the start target
 - reading browser state
 - capturing screenshots
+- starting one JavaScript child process per run and enforcing request deadlines
 
-It does not know about scenario prompts, verification, or the Responses API.
+The parent owns a Playwright browser-server handle. The child connects to that browser and owns its page, context, and persistent JavaScript state. A small internal protocol covers initialization, execution, state and screenshots, finalization, and closing. It does not forward the full Playwright API.
 
 ### `packages/runner-core`
 
@@ -48,7 +49,7 @@ Core orchestration for:
 - scenario executors
 - verification
 
-`src/responses-loop.ts` is the canonical sample for the Responses API integration in this repo.
+The [model loop](../packages/runner-core/src/responses-loop.ts) stays in the main process, along with the API key. The [execution worker](../packages/runner-core/src/javascript-worker.ts) owns script evaluation and scenario verification and does not inherit the API key. The runner build emits the worker explicitly; development starts it from TypeScript.
 
 ### `apps/runner`
 
@@ -80,11 +81,19 @@ The console fills the viewport. Run actions stay above the workspace; controls a
 ## Runtime Flow
 
 1. The operator console requests the public scenario registry from the runner.
-2. Starting a run asks `RunnerManager` to create a mutable workspace and replay bundle.
+2. `RunnerManager` reserves the active-run slot before creating a mutable workspace and replay bundle.
 3. `RunnerManager` selects a scenario executor through `executor-registry.ts`.
-4. The executor launches the lab and hands control to `responses-loop.ts`, which exposes a persistent Playwright JavaScript REPL through `exec_js`.
-5. The loop emits events, screenshots, and final verification results back into the replay bundle.
-6. The web app reads the run detail and follows SSE updates until the run finishes.
+4. The executor starts the lab server, parent-owned Chromium, and the JavaScript worker. The model loop exposes `exec_js`, sending code to the worker.
+5. The loop records tool output and screenshots, continuing after commentary and completing on a final assistant message with no pending tool calls. Explicit API failure states, unsupported tools, and exhausted turn budgets fail the run.
+6. After normal model completion, the worker captures saved artwork and performs optional verification. The parent records results and writes replay snapshots atomically.
+7. Worker, browser, and lab-server cleanup completes before the active-run slot is released. Stop and shutdown may be called repeatedly.
+8. The console receives initial run detail in the start response, follows SSE, and polls to recover missed updates or connections. Completed persisted runs can also replay their events.
+
+## Execution Deadline And Cleanup
+
+The parent starts a 20-second deadline before sending JavaScript to the child. Ordinary script exceptions are returned as tool output. Stop, timeout, a worker crash, or a malformed worker response closes the session and awaits process cleanup. Because the deadline and browser handle live outside the worker, synchronous loops, loops after `await`, and unresolved promises cannot block the HTTP server or prevent termination. A new run starts with fresh JavaScript and browser state.
+
+The worker is an execution boundary for cancellation, not an operating-system security sandbox. Run this sample only against the local labs or other environments you control.
 
 ## Request And Replay Contracts
 

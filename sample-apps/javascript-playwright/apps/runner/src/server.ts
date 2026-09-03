@@ -22,11 +22,29 @@ import { listScenarios } from "@cua-sample/scenario-kit";
 
 type CreateServerOptions = {
   dataRoot?: string;
+  allowedOrigins?: string[];
   manager?: RunnerManager;
   stepDelayMs?: number;
 };
 
 const defaultDataRoot = fileURLToPath(new URL("../../../data", import.meta.url));
+
+const defaultAllowedOrigins = ["http:", "https:"].flatMap((protocol) =>
+  ["localhost", "127.0.0.1", "[::1]"].flatMap((host) =>
+    [3000, 3041].map((port) => `${protocol}//${host}:${port}`),
+  ),
+);
+
+function validateRunId(runId: string) {
+  if (!/^[A-Za-z0-9_-]+$/.test(runId)) {
+    throw new RunnerCoreError("Invalid run ID.", {
+      code: "invalid_request",
+      hint: "Use the run ID returned when starting a run.",
+      statusCode: 400,
+    });
+  }
+  return runId;
+}
 
 function writeSseEvent(reply: FastifyReply, payload: unknown) {
   reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
@@ -42,12 +60,41 @@ export function createServer(options: CreateServerOptions = {}) {
   };
   const manager = options.manager ?? new RunnerManager(managerOptions);
   const app = Fastify({ logger: false });
+  const eventStreams = new Set<FastifyReply["raw"]>();
+  app.addHook("preClose", async () => {
+    try {
+      await manager.shutdown();
+    } finally {
+      for (const stream of eventStreams) stream.end();
+      eventStreams.clear();
+    }
+  });
+  const allowedOrigins = new Set([
+    ...defaultAllowedOrigins,
+    ...(options.allowedOrigins ?? process.env.CUA_ALLOWED_ORIGINS?.split(",") ?? [])
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+  ]);
 
-  app.addHook("onSend", async (_request, reply, payload) => {
-    reply.header("Access-Control-Allow-Origin", "*");
-    reply.header("Access-Control-Allow-Headers", "content-type");
-    reply.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  app.addHook("onRequest", async (request, reply) => {
+    const origin = request.headers.origin;
+    if (origin && !allowedOrigins.has(origin)) {
+      return reply.code(403).send({
+        code: "origin_not_allowed",
+        error: "This origin is not allowed to access the runner.",
+        hint: "Use the local operator console or configure CUA_ALLOWED_ORIGINS.",
+      });
+    }
+  });
 
+  app.addHook("onSend", async (request, reply, payload) => {
+    reply.header("Vary", "Origin");
+    const origin = request.headers.origin;
+    if (origin && allowedOrigins.has(origin)) {
+      reply.header("Access-Control-Allow-Origin", origin);
+      reply.header("Access-Control-Allow-Headers", "content-type");
+      reply.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    }
     return payload;
   });
 
@@ -73,6 +120,20 @@ export function createServer(options: CreateServerOptions = {}) {
             "Review the request payload against the published replay-schema contracts.",
         }),
       );
+      return;
+    }
+
+    if (
+      error instanceof Error &&
+      "statusCode" in error &&
+      typeof error.statusCode === "number" &&
+      error.statusCode >= 400 && error.statusCode < 500
+    ) {
+      reply.code(error.statusCode).send({
+        code: "invalid_request",
+        error: error.message,
+        hint: "Send a valid JSON request matching the replay-schema contracts.",
+      });
       return;
     }
 
@@ -109,6 +170,7 @@ export function createServer(options: CreateServerOptions = {}) {
     reply.code(202);
 
     return startRunResponseSchema.parse({
+      detail,
       eventStreamUrl: detail.eventStreamUrl,
       replayUrl: detail.replayUrl,
       runId: detail.run.id,
@@ -118,18 +180,18 @@ export function createServer(options: CreateServerOptions = {}) {
 
   app.get("/api/runs/:id", async (request) =>
     runDetailSchema.parse(
-      await manager.getRunDetail((request.params as { id: string }).id),
+      await manager.getRunDetail(validateRunId((request.params as { id: string }).id)),
     ),
   );
 
   app.post("/api/runs/:id/stop", async (request) =>
     runDetailSchema.parse(
-      await manager.stopRun((request.params as { id: string }).id),
+      await manager.stopRun(validateRunId((request.params as { id: string }).id)),
     ),
   );
 
   app.get("/api/runs/:id/replay", async (request) =>
-    manager.getReplayBundle((request.params as { id: string }).id),
+    manager.getReplayBundle(validateRunId((request.params as { id: string }).id)),
   );
 
   app.get("/api/runs/:id/artifacts/screenshots/:name", async (request, reply) => {
@@ -137,7 +199,7 @@ export function createServer(options: CreateServerOptions = {}) {
     const screenshotPath = resolve(
       resolvedDataRoot,
       "runs",
-      params.id,
+      validateRunId(params.id),
       "screenshots",
       basename(params.name),
     );
@@ -158,30 +220,61 @@ export function createServer(options: CreateServerOptions = {}) {
   });
 
   app.get("/api/runs/:id/events", async (request, reply) => {
-    const runId = (request.params as { id: string }).id;
-    const detail = await manager.getRunDetail(runId);
-
-    reply.raw.writeHead(200, {
-      "Access-Control-Allow-Origin": "*",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "Content-Type": "text/event-stream",
-    });
-
-    for (const event of detail.events) {
+    const runId = validateRunId((request.params as { id: string }).id);
+    let detail = await manager.getRunDetail(runId);
+    let unsubscribe: (() => void) | undefined;
+    let replaying = true;
+    let lastSequence = -1;
+    const buffered: RunEvent[] = [];
+    const cleanup = () => {
+      eventStreams.delete(reply.raw);
+      unsubscribe?.();
+      unsubscribe = undefined;
+    };
+    const sendEvent = (event: RunEvent) => {
+      if (reply.raw.destroyed || reply.raw.writableEnded || event.sequence <= lastSequence) return;
+      lastSequence = event.sequence;
       writeSseEvent(reply, event);
+      if (["run_completed", "run_failed", "run_cancelled"].includes(event.type)) {
+        cleanup();
+        reply.raw.end();
+      }
+    };
+
+    try {
+      if (detail.run.status === "running" || detail.run.status === "queued") {
+        // Buffer live events while taking a fresh snapshot, closing the gap
+        // between the initial read and subscription without duplicating events.
+        unsubscribe = manager.subscribe(runId, (event: RunEvent) => {
+          if (replaying) buffered.push(event);
+          else sendEvent(event);
+        });
+        detail = await manager.getRunDetail(runId);
+      }
+
+      eventStreams.add(reply.raw);
+      reply.raw.on("close", cleanup);
+      reply.raw.writeHead(200, {
+        ...(request.headers.origin ? { "Access-Control-Allow-Origin": request.headers.origin } : {}),
+        Vary: "Origin",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "Content-Type": "text/event-stream",
+      });
+
+      for (const event of [...detail.events, ...buffered].sort((left, right) => left.sequence - right.sequence)) {
+        sendEvent(event);
+      }
+      replaying = false;
+      if (detail.run.status !== "running" && detail.run.status !== "queued") {
+        cleanup();
+        reply.raw.end();
+      }
+      return reply.hijack();
+    } catch (error) {
+      cleanup();
+      throw error;
     }
-
-    const unsubscribe = manager.subscribe(runId, (event: RunEvent) => {
-      writeSseEvent(reply, event);
-    });
-
-    request.raw.on("close", () => {
-      unsubscribe();
-      reply.raw.end();
-    });
-
-    return reply.hijack();
   });
 
   return app;

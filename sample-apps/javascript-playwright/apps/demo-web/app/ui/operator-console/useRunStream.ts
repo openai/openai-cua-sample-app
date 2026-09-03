@@ -32,6 +32,19 @@ import {
 import type { LogEntry, PendingAction, RunnerIssue, TranscriptEntry } from "./types";
 
 const emptyScreenshots: NonNullable<RunDetail["browser"]>["screenshots"] = [];
+const runRefreshIntervalMs = 2_000;
+
+function mergeRunEvents(current: RunEvent[], incoming: RunEvent[]) {
+  const events = new Map(current.map((event) => [event.id, event]));
+  for (const event of incoming) {
+    events.set(event.id, event);
+  }
+  return [...events.values()].sort((left, right) => left.sequence - right.sequence);
+}
+
+function hasActivityFeedLayout(feed: HTMLDivElement) {
+  return feed.clientHeight > 0 && feed.getClientRects().length > 0;
+}
 
 class RunnerApiError extends Error {
   readonly issue: RunnerIssue;
@@ -53,10 +66,6 @@ type UseRunStreamOptions = {
 
 function createFallbackIssue(message: string, hint?: string) {
   return createRunnerIssue("runner_request_failed", message, hint);
-}
-
-function hasActivityFeedLayout(feed: HTMLDivElement) {
-  return feed.clientHeight > 0 && feed.getClientRects().length > 0;
 }
 
 function toRunnerIssue(
@@ -90,6 +99,7 @@ export function useRunStream({
     useState<ResponseTurnBudget>(defaultMaxResponseTurns);
   const [prompt, setPrompt] = useState(initialScenario?.defaultPrompt ?? "");
   const [streamLogs, setStreamLogs] = useState(true);
+  const [streamState, setStreamState] = useState("live");
   const [activeRun, setActiveRun] = useState<RunDetail | null>(null);
   const [runEvents, setRunEvents] = useState<RunEvent[]>([]);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
@@ -116,7 +126,10 @@ export function useRunStream({
   const selectedBrowser = selectedRun?.browser ?? null;
   const screenshots = selectedBrowser?.screenshots ?? emptyScreenshots;
   const latestScreenshot = screenshots.at(-1) ?? null;
-  const controlsLocked = selectedRun?.run.status === "running";
+  const controlsLocked = selectedRun?.run.status === "running" || pendingAction !== null;
+  const selectedRunId = selectedRun?.run.id;
+  const selectedRunStatus = selectedRun?.run.status;
+  const selectedEventStreamUrl = selectedRun?.eventStreamUrl;
   const matchingWorkspaceState =
     workspaceState && workspaceState.scenarioId === selectedScenario?.id
       ? workspaceState
@@ -138,7 +151,7 @@ export function useRunStream({
     : -1;
   const viewingLiveFrame =
     selectedScreenshotIndex >= 0 && selectedScreenshotIndex === screenshots.length - 1;
-  const activityFeedLabel = streamLogs ? "live" : "paused";
+  const activityFeedLabel = streamLogs ? streamState : "paused";
 
   function appendManualLog(entry: LogEntry) {
     setManualLogs((current) => [...current.slice(-5), entry]);
@@ -197,18 +210,6 @@ export function useRunStream({
         ),
       ),
     [runnerBaseUrl],
-  );
-
-  const refreshRunDetail = useCallback(
-    (runId: string) => {
-      void fetchRunDetail(runId)
-      .then((detail) => {
-        setActiveRun(detail);
-        setRunEvents(detail.events);
-      })
-      .catch(() => undefined);
-    },
-    [fetchRunDetail],
   );
 
   useEffect(() => {
@@ -285,75 +286,107 @@ export function useRunStream({
   }, [followActivityFeed]);
 
   useEffect(() => {
-    if (!selectedRun || selectedRun.run.status !== "running" || !streamLogs) {
+    if (streamLogs && selectedRun && selectedRun.run.status !== "running") {
+      setRunEvents((current) => mergeRunEvents(current, selectedRun.events));
+    }
+  }, [selectedRun, streamLogs]);
+
+  useEffect(() => {
+    if (!selectedRunId || selectedRunStatus !== "running" || !selectedEventStreamUrl) {
       closeEventStream();
+      setStreamState("live");
       return;
     }
 
-    const source = new EventSource(`${runnerBaseUrl}${selectedRun.eventStreamUrl}`);
+    let disposed = false;
+    let refreshing = false;
+    let refreshAgain = false;
+
+    // Serialize snapshots so a slower, older response cannot undo newer state.
+    // Polling also recovers terminal state when SSE or the final detail fetch fails.
+    const refreshDetail = () => {
+      if (disposed) return;
+      if (refreshing) {
+        refreshAgain = true;
+        return;
+      }
+      refreshing = true;
+      void fetchRunDetail(selectedRunId)
+        .then((detail) => {
+          if (disposed) return;
+          setActiveRun((current) =>
+            current?.run.id === selectedRunId && current.run.status === "running"
+              ? detail
+              : current,
+          );
+          if (streamLogs) {
+            setRunEvents((current) => mergeRunEvents(current, detail.events));
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          refreshing = false;
+          if (refreshAgain && !disposed) {
+            refreshAgain = false;
+            refreshDetail();
+          }
+        });
+    };
+    const refreshTimer = window.setInterval(refreshDetail, runRefreshIntervalMs);
+    const source = streamLogs
+      ? new EventSource(`${runnerBaseUrl}${selectedEventStreamUrl}`)
+      : null;
     eventSourceRef.current = source;
 
-    source.onmessage = (messageEvent) => {
-      try {
-        const event = runEventSchema.parse(JSON.parse(messageEvent.data));
+    if (source) {
+      setStreamState("connecting");
+      source.onopen = () => {
+        if (disposed) return;
+        setStreamState("live");
+        refreshDetail();
+      };
+      source.onmessage = (messageEvent) => {
+        if (disposed) return;
+        try {
+          const event = runEventSchema.parse(JSON.parse(messageEvent.data));
+          if (event.runId !== selectedRunId) return;
+          setRunEvents((current) => mergeRunEvents(current, [event]));
 
-        setRunEvents((current) =>
-          current.some((existing) => existing.id === event.id)
-            ? current
-            : [...current, event],
-        );
-
-        if (
-          event.type === "browser_session_started" ||
-          event.type === "browser_navigated" ||
-          event.type === "screenshot_captured"
-        ) {
-          refreshRunDetail(event.runId);
+          if (
+            event.type === "browser_session_started" ||
+            event.type === "browser_navigated" ||
+            event.type === "screenshot_captured" ||
+            event.type === "run_completed" ||
+            event.type === "run_failed" ||
+            event.type === "run_cancelled"
+          ) {
+            refreshDetail();
+          }
+        } catch {
+          appendManualLog(
+            createManualLog(
+              "event.stream.parse_error",
+              "Runner emitted an invalid SSE payload.",
+              "error",
+            ),
+          );
         }
-
-        if (
-          event.type === "run_completed" ||
-          event.type === "run_failed" ||
-          event.type === "run_cancelled"
-        ) {
-          void fetchRunDetail(event.runId)
-            .then((detail) => {
-              setActiveRun(detail);
-              setRunEvents(detail.events);
-            })
-            .catch(() => undefined)
-            .finally(() => {
-              if (eventSourceRef.current === source) {
-                source.close();
-                eventSourceRef.current = null;
-              }
-            });
-        }
-      } catch {
-        appendManualLog(
-          createManualLog(
-            "event.stream.parse_error",
-            "Runner emitted an invalid SSE payload.",
-            "error",
-          ),
-        );
-      }
-    };
-
-    source.onerror = () => {
-      if (eventSourceRef.current === source) {
-        source.close();
-        eventSourceRef.current = null;
-      }
-    };
+      };
+      source.onerror = () => {
+        if (disposed) return;
+        setStreamState("reconnecting");
+        // Keep EventSource open so its built-in retry can reconnect.
+        refreshDetail();
+      };
+    }
 
     return () => {
-      if (eventSourceRef.current === source) {
-        source.close();
-        eventSourceRef.current = null;
-      }
+      disposed = true;
+      window.clearInterval(refreshTimer);
+      source?.close();
+      if (eventSourceRef.current === source) eventSourceRef.current = null;
     };
-  }, [fetchRunDetail, refreshRunDetail, runnerBaseUrl, selectedRun, streamLogs]);
+  }, [fetchRunDetail, runnerBaseUrl, selectedEventStreamUrl, selectedRunId, selectedRunStatus, streamLogs]);
 
   const handleScenarioChange = (scenarioId: string) => {
     if (controlsLocked) {
@@ -431,7 +464,7 @@ export function useRunStream({
           "Check the runner logs and confirm the scenario request is valid.",
         ),
       );
-      const detail = await fetchRunDetail(started.runId);
+      const detail = started.detail ?? await fetchRunDetail(started.runId);
 
       setActiveRun(detail);
       setRunEvents(detail.events);
@@ -508,7 +541,6 @@ export function useRunStream({
         createManualLog("run.stop_failed", formatRunnerIssueMessage(issue), "error"),
       );
     } finally {
-      closeEventStream();
       setPendingAction(null);
     }
   };
@@ -574,7 +606,6 @@ export function useRunStream({
         ),
       );
     } finally {
-      closeEventStream();
       setPendingAction(null);
     }
   };

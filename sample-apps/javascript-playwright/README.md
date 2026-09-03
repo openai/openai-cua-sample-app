@@ -1,6 +1,6 @@
-# GPT-5.6 CUA Sample App
+# JavaScript + Playwright sample app
 
-TypeScript sample app for browser-focused computer-use workflows with GPT-5.6. The repo includes:
+TypeScript sample app for browser-focused computer-use workflows. Start here to follow a task from the Responses API, through JavaScript execution, to a verified result and replay. The workspace includes:
 
 - `apps/demo-web`: a Next.js operator console for starting runs and reviewing screenshots, events, and replay artifacts
 - `apps/runner`: a Fastify runner that manages mutable workspaces, browser sessions, SSE, and replay bundles
@@ -8,8 +8,9 @@ TypeScript sample app for browser-focused computer-use workflows with GPT-5.6. T
 
 ## What This Repo Demonstrates
 
-- how to integrate the Responses API from one canonical place: `packages/runner-core/src/responses-loop.ts`
+- how to integrate the Responses API in the [model loop](packages/runner-core/src/responses-loop.ts)
 - how to drive browser labs through a persistent Playwright JavaScript REPL using `exec_js`
+- how to run model code in an [execution worker](packages/runner-core/src/javascript-worker.ts) that the runner can stop
 - how to define scenario manifests, launch isolated run workspaces, and verify outcomes
 - how to build an operator-facing console that is understandable even when the runner is offline or a run fails
 
@@ -22,7 +23,7 @@ TypeScript sample app for browser-focused computer-use workflows with GPT-5.6. T
 ## First Run
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/openai/openai-cua-sample-app.git
 cd openai-cua-sample-app/sample-apps/javascript-playwright
 corepack enable
 pnpm install
@@ -35,7 +36,7 @@ Edit `.env` and set at least this environment variable:
 OPENAI_API_KEY=your_key_here
 ```
 
-The runner reads the sample-app `.env` automatically when you start it through the provided scripts. The web app uses its built-in defaults; if you need to override `NEXT_PUBLIC_*` settings, add them in `apps/demo-web/.env.local`.
+The runner reads the sample-app `.env` automatically when you start it through the provided scripts. The web app uses its built-in defaults; to override `RUNNER_BASE_URL` or `NEXT_PUBLIC_*` settings, set them in the shell or in `apps/demo-web/.env.local`.
 
 If `pnpm install` prints an `Ignored build scripts` warning for optional packages such as `sharp` or `esbuild`, you can ignore it for local development in this repo. A clean clone still installs, builds, and starts successfully without approving those scripts.
 
@@ -80,17 +81,33 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm check
+pnpm test:paint:browser
 ```
 
-Live smoke tests stay opt-in and secret-gated:
+These commands run from this directory. From the repository root, use `pnpm --dir sample-apps/javascript-playwright <command>`. The lint command explicitly checks both this workspace and the repository-root labs using this app's ESLint configuration.
+
+After building, start the production services in separate terminals:
 
 ```bash
-OPENAI_API_KEY=your_key_here pnpm test:live
+pnpm --filter @cua-sample/runner start
+pnpm --filter @cua-sample/demo-web start
+```
+
+Live smoke tests use real API requests and require a key. To use the sample-app `.env` without placing the key in your shell command:
+
+```bash
+node --env-file=.env node_modules/vitest/vitest.mjs run --root packages/runner-core test/live-responses.smoke.test.ts
 ```
 
 ## Browser Execution
 
 Every run uses a persistent Playwright JavaScript REPL exposed through `exec_js`. The model scripts the live browser session, and the runner records tool activity, screenshots, and scenario verification results. Browser visibility remains configurable as `headless` or `headful`.
+
+The main runner owns the API client, HTTP/SSE server, run records, execution deadline, and Chromium browser-server handle. One child process per run owns the JavaScript context and Playwright page. Successful calls retain `globalThis`, `page`, `console.log`, and `display()`; each run gets a fresh context. Script exceptions are returned as tool output so the model can correct them.
+
+Stop and the 20-second execution deadline terminate the worker and Chromium, including when JavaScript loops forever or a browser operation remains pending. A timeout, worker crash, or invalid worker response fails the run after cleanup. The next run can start once cleanup finishes.
+
+The runner copies each root lab template into a fresh workspace under this sample app's `data/` directory. New replay records, screenshots, and saved artwork stay there. Existing data from an earlier repository layout is left in place.
 
 ## API And Replay Changes
 
@@ -105,6 +122,8 @@ New replay bundles use version `2` and contain function-call events from the REP
 - `booking-complete-reservation` (`booking`): teaches multi-step browsing and form completion with verification against a local confirmation record
 
 More detail lives in [docs/scenarios.md](docs/scenarios.md).
+
+Use the supplied Kanban prompt to specify ordered `backlog`, `in_progress`, and `done` columns (an empty column is allowed). For Booking, use the supplied hotel, dates, guest, and requirements fields. These structured prompts are checked before model execution when verification is enabled. Paint accepts a drawing request such as the one below.
 
 ## Sketch Studio
 
@@ -129,11 +148,11 @@ Try: “Draw a yellow smiley face with black eyes and a curved smile, then save 
 - `packages/scenario-kit`
   Public scenario manifests and prompt defaults
 - `packages/browser-runtime`
-  Playwright session abstraction
+  Parent browser lifecycle and small worker protocol
 - `packages/runner-core`
   Orchestration, Responses loop, scenario executors, and verification
-- `labs`
-  Static lab templates copied into run-scoped workspaces
+- [`../../labs`](../../labs)
+  Repository-root templates copied into run-scoped workspaces
 - `docs`
   Architecture, scenarios, and contribution guidance
 
@@ -146,6 +165,7 @@ Runner:
 - `PORT` (default `4001`)
 - `CUA_DEFAULT_MODEL` (default `gpt-5.6-sol`)
 - `CUA_RESPONSES_MODE` (`auto`, `fallback`, or `live`)
+- `CUA_ALLOWED_ORIGINS` (optional comma-separated browser origins; local console origins on ports 3000 and 3041 are allowed by default)
 
 Web:
 

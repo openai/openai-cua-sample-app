@@ -169,14 +169,6 @@ export const startRunRequestSchema = z
   .strict();
 export type StartRunRequest = z.infer<typeof startRunRequestSchema>;
 
-export const startRunResponseSchema = z.object({
-  runId: z.string().min(1),
-  status: z.enum(["queued", "running"]),
-  eventStreamUrl: z.string().min(1),
-  replayUrl: z.string().min(1),
-});
-export type StartRunResponse = z.infer<typeof startRunResponseSchema>;
-
 export const runDetailSchema = z.object({
   run: runRecordSchema,
   scenario: scenarioManifestSchema,
@@ -187,6 +179,15 @@ export const runDetailSchema = z.object({
   events: z.array(runEventSchema),
 });
 export type RunDetail = z.infer<typeof runDetailSchema>;
+
+export const startRunResponseSchema = z.object({
+  runId: z.string().min(1),
+  status: z.enum(["queued", "running"]),
+  eventStreamUrl: z.string().min(1),
+  replayUrl: z.string().min(1),
+  detail: runDetailSchema.optional(),
+});
+export type StartRunResponse = z.infer<typeof startRunResponseSchema>;
 
 export const scenarioWorkspaceStateSchema = z.object({
   scenarioId: z.string().min(1),
