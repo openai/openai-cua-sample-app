@@ -1,24 +1,28 @@
-# Computer-use sample apps
+# Computer Use Sample Apps
 
-Two samples for computer-use workflows with the Responses API and the same local browser labs. Choose the action runtime you want to explore:
+An agent is more useful when it can put a plan into practice. Computer use gives it access to the controls in a browser or desktop app, so it can edit, arrange, and create things on your behalf.
 
-| Sample | Model actions | Console / runner ports |
-| --- | --- | --- |
-| [JavaScript + Playwright](javascript-app/README.md) | Persistent JavaScript session in headless or visible Chromium | 3000 / 4001 |
-| [Python + PyAutoGUI](python-app/README.md) | Python controlling the visible desktop's mouse and keyboard | 3041 / 4041 |
+In these samples, the model drives those controls by writing code. It can group related actions, repeat a routine, and save variables for later steps. The sample app runs the code and returns text and screenshots; the model uses that feedback to decide what to do next.
 
-Both samples use TypeScript for the server, console, and model-request loop. In the Python sample, Python executes the model's computer actions.
+Try it on a project board, a drawing canvas, or a mock hotel booking site. Each sample includes a Responses API loop and a console where you can follow the run, inspect its screenshots, and review the saved replay. Use the examples to learn the pattern, then adapt it to your own application.
 
 ## First run
+
+Both samples run the same local labs:
+
+- [JavaScript + Playwright](javascript-app/README.md#first-run) executes JavaScript in headless or visible Chromium.
+- [Python + PyAutoGUI](python-app/README.md#quickstart) executes Python to control the visible desktop's mouse and keyboard.
+
+Both need **Node.js 22.20.0**, **pnpm 10.26.0**, and an **OpenAI API key** with access to the configured model. The Python sample also needs **Python 3.10+**, a graphical desktop, and screen-capture and input permissions.
 
 ```bash
 git clone https://github.com/openai/openai-cua-sample-app.git
 cd openai-cua-sample-app
 ```
 
-Follow the [JavaScript quickstart](javascript-app/README.md#first-run) or [Python quickstart](python-app/README.md#quickstart) to install dependencies, configure an API key, and start the sample.
+Each quickstart covers installation, API-key configuration, and startup. Install and run each sample from its own directory; each has its own dependencies, configuration, and run data. The repository root is not a pnpm workspace.
 
-Install and run each app from its own directory. Each has its own lockfile, environment, and generated data. The repository root is not a pnpm workspace.
+Once the console is running, choose a scenario, edit its prompt, and select **Start Run**. Use **Stop** to interrupt a run. All three scenarios make real API calls. See the [lab task guide](labs/docs/scenarios.md) for example prompts.
 
 ## Repository layout
 
