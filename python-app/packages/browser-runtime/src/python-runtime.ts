@@ -252,7 +252,7 @@ export async function launchPythonRuntime(options: Options = {}): Promise<Python
     const id = ++sequence;
     if (signal !== options.signal) signal?.addEventListener("abort", onAbort, { once: true });
     try {
-      const response = receive(options.executionTimeoutMs ?? 20_000, id);
+      const response = receive(options.executionTimeoutMs ?? 60_000, id);
       inputMayBeHeld = true;
       child.stdin.write(JSON.stringify({ id, operation: "execute", code }) + "\n");
       const value = await response;

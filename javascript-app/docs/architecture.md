@@ -12,7 +12,7 @@ The console calls a local Fastify runner. For each run, the runner copies a shar
 
 The worker exposes `page`, `context`, `browser`, `Buffer`, `console.log`, and `display(base64Image)`. Each call runs in an async function; use `globalThis` to preserve custom state between calls. New runs start with fresh JavaScript and browser state.
 
-Ordinary script errors return to the model so it can correct them. Each execution call has a 20-second deadline. The separate worker process lets Stop terminate blocked JavaScript; it is not an operating-system security sandbox.
+Ordinary script errors return to the model so it can correct them. Each execution call has a 60-second deadline. The separate worker process lets Stop terminate blocked JavaScript; it is not an operating-system security sandbox.
 
 ## Code map
 

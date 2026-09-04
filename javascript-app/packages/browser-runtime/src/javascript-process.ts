@@ -209,7 +209,7 @@ export async function launchJavaScriptSession(options: Options): Promise<JavaScr
     operation: WorkerOperation,
     parse: (value: unknown) => T,
     signal?: AbortSignal,
-    timeoutMs = options.executionTimeoutMs ?? 20_000,
+    timeoutMs = options.executionTimeoutMs ?? 60_000,
   ): Promise<T> {
     if (closed) throw terminalError ?? new Error("JavaScript session closed.");
     if (pending) throw new Error("A JavaScript operation is already running.");

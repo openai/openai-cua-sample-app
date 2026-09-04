@@ -23,7 +23,7 @@ The TypeScript app owns the Responses API loop, browser, and console. A persiste
 5. The executor retains supported artifacts and runs optional verification. The [lab guide](../../labs/docs/README.md) explains what each check verifies.
 6. The runner stops the worker, releases desktop input, and closes the browser and lab server before publishing the final status.
 
-Python globals survive between tool calls. Ordinary exceptions return to the model as output; a failsafe, execution timeout, or worker failure ends execution. If input cleanup fails, the operator must check held inputs and desktop permissions, then restart the runner.
+Python globals survive between tool calls. Each execution call has a 60-second deadline. Ordinary exceptions return to the model as output; a failsafe, execution timeout, or worker failure ends execution. If input cleanup fails, the operator must check held inputs and desktop permissions, then restart the runner.
 
 The app records tool events, desktop images returned by Python, and browser previews. Desktop screenshots are normalized to PyAutoGUI's input coordinates. The console receives events through SSE and polls run detail to stay current; refreshing reconnects to an active run.
 
