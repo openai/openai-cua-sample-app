@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import type { RunDetail, RunEvent, StartRunResponse } from "@cua-sample/replay-schema";
 
+const expectedExecutionTimeoutMs = 60_000;
+
 type OwnedProcess = { kind: "worker" | "browser"; pid: number };
 
 function isAlive(pid: number) {
@@ -87,7 +89,7 @@ describe("worker cancellation over HTTP", () => {
     ["synchronous loop after an await", "await Promise.resolve(); while (true) {}", false],
     ["pending promise", "await new Promise(() => {});", false],
     ["pending browser operation", 'await page.waitForSelector("#never-added", { timeout: 0 });', false],
-    ["20-second deadline expiry", "while (true) {}", true],
+    [`${expectedExecutionTimeoutMs / 1000}-second deadline expiry`, "while (true) {}", true],
   ] as const)("keeps health and SSE responsive during a %s and awaits owned process exit", async (_name, code, deadline) => {
     const dataRoot = await mkdtemp(join(tmpdir(), "cua-worker-http-"));
     let entered = false;
@@ -162,8 +164,8 @@ describe("worker cancellation over HTTP", () => {
           ]);
           expect(health.status).toBe(200);
           expect(detail.body.run.status).toBe("failed");
-          expect(detail.body.run.summary?.notes.join("\n")).toContain("20000ms");
-        }, { timeout: 23_000, interval: 100 });
+          expect(detail.body.run.summary?.notes.join("\n")).toContain(`${expectedExecutionTimeoutMs}ms`);
+        }, { timeout: expectedExecutionTimeoutMs + 10_000, interval: 100 });
       } else {
         const stopped = await jsonRequest<RunDetail>(`${address}/api/runs/${runId}/stop`, "POST", undefined, 5_000);
         expect(stopped.status).toBe(200);
@@ -192,5 +194,5 @@ describe("worker cancellation over HTTP", () => {
       await new Promise<void>((resolve) => mockApi.close(() => resolve()));
       await rm(dataRoot, { recursive: true, force: true });
     }
-  }, 32_000);
+  }, 120_000);
 });
