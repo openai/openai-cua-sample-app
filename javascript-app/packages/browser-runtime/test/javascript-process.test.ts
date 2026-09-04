@@ -168,6 +168,17 @@ describe("persistent JavaScript worker", () => {
     expect(output).toEqual([{ type: "input_text", text: "true false" }]);
   }, 15_000);
 
+  it("keeps Node watch dependency reports out of the execution protocol", async () => {
+    // node --watch adds this to the runner environment. Inheriting it makes
+    // Node send watch:import/watch:require messages on the worker's IPC channel.
+    vi.stubEnv("WATCH_REPORT_DEPENDENCIES", "1");
+    const session = await start();
+    await rememberWorker(session);
+    expect(await session.readState()).toMatchObject({ pageTitle: "Worker lab" });
+    expect(await session.execute('console.log(Buffer.constructor("return process")().env.WATCH_REPORT_DEPENDENCIES)'))
+      .toEqual([{ type: "input_text", text: "undefined" }]);
+  }, 15_000);
+
   it("fails closed on a mismatched IPC response ID", async () => {
     const directory = await mkdtemp(join(tmpdir(), "javascript-protocol-"));
     directories.push(directory);

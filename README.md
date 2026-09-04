@@ -29,11 +29,7 @@ Each sample app keeps its setup, configuration, and run data in its own director
 
 ## Shared Labs
 
-- **Launch Planner**: a Kanban board for moving cards between columns and changing their order
-- **Sketch Studio**: a raster editor for drawing, working with layers, and saving artwork
-- **Northstar Stays**: a booking flow for finding a hotel and completing a reservation
-
-The templates live in `labs/`. Each run uses a fresh copy, so changes during a run leave the templates intact. See the [paint lab guide](labs/paint-lab-template/README.md) for drawing controls and save behavior, or the [JavaScript scenario guide](javascript-app/docs/scenarios.md) for task prompts and verification rules.
+Templates live in `labs/` and are copied into a fresh workspace for each run. See the [lab documentation](labs/docs/README.md) for descriptions, task prompts, verification rules, and contribution guidance.
 
 ## Repo Map
 

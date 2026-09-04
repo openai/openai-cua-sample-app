@@ -1,5 +1,3 @@
-# Booking Lab Template
+# Booking lab template
 
-Run-scoped HTTP commerce lab for filtering inventory, completing a reservation form, and verifying a local confirmation record.
-
-Planned hero scenario: `booking-complete-reservation`
+Repository documentation: [task and verification guide](../docs/scenarios.md#northstar-stays--booking).

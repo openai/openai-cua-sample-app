@@ -65,8 +65,12 @@ const aborted = () => new JavaScriptRuntimeError("Run aborted.", "run_aborted");
 export async function launchJavaScriptSession(options: Options): Promise<JavaScriptSession> {
   if (options.signal?.aborted) throw aborted();
   const target = resolveBrowserStartTarget(options.startTarget, options.workspacePath);
+  // Node's watcher sends dependency reports over IPC. Keep its flag out of
+  // the worker so that channel carries only the execution protocol.
   const childEnvironment = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => name.toUpperCase() !== "OPENAI_API_KEY"),
+    Object.entries(process.env).filter(([name]) =>
+      !["OPENAI_API_KEY", "WATCH_REPORT_DEPENDENCIES"].includes(name.toUpperCase()),
+    ),
   );
   // The parent retains a browser handle even if model code blocks the worker.
   const browserServer = await chromium.launchServer({

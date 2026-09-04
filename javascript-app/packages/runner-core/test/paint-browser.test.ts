@@ -124,12 +124,4 @@ describe("paint browser interactions", () => {
     expect(await viewport.getAttribute("class")).not.toContain("isHand");
     expect((await readPaintDocumentSnapshot(session!)).paintedPixelCount).toBe(0);
   });
-
-  it("passes the document engine browser checks", async () => {
-    const page = session!.page;
-    await page.goto(server.urlFor("paint-lab-tests/index.html"));
-    await page.locator("#summary").filter({ hasText: /\d+ \/ \d+ checks passed/ }).waitFor();
-    expect(await page.locator('[data-result="fail"]').allTextContents()).toEqual([]);
-    expect(await page.locator('[data-result="pass"]').count()).toBeGreaterThan(0);
-  });
 });

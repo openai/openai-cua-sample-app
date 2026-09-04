@@ -4,20 +4,15 @@ Keep public contracts in `replay-schema`, scenario behavior in `runner-core`, an
 
 ## Add a scenario
 
+Choose an existing shared lab template. For template changes, follow the [lab contributing guide](../../labs/docs/contributing.md).
+
 When introducing a new lab ID, category, or verification kind, extend the corresponding closed enum (`labIdSchema`, `categorySchema`, or `verificationKindSchema`) in [`replay-schema`](../packages/replay-schema/src/index.ts). Scenarios that reuse existing values need no enum change.
 
-1. Add a self-contained template under the repository-root `labs/<name>-lab-template/`.
-2. Define a default prompt and register the manifest in [`scenario-kit/src/scenarios.ts`](../packages/scenario-kit/src/scenarios.ts), including its template, start target, and verification description.
-3. Add instructions, prompt parsing, and verification helpers in `packages/runner-core/src/`. If verification needs a structured prompt, validate it before model execution and document an example.
-4. Add an executor under `packages/runner-core/src/scenarios/` and register it in [`executor-registry.ts`](../packages/runner-core/src/executor-registry.ts).
-5. Add the scenario ID to `finalizeScenario` in [`javascript-worker.ts`](../packages/runner-core/src/javascript-worker.ts). This handler owns artifact retention and optional verification. It runs even when verification is disabled; omitting a case fails the run with `Unsupported scenario`.
-6. Cover the manifest, execution, finalization, and relevant failure or cancellation paths with tests. Add UI tests when the interaction changes.
-
-## Lab and verification design
-
-Keep template assets local and make the initial state readable from screenshots. Expose stable browser-side accessors for verification, and keep the template resettable by copying it into a fresh workspace.
-
-Verify the requested final lab state. Include enough observed and expected detail in failures to make replay review useful. Artifact capture should state what is retained when verification is disabled or the run is interrupted.
+1. Define a default prompt and register the manifest in [`scenario-kit/src/scenarios.ts`](../packages/scenario-kit/src/scenarios.ts), including its template path, start target, and verification description.
+2. Add model instructions, prompt parsing, and verification helpers in `packages/runner-core/src/`. Validate required fields before model execution. Put task prompts and verification rules in the [lab task guide](../../labs/docs/scenarios.md).
+3. Add an executor under `packages/runner-core/src/scenarios/` and register it in [`executor-registry.ts`](../packages/runner-core/src/executor-registry.ts).
+4. Add the scenario ID to `finalizeScenario` in [`javascript-worker.ts`](../packages/runner-core/src/javascript-worker.ts). This handler owns artifact retention and optional verification. It runs even when verification is disabled; omitting a case fails the run with `Unsupported scenario`.
+5. Cover the manifest, execution, finalization, and relevant failure or cancellation paths with tests. Add UI tests when the interaction changes.
 
 ## Checks
 

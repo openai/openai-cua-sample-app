@@ -1,4 +1,4 @@
-# Architecture
+# JavaScript app architecture
 
 The JavaScript sample is a pnpm workspace under `javascript-app/`. The runner copies a shared root `labs/` template into a fresh workspace for each run.
 
@@ -14,7 +14,7 @@ An internal [protocol](../packages/browser-runtime/src/protocol.ts) carries init
 
 | Location | Responsibility |
 | --- | --- |
-| [`packages/replay-schema`](../packages/replay-schema/src/index.ts) | Public request, response, event, replay, and paint-save contracts. |
+| [`packages/replay-schema`](../packages/replay-schema/src/index.ts) | Request, response, event, and replay contracts used by the app. |
 | [`packages/scenario-kit`](../packages/scenario-kit/src/scenarios.ts) | Scenario registry, template locations, and default prompts. |
 | [`packages/browser-runtime`](../packages/browser-runtime/src/javascript-process.ts) | Chromium and worker lifecycle, protocol validation, observations, and deadlines. |
 | [`packages/runner-core`](../packages/runner-core/src/runner-manager.ts) | Run lifecycle, workspaces, model loop, scenario executors, and verification. |
@@ -26,12 +26,12 @@ An internal [protocol](../packages/browser-runtime/src/protocol.ts) carries init
 1. The console loads scenarios and checks for an active run. A page refresh can reattach to that run.
 2. `POST /api/runs` validates the request. `RunnerManager` reserves the single active-run slot, copies the lab template, and creates the initial run and replay records.
 3. The scenario executor starts a local lab server, parent-owned Chromium, and a JavaScript worker.
-4. The [Responses loop](../packages/runner-core/src/responses-loop.ts) exposes `exec_js` and sends requested code to the worker. It records tool results and captures screenshots.
+4. The [Responses loop](../packages/runner-core/src/responses-loop.ts) exposes `exec_js` and sends requested code to the worker. It returns tool output to the model and records tool-call events and screenshots.
 5. Commentary continues the loop. A final assistant message with no pending tool calls completes it. API failure states, unsupported tools, and an exhausted turn budget fail the run.
-6. The worker's `finalizeScenario` handler retains scenario artifacts and runs verification when enabled. Paint capture happens before its optional verification.
-7. Worker, Chromium, and lab-server cleanup finishes. The parent then publishes the terminal run status and releases the active-run slot. Replay snapshots are written atomically.
+6. The worker's `finalizeScenario` handler retains scenario artifacts and runs verification when enabled.
+7. The parent awaits cleanup of the worker, Chromium, and lab server, then publishes the terminal run status and releases the active-run slot. Replay snapshots are written atomically.
 
-The start response includes initial run detail. The console follows SSE and polls every two seconds to recover missed updates. Requests have client-side deadlines so an unavailable runner does not leave an action pending indefinitely. `GET /api/runs/active` returns the active `RunDetail` or `null`; it does not provide completed-run history. Persisted runs remain available through their detail, replay, and event endpoints.
+The start response includes initial run detail. The console follows SSE and polls every two seconds to recover missed updates. Requests have client-side deadlines so an unavailable runner does not leave an action pending indefinitely. `GET /api/runs/active` returns the active `RunDetail` or `null`; it does not provide completed-run history. Persisted runs remain available through their detail and replay endpoints. Their event endpoint also works after completion, failure, or cancellation.
 
 ## JavaScript execution and cleanup
 
@@ -53,20 +53,10 @@ The main endpoints are:
 - `GET /api/runs/:id/events` and `GET /api/runs/:id/replay`
 - `GET /api/runs/:id/artifacts/screenshots/:name`
 
-Version-2 replay bundles contain the run record, workspace reference, screenshots, summary, and ordered events, including function calls. Files live under `javascript-app/data/`.
+Version-2 replay bundles contain the run record, workspace reference, screenshot references, summary, and ordered events, including function calls. Files live under `javascript-app/data/`.
 
 `replay.json` is the authoritative snapshot. An interrupted write can leave the separate run record or event log ahead of it.
 
 The console fills the viewport, with independent scrolling for controls and activity. On narrow screens, Controls, Preview, and Activity navigation preserves panel state. The timeline remains available with thumbnails collapsed, and reviewing older activity or a selected frame preserves that position as new events arrive.
 
-## Paint persistence and verification
-
-Sketch Studio is a static application with a 1024 × 768 raster document and up to eight Canvas 2D layers. The document engine owns pixels, layers, history, and persistence; the view maps pointer coordinates through zoom and pan. Resizing changes the view without resizing document buffers.
-
-The runner reads `__paintReadDocumentSnapshot()` and `__paintReadSaveRecord()` after `__paintLabReady`. Verification compares current and saved metadata and pixel hashes, independently decodes the saved PNGs, composites layers, and checks for visible nonwhite pixels. It establishes a consistent, nonblank save. Visual review determines whether the artwork matches the requested subject.
-
-After normal model completion, paint finalization writes the last saved draft to `artwork/draft.sketch.json` and `artwork/draft.png` in the run workspace, even when verification is off. No draft produces no retained paint files. Invalid image data or filesystem errors fail the run; cancellation may happen before capture.
-
-IndexedDB recovery is scoped to the lab origin and browser context. New runs start fresh, and the editor does not import retained project JSON. The paint save-record version is independent of the replay-bundle version.
-
-See [contributing](contributing.md) for the complete scenario-extension path, including the worker's finalization handler.
+See [contributing](contributing.md) for extension points.

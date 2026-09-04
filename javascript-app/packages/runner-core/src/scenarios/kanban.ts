@@ -20,7 +20,7 @@ const liveOnlyMessage =
 
 class KanbanCodeExecutor implements RunExecutor {
   async execute(context: RunExecutionContext) {
-    validateVerificationPrompt(context, parseKanbanTargetBoardState, "Use the structured prompt in docs/scenarios.md, or turn verification off for a free-form task.");
+    validateVerificationPrompt(context, parseKanbanTargetBoardState, "Use the structured prompt in repository-root labs/docs/scenarios.md, or turn verification off for a free-form task.");
     const client = createDefaultResponsesClient();
 
     if (!client) {

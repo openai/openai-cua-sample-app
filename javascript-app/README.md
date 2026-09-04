@@ -64,7 +64,7 @@ Start the runner and console together:
 pnpm dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000), choose a scenario, keep **Headless** selected, and select **Start Run**. All three scenarios send real API requests. To try drawing, choose **Sketch Studio** and use the supplied prompt.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000), choose a scenario, keep **Headless** selected, and select **Start Run**. All three scenarios send real API requests.
 
 The console keeps run actions at the top, with controls and activity in separate scrolling panels. Below 960px, use **Controls**, **Preview**, and **Activity** to switch panels. The timeline stays visible; **Show thumbnails** opens the frame strip.
 
@@ -115,7 +115,7 @@ Each run uses a persistent Playwright JavaScript session exposed through `exec_j
 
 The main runner owns the API client, HTTP server, run records, execution deadline, and Chromium lifecycle. One child process per run owns the JavaScript context and Playwright page. Use `globalThis` to keep custom state between calls. The worker also provides `page`, `context`, `browser`, `Buffer`, `console.log`, and `display()`.
 
-Ordinary script errors return as tool output so the model can correct them. Stop and the 20-second execution deadline can terminate the worker and Chromium even when JavaScript loops forever. A timeout, worker crash, or invalid worker response fails the run. Cleanup finishes before another run can start.
+Ordinary script errors return as tool output so the model can correct them. Each JavaScript execution call has a 20-second deadline. Stop or a timeout can terminate the worker and Chromium even when JavaScript loops forever. A timeout, worker crash, or invalid worker response fails the run. The runner awaits cleanup before another run can start.
 
 Follow the [model loop](packages/runner-core/src/responses-loop.ts), [worker](packages/runner-core/src/javascript-worker.ts), and [process controller](packages/browser-runtime/src/javascript-process.ts) to see this flow. The [scenario runtime](packages/runner-core/src/scenario-runtime.ts) connects them to the lab and verification. See [architecture](docs/architecture.md) for more detail.
 
@@ -131,27 +131,9 @@ Existing saved files remain in place. The app does not migrate old replay paths 
 
 ## Official Scenarios
 
-- `kanban-reprioritize-sprint` (`kanban`): move cards to the columns and order requested in the prompt
-- `paint-draw-poster` (`paint`): draw and save artwork in Sketch Studio
-- `booking-complete-reservation` (`booking`): find a hotel and complete the requested reservation
+Choose a scenario in the console and edit its prompt before starting a run. The [lab task guide](../labs/docs/scenarios.md) lists the available tasks and example prompts.
 
-Verification is off by default. Enable **Run verification checks** under **Advanced settings**. With verification off, success means the model loop completed; the runner skips outcome checks. For Kanban or Booking verification, replace the freeform default prompt with a [structured example](docs/scenarios.md). The runner checks those fields before the model starts.
-
-See [scenario details](docs/scenarios.md) for prompts and verification rules, and the [shared labs](../README.md#shared-labs) for an overview.
-
-## Sketch Studio
-
-Sketch Studio opens a 1024 × 768 raster document. It supports brushes, pencil, eraser, fill, eyedropper, shapes, text, selections, up to eight layers, undo/redo, and zoom/pan. The model uses the visible controls through the Playwright session.
-
-**Save draft** stores a version-2 record of the artwork and layers in IndexedDB. Reload recovery works within the same lab origin and browser context; a new run starts fresh. **Export PNG** downloads the current artwork without editor chrome and does not save a draft.
-
-When the model finishes normally, the runner retains the last saved draft as `artwork/draft.png` and `artwork/draft.sketch.json` in the run workspace. Capture runs before optional verification, including when verification is off. The activity log records the paths; successful run summaries include them too.
-
-No saved draft means no retained paint files. Invalid image data or file-write errors fail the run. Cancelled or interrupted runs may end before capture.
-
-Paint verification checks that the saved draft is nonblank and matches the current layers and rendered pixels. Review the image yourself to assess whether it depicts the requested subject.
-
-Try: “Draw a yellow smiley face with black eyes and a curved smile, then save the draft.” See the [paint lab guide](../labs/paint-lab-template/README.md) for controls and save behavior. The live paint smoke tests exercise both headless and visible Chromium.
+Verification is off by default. Enable **Run verification checks** under **Advanced settings**. With verification off, the runner skips outcome checks. Some scenarios require a structured prompt for verification; use the corresponding example in the lab task guide. The runner validates required fields before model execution.
 
 ## Repo Map
 
@@ -170,7 +152,7 @@ Try: “Draw a yellow smiley face with black eyes and a curved smile, then save 
 - [`../labs`](../labs/)
   Shared templates copied into each run's workspace
 - [`docs`](docs/)
-  Architecture, scenario, and contribution guides
+  Architecture and contribution guides
 
 ## Environment Variables
 
