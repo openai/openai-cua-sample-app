@@ -14,7 +14,7 @@ const event: RunEvent = {
   level: "ok", message: "Browser started", createdAt: "2026-09-03T00:00:00.000Z",
 };
 const makeDetail = (): RunDetail => ({
-  run: { maxResponseTurns: 24, id: "run-test", scenarioId: scenario.id, labId: scenario.labId, browserMode: "headless", model: "gpt-5.6-sol", prompt: "test", status: "running", startedAt: event.createdAt },
+  run: { maxResponseTurns: 24, id: "run-test", scenarioId: scenario.id, labId: scenario.labId, browserMode: "headless", model: "test-model", prompt: "test", status: "running", startedAt: event.createdAt },
   scenario, workspacePath: "/tmp/run-test", eventStreamUrl: "/api/runs/run-test/events", replayUrl: "/api/runs/run-test/replay", events: [event],
 });
 

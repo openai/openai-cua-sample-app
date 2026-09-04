@@ -1,5 +1,7 @@
 "use client";
 
+import { DEFAULT_MODEL_DISPLAY_NAME } from "@cua-sample/contracts";
+
 type RunSummaryProps = {
   backendId: "javascript" | "python";
   runnerOnline: boolean;
@@ -20,11 +22,10 @@ export function ConsoleTopbar({
     <header className="consoleTopbar">
       <div className="brandBlock">
         <div className="brandMark">
-          <span>GPT</span>
-          <strong>5.6</strong>
+          <span>{DEFAULT_MODEL_DISPLAY_NAME}</span>
         </div>
         <div className="brandCopy">
-          <h1>GPT-5.6 CUA Sample App</h1>
+          <h1>{DEFAULT_MODEL_DISPLAY_NAME} CUA Sample App</h1>
           <p>
             <span className="stackLabel">{backendId === "python" ? "Python / PyAutoGUI" : "JavaScript / Playwright"}</span>
             <span className="brandContext"> · {topbarSubtitle}</span>

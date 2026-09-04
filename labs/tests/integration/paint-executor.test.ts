@@ -99,7 +99,7 @@ async function setup(code: string, scenarioId = "paint-draw-poster") {
       replayUrl: "/api/runs/paint-test/replay",
       run: {
         id: "paint-test", scenarioId, labId: getScenarioById(scenarioId)!.labId,
-        browserMode: "headless", model: "gpt-5.6-sol", maxResponseTurns: 24,
+        browserMode: "headless", model: "test-model", maxResponseTurns: 24,
         prompt: getScenarioById(scenarioId)!.defaultPrompt, startedAt: "2026-09-03T00:00:00.000Z",
         status: "running",
       },
@@ -130,7 +130,7 @@ describe("paint executor integration", () => {
     expect(request.tools).toEqual([expect.objectContaining({ name: "exec_js", type: "function" })]);
     expect(request.instructions).toContain("Playwright");
     expect(request.instructions).not.toContain("exec_py");
-    expect(request.model).toBe("gpt-5.6-sol");
+    expect(request.model).toBe("test-model");
     expect(session.page.mouse.click).toHaveBeenCalledWith(512, 384);
     expect(saveDraft).toHaveBeenCalledOnce();
   });

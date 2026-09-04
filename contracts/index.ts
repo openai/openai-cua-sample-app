@@ -1,4 +1,8 @@
 import { z } from "zod";
+import defaults from "./defaults.json" with { type: "json" };
+
+export const DEFAULT_MODEL = defaults.model;
+export const DEFAULT_MODEL_DISPLAY_NAME = defaults.modelDisplayName;
 
 const labIdSchema = z.enum(["kanban", "paint", "booking"]);
 

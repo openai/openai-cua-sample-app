@@ -12,6 +12,7 @@ import { randomUUID } from "node:crypto";
 
 import { type BrowserObservationSession } from "./browser/session.js";
 import {
+  DEFAULT_MODEL,
   browserScreenshotArtifactSchema,
   browserStateSchema,
   runDetailSchema,
@@ -61,7 +62,7 @@ type RunnerManagerOptions = {
   dataRoot: string;
   executorFactory?: (detail: RunDetail) => RunExecutor;
 };
-const defaultRunModel = process.env.CUA_DEFAULT_MODEL ?? "gpt-5.6-sol";
+const defaultRunModel = process.env.CUA_DEFAULT_MODEL ?? DEFAULT_MODEL;
 const defaultMaxResponseTurns = 24;
 
 function sleep(ms: number) {

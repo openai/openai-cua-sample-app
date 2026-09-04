@@ -1,4 +1,4 @@
-import type { RunDetail } from "@cua-sample/contracts";
+import { DEFAULT_MODEL_DISPLAY_NAME, type RunDetail } from "@cua-sample/contracts";
 
 import { createDefaultResponsesClient, runResponsesCodeLoop } from "./responses-loop.js";
 import {
@@ -36,7 +36,7 @@ export function createDefaultRunExecutor(detail: RunDetail): RunExecutor {
         navigationMessage: `Browser navigated to the ${lab.id} lab.`,
         runner: async ({ labUrl, session }) => {
           const instructions = [
-            "You are operating a persistent Playwright browser session for a gpt-5.6-sol CUA demo harness.",
+            `You are operating a persistent Playwright browser session for a ${DEFAULT_MODEL_DISPLAY_NAME} CUA demo harness.`,
             "You must use the exec_js tool before you answer.",
             ...(lab.id === "paint" ? ["Observe the interface with display((await page.screenshot()).toString('base64')), then use Playwright locators, page.mouse, and page.keyboard to operate the visible controls. Mouse coordinates refer to the page screenshot."] : []),
             `The lab is already open at ${labUrl}.`,

@@ -2,7 +2,7 @@ import copy
 import json
 from functools import lru_cache
 
-from .config import REPO_ROOT
+from .config import DEFAULT_MODEL_DISPLAY_NAME, REPO_ROOT
 from .models import ScenarioManifest, validate_wire
 
 
@@ -19,7 +19,7 @@ def list_scenarios() -> list[dict]:
 def instructions(lab_id: str, current_url: str) -> str:
     definition = next(item for item in catalog()["scenarios"] if item["labId"] == lab_id)
     return "\n".join([
-        "You are operating a persistent Python/PyAutoGUI desktop session for a GPT-5.6 CUA demo harness.",
+        f"You are operating a persistent Python/PyAutoGUI desktop session for a {DEFAULT_MODEL_DISPLAY_NAME} CUA demo harness.",
         "You must use the exec_py tool before you answer.",
         "Observe the current interface with pyautogui.screenshot(), then use PyAutoGUI mouse and keyboard controls. Coordinates refer to the full desktop screenshot.",
         f"The lab is already open at {current_url}.", *copy.deepcopy(definition["instructions"]),

@@ -1,5 +1,7 @@
 "use client";
 
+import { DEFAULT_MODEL_DISPLAY_NAME } from "@cua-sample/contracts";
+
 import type {
   BackendCapabilities,
   BrowserMode,
@@ -166,7 +168,7 @@ export function RunControls({
             disabled={controlsLocked}
             id="run-prompt"
             onChange={(event) => onPromptChange(event.target.value)}
-            placeholder="Describe the operator task for GPT-5.6."
+            placeholder={`Describe the operator task for ${DEFAULT_MODEL_DISPLAY_NAME}.`}
             rows={4}
             value={prompt}
           />

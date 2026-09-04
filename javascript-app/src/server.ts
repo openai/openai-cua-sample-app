@@ -6,6 +6,7 @@ import { basename, resolve } from "node:path";
 import Fastify, { type FastifyReply } from "fastify";
 
 import {
+  DEFAULT_MODEL,
   backendCapabilitiesSchema,
   runDetailSchema,
   runnerErrorResponseSchema,
@@ -160,7 +161,7 @@ export function createServer(options: CreateServerOptions = {}) {
     browserModes: ["headless", "headful"],
     defaults: {
       browserMode: "headless",
-      model: process.env.CUA_DEFAULT_MODEL ?? "gpt-5.6-sol",
+      model: process.env.CUA_DEFAULT_MODEL ?? DEFAULT_MODEL,
       maxResponseTurns: 24,
     },
   }));

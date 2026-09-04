@@ -52,7 +52,7 @@ function createMockExecutionContext() {
       captureScreenshot: vi.fn(async () => screenshotArtifact),
       detail: {
         run: {
-          model: "gpt-5.6-sol",
+          model: "test-model",
           prompt: "Finish the browser task and report success.",
         },
       },

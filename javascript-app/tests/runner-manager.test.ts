@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import type { RunEvent } from "@cua-sample/contracts";
+import { DEFAULT_MODEL, type RunEvent } from "@cua-sample/contracts";
 
 import { RunnerManager } from "../src/runner-manager.js";
 
@@ -489,7 +489,7 @@ describe("RunnerManager", () => {
     );
 
     expect(completed.run.status).toBe("completed");
-    expect(completed.run.model).toBe("gpt-5.6-sol");
+    expect(completed.run.model).toBe(DEFAULT_MODEL);
     expect(completed.run.maxResponseTurns).toBe(24);
     expect(reloaded).toEqual(completed);
     expect(replay.version).toBe(3);

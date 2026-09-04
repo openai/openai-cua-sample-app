@@ -18,7 +18,7 @@ const runDetail: RunDetail = {
     maxResponseTurns: 24,
     id: "test-run",
     labId: scenario.labId,
-    model: "gpt-5.6-sol",
+    model: "test-model",
     prompt: scenario.defaultPrompt,
     scenarioId: scenario.id,
     startedAt: "2026-04-18T12:00:00.000Z",
