@@ -142,9 +142,3 @@ export async function restoreDocument(draft) {
   doc.history.markSaved();
   return doc;
 }
-export function downloadPng(doc) {
-  const link = document.createElement("a");
-  link.download = `${doc.name.replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Sketch"}.png`;
-  link.href = doc.composite().toDataURL("image/png");
-  link.click();
-}

@@ -1,0 +1,5 @@
+packages:
+  - console
+  - javascript-app
+  - contracts
+  - labs

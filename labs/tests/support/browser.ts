@@ -6,15 +6,12 @@ import { chromium, type Page } from "playwright";
 export type BrowserSession = { page: Page; close: () => Promise<void> };
 
 export async function launchBrowserSession(options: {
-  browserMode: "headless";
-  screenshotDir: string;
-  startTarget: { kind: "remote_url"; url: string };
-  workspacePath: string;
+  url: string;
 }): Promise<BrowserSession> {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-    await page.goto(options.startTarget.url);
+    await page.goto(options.url);
     return { page, close: () => browser.close() };
   } catch (error) {
     await browser.close();

@@ -1,6 +1,3 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -10,24 +7,16 @@ import { readPaintDocumentSnapshot } from "../support/browser.js";
 import { startWorkspaceLabServer } from "../support/browser.js";
 
 const labsPath = fileURLToPath(new URL("../../", import.meta.url));
-let directory: string;
 let server: Awaited<ReturnType<typeof startWorkspaceLabServer>>;
 let session: BrowserSession | undefined;
 
 beforeAll(async () => {
-  directory = await mkdtemp(join(tmpdir(), "paint-browser-"));
   server = await startWorkspaceLabServer({ workspacePath: labsPath });
 });
 
 beforeEach(async () => {
   session = await launchBrowserSession({
-    browserMode: "headless",
-    screenshotDir: join(directory, "screenshots"),
-    startTarget: {
-      kind: "remote_url",
-      url: server.urlFor("paint-lab-template/index.html"),
-    },
-    workspacePath: labsPath,
+    url: server.urlFor("paint-lab-template/index.html"),
   });
   session.page.setDefaultTimeout(5_000);
   await session.page.waitForFunction(() =>
@@ -42,7 +31,6 @@ afterEach(async () => {
 
 afterAll(async () => {
   await server?.close();
-  if (directory) await rm(directory, { recursive: true, force: true });
 });
 
 async function enterText() {
@@ -54,6 +42,50 @@ async function enterText() {
 }
 
 describe("paint browser interactions", () => {
+  it.each(["toolbar", "File menu"])(
+    "offers Save draft without PNG export and restores artwork saved from the %s",
+    async (saveFrom) => {
+      const page = session!.page;
+      expect(await page.getByRole("button", { name: "Export PNG", exact: true }).count()).toBe(0);
+      await page.getByRole("button", { name: "File", exact: true }).click();
+      expect(await page.getByRole("menuitem", { name: "Export PNG", exact: true }).count()).toBe(0);
+      expect(await page.locator('[data-action="export"]').count()).toBe(0);
+      await page.keyboard.press("Escape");
+
+      await page.getByRole("textbox", { name: "Document name", exact: true }).fill("Saved artwork");
+      await page.getByRole("textbox", { name: "Document name", exact: true }).press("Tab");
+      const box = (await page.locator("#drawing-canvas").boundingBox())!;
+      await page.mouse.move(box.x + 40, box.y + 40);
+      await page.mouse.down();
+      await page.mouse.move(box.x + 120, box.y + 90, { steps: 5 });
+      await page.mouse.up();
+      await page.locator('[data-action="add-layer"]').click();
+      await enterText();
+      if (saveFrom === "File menu") {
+        await page.getByRole("button", { name: "File", exact: true }).click();
+        await page.getByRole("menuitem", { name: /^Save draft/ }).click();
+      } else {
+        await page.getByRole("button", { name: "Save draft", exact: true }).click();
+      }
+      await expect.poll(() => page.locator("#save-indicator").textContent()).toBe("Saved draft");
+      expect(await page.locator("#text-entry").isVisible()).toBe(false);
+      const saved = await readPaintDocumentSnapshot(session!);
+      expect(saved.paintedPixelCount).toBeGreaterThan(0);
+      expect(saved.layers).toHaveLength(2);
+      expect(saved.layers[0]!.pixelHash).not.toBe(saved.layers[1]!.pixelHash);
+
+      // Reload exercises IndexedDB persistence and verifies the restored image hashes.
+      await page.reload();
+      await page.waitForFunction(() =>
+        (globalThis as unknown as { __paintLabReady?: boolean }).__paintLabReady,
+      );
+      expect(await readPaintDocumentSnapshot(session!)).toEqual(saved);
+      expect(await page.getByRole("textbox", { name: "Document name", exact: true }).inputValue())
+        .toBe("Saved artwork");
+      expect(await page.locator("#save-indicator").textContent()).toBe("Saved draft");
+    },
+  );
+
   it.each([
     "add-layer",
     "duplicate-layer",

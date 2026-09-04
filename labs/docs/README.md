@@ -4,8 +4,8 @@ The labs are self-contained browser applications shared by the [JavaScript app](
 
 | Lab | Template | Guide |
 | --- | --- | --- |
-| Launch Planner | [Kanban](../kanban-lab-template/) | [Task and verification](scenarios.md#launch-planner--kanban) |
-| Sketch Studio | [Paint](../paint-lab-template/) | [Drawing, saving, and verification](paint.md) |
-| Northstar Stays | [Booking](../booking-lab-template/) | [Task and verification](scenarios.md#northstar-stays--booking) |
+| Launch Planner | [Kanban](../kanban-lab-template/) | [Task example](scenarios.md#launch-planner--kanban) |
+| Sketch Studio | [Paint](../paint-lab-template/) | [Drawing and saving](paint.md) |
+| Northstar Stays | [Booking](../booking-lab-template/) | [Task example](scenarios.md#northstar-stays--booking) |
 
-Use either app's quickstart to run a task. See the [task guide](scenarios.md) for prompts and optional verification, or [contributing](contributing.md) to change a lab and [run its checks](contributing.md#checks).
+Use either app's quickstart to run a task. See the [task guide](scenarios.md) for prompt examples and guidance on inspecting results, or [contributing](contributing.md) to change a lab and [run its checks](contributing.md#checks).

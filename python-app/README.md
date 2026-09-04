@@ -1,66 +1,62 @@
-# Python / PyAutoGUI sample app
+# Python / PyAutoGUI Sample App
 
-A computer-use sample using the Responses API. The model executes Python through `exec_py` in a persistent PyAutoGUI process. The server, console, and model-request loop are TypeScript; Playwright manages the visible Chromium window, previews, and verification.
-
-Each run follows **call the model → execute Python → return output/screenshots → repeat**. The shared [labs](../labs/docs/README.md) provide the tasks and browser applications.
+The model calls `exec_py` to run Python in a persistent process. PyAutoGUI lets it inspect the desktop and act through mouse input and keystrokes. The server, agent loop, and execution worker are all written in Python.
 
 ## Quickstart
 
-You need Node.js **22.20.0**, pnpm **10.26.0**, Python **3.10+**, and a graphical desktop. From the repository root, using Bash/Zsh:
-
-```bash
-cd python-app
-corepack enable
-pnpm install --frozen-lockfile
-cp .env.example .env
-python3 -m venv .venv
-.venv/bin/python -m pip install -r runtimes/requirements.txt
-pnpm playwright:install
-```
-
-Set `OPENAI_API_KEY=your_key_here` in `.env`, then check desktop access:
+Follow the [Python quickstart](../README.md#python--pyautogui-quickstart) in the root guide. Before launching, set up desktop access:
 
 - **macOS:** enable Accessibility and Screen Recording for the app launching the runner in System Settings → Privacy & Security, then restart that app.
-- **Linux:** use an X11 desktop with PyAutoGUI's screenshot and Tk dependencies installed. Use `pnpm playwright:install:with-deps` if Chromium needs system libraries.
-- **Windows:** replace `.venv/bin/python` with `.venv\Scripts\python.exe` and adapt the shell commands.
+- **Linux:** use an X11 desktop with PyAutoGUI's screenshot and Tk dependencies installed. If Chromium needs system libraries, run `uv run --project python-app playwright install --with-deps chromium` from the repository root.
+- **Windows:** use a graphical desktop session.
 
-Use a dedicated desktop session: generated Python runs with your user permissions, and screenshots can include other windows.
+Use a dedicated desktop session and keep the lab window in front on your primary monitor. Python controls your real mouse and keyboard; it requires a visible browser. The quickstart's `--check` command tests desktop access before you start.
 
-```bash
-.venv/bin/python runtimes/python-worker.py --check
-pnpm dev
+## Code Walkthrough
+
+Both this app and the [JavaScript sample](../javascript-app/README.md#code-walkthrough) follow the same five stages:
+
+1. **Define the tool.** [`build_code_tool_definitions`](app/responses_loop.py#L43) declares `exec_py`, a function that accepts a `code` string, and describes the available PyAutoGUI operations and output helpers.
+2. **Request a response.** [`run_responses_code_loop`](app/responses_loop.py#L207) sends the task, instructions, and tool definition to the Responses API. The model can return generated Python in a `function_call`.
+3. **Execute the code.** The [worker](app/desktop/worker.py#L66) runs it with `pyautogui` available. The worker keeps Python globals between calls while PyAutoGUI operates the same desktop. Each run gets a new worker. Screenshots use mouse-input coordinates, including on Retina displays.
+4. **Return observations.** `log()` produces text and `display()` produces images. The [loop](app/responses_loop.py#L267) returns these as `function_call_output` with the original `call_id`, so the model can inspect the result and choose its next action.
+5. **Continue or finish.** The next request includes those results and `previous_response_id`. Commentary continues the loop; a final answer finishes it when no tool calls remain. The worker preserves execution state independently of the API conversation.
+
+For example, to inspect the current desktop, the model might return:
+
+```json
+{
+  "type": "function_call",
+  "name": "exec_py",
+  "call_id": "call_1",
+  "arguments": "{\"code\":\"display(pyautogui.screenshot())\"}"
+}
 ```
 
-Open the [console](http://127.0.0.1:3041), choose a task, edit its prompt, and start a run. Keep the lab window in front on your primary monitor while the model uses the mouse and keyboard. The runner listens on port **4041**.
+After executing the code, the runner sends this item in the next request's `input` array. The PNG bytes are abbreviated here:
 
-Defaults are **gpt-5.6**, **24 model turns**, and **verification off**. To enable verification, select **Run verification checks** under **Advanced settings**. Kanban and Booking need the structured prompts in the [lab task guide](../labs/docs/scenarios.md); the supplied freeform prompts work with verification off.
+```json
+{
+  "type": "function_call_output",
+  "call_id": "call_1",
+  "output": [
+    {
+      "type": "input_image",
+      "image_url": "data:image/png;base64,<PNG_BYTES>",
+      "detail": "original"
+    }
+  ]
+}
+```
 
-## Where to start in the code
+Playwright handles browser setup and preview screenshots; PyAutoGUI handles the model's desktop actions. Follow the [architecture guide](docs/architecture.md#supporting-modules) for the HTTP server, worker connection, and run lifecycle.
 
-Follow the [Responses loop](packages/runner-core/src/responses-loop.ts), [Python process connection](packages/browser-runtime/src/python-runtime.ts), and [Python worker](runtimes/python-worker.py).
+## Interruption and Recovery
 
-`exec_py` executes code with `pyautogui`, `log()`, and `display()` available. Python globals persist between calls within a run. For example, `display(pyautogui.screenshot())` returns an image in the same coordinates as mouse input, including on Retina displays.
+**Stop** interrupts the run, attempts to release held input, and waits for the worker, browser, and lab server to close. Moving the pointer into a PyAutoGUI failsafe corner ends the run on the next PyAutoGUI action. Ordinary Python exceptions return to the model so it can correct them. Each code call has a 60-second deadline.
 
-Each run gets a fresh lab copy under `data/`. Keep `python-app/` and `labs/` as siblings when copying the sample, and recreate `.venv` after moving it. Install dependencies from this folder; the repository root is not a pnpm workspace.
+Refreshing the console reconnects to an active run. If a Start response is unconfirmed, **Check again** checks for an active run without submitting another. **Ctrl+C** stops the app; wait for shutdown before launching either backend again. Do not use Uvicorn reload or multiple workers.
 
-See [architecture](docs/architecture.md) for the file map and lifecycle, and [contributing](docs/contributing.md) for checks and development commands.
+If the runner reports an input-cleanup failure, it blocks new runs. Release held keys and mouse buttons, check desktop permissions, then restart. After a crash, check for held input and leftover processes before starting again.
 
-## Interruption and recovery
-
-**Stop** interrupts execution and waits for cleanup. Moving the pointer into a PyAutoGUI failsafe corner ends the run on the next PyAutoGUI action. Ordinary Python exceptions are returned to the model so it can correct its code.
-
-Refreshing the console reconnects to an active run. If a Start request is unconfirmed, use **Check again** to look for an active run. Ctrl+C in the launching terminal stops the services and requests cleanup.
-
-## Configuration
-
-Runner settings belong in `.env` or the runner's shell. The provided development and production scripts load `.env`; shell variables take precedence. See [.env.example](.env.example) for runner settings. Set `CUA_PYTHON` to an absolute Python executable to override the default lookup: this sample's `.venv`, then `python3`.
-
-Next.js uses `apps/demo-web/.env.local` or its launching shell, rather than the runner's `.env`:
-
-- `RUNNER_BASE_URL`: defaults to `http://127.0.0.1:4041`.
-- `NEXT_PUBLIC_CUA_DEFAULT_MODEL`: leave unset to use the runner's model.
-- `NEXT_PUBLIC_CUA_DEFAULT_MAX_RESPONSE_TURNS`: defaults to `24`.
-
-Restart services after configuration changes. If changing the runner port, update `RUNNER_BASE_URL` too. Rebuild the web app after changing `NEXT_PUBLIC_*` values in production.
-
-See the repository's [license](../LICENSE).
+See [contributing](docs/contributing.md) for tests and production startup, and the root guide for [safety and limitations](../README.md#safety-and-limitations).

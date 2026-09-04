@@ -1,53 +1,19 @@
 {
-  "name": "openai-cua-sample-app",
+  "name": "@cua-sample/runner",
+  "version": "0.0.0",
   "private": true,
-  "packageManager": "pnpm@10.26.0",
+  "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n runner,web -c blue,green \"pnpm dev:runner\" \"pnpm dev:web\"",
-    "dev:web": "pnpm --filter @cua-sample/demo-web dev",
-    "dev:runner": "pnpm --filter @cua-sample/runner dev",
-    "playwright:install": "pnpm --filter @cua-sample/runner playwright:install",
-    "playwright:install:with-deps": "pnpm --filter @cua-sample/runner playwright:install:with-deps",
-    "lint": "node scripts/lint.mjs",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "build": "pnpm --filter @cua-sample/replay-schema build && pnpm --filter @cua-sample/scenario-kit build && pnpm --filter @cua-sample/browser-runtime build && pnpm --filter @cua-sample/runner-core build && pnpm --filter @cua-sample/runner build && pnpm --filter @cua-sample/demo-web build",
-    "test": "pnpm --filter @cua-sample/browser-runtime test && pnpm --filter @cua-sample/runner-core test && pnpm --filter @cua-sample/runner test && pnpm --filter @cua-sample/demo-web test",
-    "typecheck": "pnpm --filter @cua-sample/replay-schema typecheck && pnpm --filter @cua-sample/scenario-kit typecheck && pnpm --filter @cua-sample/browser-runtime typecheck && pnpm --filter @cua-sample/runner-core typecheck && pnpm --filter @cua-sample/runner typecheck && pnpm --filter @cua-sample/demo-web typecheck"
+    "build": "tsup --config tsup.config.ts",
+    "playwright:install": "playwright install chromium",
+    "playwright:install:with-deps": "playwright install --with-deps chromium",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
-  "devDependencies": {
-    "@eslint/js": "^9.23.0",
-    "@next/eslint-plugin-next": "15.5.24",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^22.13.10",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "concurrently": "^9.1.2",
-    "eslint": "^9.23.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "globals": "^16.0.0",
-    "jsdom": "^26.1.0",
-    "tsup": "^8.4.0",
-    "tsx": "^4.20.5",
-    "typescript-eslint": "^8.29.0",
-    "typescript": "^5.8.2",
-    "vitest": "^3.2.7"
-  },
-  "pnpm": {
-    "overrides": {
-      "@humanfs/node@>=0.16 <0.16.8": "^0.16.8",
-      "brace-expansion@>=1 <1.1.18": "^1.1.18",
-      "brace-expansion@>=5 <5.0.9": "^5.0.9",
-      "fast-uri@>=3 <3.1.6": "^3.1.6",
-      "flatted@>=3 <3.4.2": "^3.4.2",
-      "js-yaml@>=4 <4.3.1": "^4.3.1",
-      "nanoid@>=3 <3.3.18": "^3.3.18",
-      "next>sharp": "^0.35.4",
-      "picomatch@>=2 <2.3.2": "^2.3.2",
-      "picomatch@>=4 <4.0.4": "^4.0.7",
-      "postcss@>=8 <8.5.23": "^8.5.26",
-      "shell-quote@>=1 <1.9.0": "^1.9.0",
-      "ws@>=8 <8.21.0": "^8.21.3"
-    }
+  "dependencies": {
+    "@cua-sample/contracts": "workspace:*",
+    "fastify": "^5.12.1",
+    "openai": "^6.25.0",
+    "playwright": "^1.55.0"
   }
 }
