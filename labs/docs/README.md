@@ -1,13 +1,11 @@
-# Lab documentation
+# Shared labs
 
-The shared labs are self-contained browser applications. Each run uses a fresh copy of a template.
+The labs are self-contained browser applications shared by the [JavaScript app](../../javascript-app/README.md) and [Python app](../../python-app/README.md). Each run starts with a fresh template copy.
 
 | Lab | Template | Guide |
 | --- | --- | --- |
-| Launch Planner | [Kanban template](../kanban-lab-template/) | [Task and verification](scenarios.md#launch-planner--kanban) |
-| Sketch Studio | [Paint template](../paint-lab-template/) | [Controls, saving, and verification](paint.md) |
-| Northstar Stays | [Booking template](../booking-lab-template/) | [Task and verification](scenarios.md#northstar-stays--booking) |
+| Launch Planner | [Kanban](../kanban-lab-template/) | [Task and verification](scenarios.md#launch-planner--kanban) |
+| Sketch Studio | [Paint](../paint-lab-template/) | [Drawing, saving, and verification](paint.md) |
+| Northstar Stays | [Booking](../booking-lab-template/) | [Task and verification](scenarios.md#northstar-stays--booking) |
 
-See [task prompts](scenarios.md) for examples and [contributing](contributing.md) to add or update a lab.
-
-To run these tasks, follow the [JavaScript sample-app setup](../../javascript-app/README.md#first-run).
+Use either app's quickstart to run a task. See the [task guide](scenarios.md) for prompts and optional verification, or [contributing](contributing.md) to change a lab and [run its checks](contributing.md#checks).

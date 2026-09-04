@@ -1,3 +1,4 @@
+import { getLabInstructions } from "@cua-sample/scenario-kit";
 import { mkdir, writeFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -20,14 +21,8 @@ export function buildPaintCodeInstructions(currentUrl: string) {
     "You are operating a persistent Playwright browser session for a gpt-5.6-sol CUA demo harness.",
     "You must use the exec_js tool before you answer.",
     "Observe the interface with display((await page.screenshot()).toString('base64')), then use Playwright locators, page.mouse, and page.keyboard to operate the visible controls. Mouse coordinates refer to the page screenshot.",
-    `Sketch Studio is already open at ${currentUrl}.`,
-    "Use the operator prompt as the source of truth. Draw through the visible application controls. Do not generate an image externally, write canvas pixels through page.evaluate, or call page-internal drawing, document, or save functions.",
-    "The app has a real raster canvas. Tools on the left include brush, pencil, eraser, fill, eyedropper, line, rectangle, ellipse, text, selection, and hand.",
-    "Tool settings are above the canvas. Colors and layers are on the right. Open the panels button if the inspector is collapsed. Use Fit at the bottom if you lose the canvas.",
-    "Shapes are drawn by dragging. Choose Fill or Outline in the shape settings. Hold Shift for a circle or square. The fill bucket fills connected pixels on the active layer.",
-    "For text, select Text, click the canvas, type, and press Enter or Apply text. Shift+Enter adds a new line.",
-    "Use Undo or the eraser to correct mistakes. Save draft at the top saves the full document; wait until the interface says Saved draft.",
-    "Do not answer until the artwork has been saved. Reply briefly after saving.",
+    `The lab is already open at ${currentUrl}.`,
+    ...getLabInstructions("paint"),
   ].join("\n");
 }
 

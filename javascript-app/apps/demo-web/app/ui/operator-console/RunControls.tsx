@@ -91,6 +91,7 @@ export function RunActionButtons({
   pendingAction,
   resetDisabled,
   startDisabled,
+  startLabel = "Start Run",
   stopDisabled,
 }: ActionButtonsProps) {
   return (
@@ -101,7 +102,7 @@ export function RunActionButtons({
         onClick={() => void onStartRun()}
         type="button"
       >
-        {pendingAction === "start" ? "Starting..." : "Start Run"}
+        {pendingAction === "start" ? "Starting..." : startLabel}
       </button>
       <button
         className="secondaryButton"

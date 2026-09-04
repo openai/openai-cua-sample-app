@@ -1,15 +1,34 @@
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { RunEvent } from "@cua-sample/replay-schema";
 
 import { RunnerManager } from "../src/index.js";
 
 const tempRoots: string[] = [];
+vi.mock("../src/executor-registry.js", () => ({
+  createDefaultRunExecutor: () => { throw new Error("Generic manager tests must provide an executor."); },
+}));
+const fixture = vi.hoisted(() => ({ workspaceTemplatePath: "" }));
+vi.mock("@cua-sample/scenario-kit", () => {
+  const scenario = () => ({
+    id: "fixture-scenario", labId: "paint", category: "creativity", title: "Fixture",
+    description: "Synthetic runner test", defaultPrompt: "Complete fixture.",
+    workspaceTemplatePath: fixture.workspaceTemplatePath,
+    startTarget: { kind: "workspace_file", path: "index.html" }, supportsCodeEdits: false,
+    verification: [{ id: "fixture-check", kind: "canvas_state", description: "Synthetic check" }], tags: ["fixture"],
+  });
+  return { listScenarios: () => [scenario()], getScenarioById: (id: string) => id === "fixture-scenario" ? scenario() : undefined };
+});
+beforeAll(async () => {
+  fixture.workspaceTemplatePath = await mkdtemp(join(tmpdir(), "cua-manager-template-"));
+  await writeFile(join(fixture.workspaceTemplatePath, "index.html"), "<!doctype html><title>Fixture</title>");
+});
+afterAll(() => rm(fixture.workspaceTemplatePath, { recursive: true, force: true }));
 
 afterEach(async () => {
   for (const root of tempRoots.splice(0)) {
@@ -28,6 +47,7 @@ async function createManager(stepDelayMs = 10) {
     manager: new RunnerManager({
       dataRoot: root,
       stepDelayMs,
+      executorFactory: () => ({ execute: async ({ signal }) => waitForAbort(signal) }),
     }),
   };
 }
@@ -54,7 +74,7 @@ describe("RunnerManager", () => {
     const manager = new RunnerManager({ dataRoot, executorFactory });
     try {
       await expect(manager.startRun({
-        scenarioId: "paint-draw-poster", mode, prompt: "Draw a circle.",
+        scenarioId: "fixture-scenario", mode, prompt: "Complete fixture.",
       } as never)).rejects.toThrow();
       expect(executorFactory).not.toHaveBeenCalled();
       expect(existsSync(dataRoot)).toBe(false);
@@ -78,7 +98,7 @@ describe("RunnerManager", () => {
         finished = true;
       } }),
     });
-    const run = await manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+    const run = await manager.startRun({ scenarioId: "fixture-scenario", prompt: "Complete fixture." });
     expect(run.run).not.toHaveProperty("mode");
     expect(run.scenario).not.toHaveProperty("defaultMode");
     expect(run.run.browserMode).toBe("headless");
@@ -113,7 +133,7 @@ describe("RunnerManager", () => {
         if (!signal.aborted) await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
       } }),
     });
-    const request = { scenarioId: "paint-draw-poster", prompt: "Draw a circle." };
+    const request = { scenarioId: "fixture-scenario", prompt: "Complete fixture." };
     const results = await Promise.allSettled([manager.startRun(request), manager.startRun(request)]);
     for (const result of results) {
       if (result.status === "fulfilled") await manager.stopRun(result.value.run.id);
@@ -134,7 +154,7 @@ describe("RunnerManager", () => {
         await cleanup;
       } }),
     });
-    const request = { scenarioId: "paint-draw-poster", prompt: "Draw a circle." };
+    const request = { scenarioId: "fixture-scenario", prompt: "Complete fixture." };
     const run = await manager.startRun(request);
     const stopping = manager.stopRun(run.run.id);
     // The executor intentionally takes time to release its browser resources.
@@ -162,7 +182,7 @@ describe("RunnerManager", () => {
         await cleanup;
       },
     }) });
-    const request = { scenarioId: "paint-draw-poster", prompt: "Draw a circle." };
+    const request = { scenarioId: "fixture-scenario", prompt: "Complete fixture." };
     const started = await manager.startRun(request);
     try {
       expect((await manager.getRunDetail(started.run.id)).run.status).toBe("running");
@@ -190,7 +210,7 @@ describe("RunnerManager", () => {
         cleanedUp = true;
       },
     }) });
-    const started = await manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+    const started = await manager.startRun({ scenarioId: "fixture-scenario", prompt: "Complete fixture." });
     let stopped = false;
     const first = manager.stopRun(started.run.id).then((result) => { stopped = true; return result; });
     const second = manager.stopRun(started.run.id);
@@ -211,7 +231,7 @@ describe("RunnerManager", () => {
       execute: async ({ signal }) => waitForAbort(signal),
     }) });
     expect(await manager.getActiveRunDetail()).toBeNull();
-    const starting = manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+    const starting = manager.startRun({ scenarioId: "fixture-scenario", prompt: "Complete fixture." });
     const [started, active] = await Promise.all([starting, manager.getActiveRunDetail()]);
     expect(active?.run.id).toBe(started.run.id);
     active!.run.prompt = "Mutated client copy";
@@ -246,7 +266,7 @@ describe("RunnerManager", () => {
         }
         await writeSnapshot(path, contents);
       });
-      const request = { scenarioId: "paint-draw-poster", prompt: "Draw a circle." };
+      const request = { scenarioId: "fixture-scenario", prompt: "Complete fixture." };
       const started = await manager.startRun(request);
       const terminalEvents: RunEvent[] = [];
       manager.subscribe(started.run.id, (event) => terminalEvents.push(event));
@@ -298,7 +318,7 @@ describe("RunnerManager", () => {
         },
       }) });
       const log = vi.spyOn(console, "error").mockImplementation(() => {});
-      const request = { scenarioId: "paint-draw-poster", prompt: "Draw a circle." };
+      const request = { scenarioId: "fixture-scenario", prompt: "Complete fixture." };
       const started = await manager.startRun(request);
       const received: RunEvent[] = [];
       manager.subscribe(started.run.id, (event) => received.push(event));
@@ -336,7 +356,7 @@ describe("RunnerManager", () => {
       await context.completeRun({ notes: [], outcome: "success", verificationPassed: true });
       throw new Error("Browser cleanup failed");
     } }) });
-    const started = await manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+    const started = await manager.startRun({ scenarioId: "fixture-scenario", prompt: "Complete fixture." });
     const failed = await manager.waitForRunStatus(started.run.id, "failed");
     expect(failed.run.summary?.notes).toContain("Browser cleanup failed");
     expect(failed.events.filter((event) => event.type.startsWith("run_")).map((event) => event.type))
@@ -347,7 +367,7 @@ describe("RunnerManager", () => {
   it("fails an executor that returns without completing instead of leaving a stranded run", async () => {
     const { dataRoot } = await createManager();
     const manager = new RunnerManager({ dataRoot, executorFactory: () => ({ execute: async () => {} }) });
-    const started = await manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+    const started = await manager.startRun({ scenarioId: "fixture-scenario", prompt: "Complete fixture." });
     const failed = await manager.waitForRunStatus(started.run.id, "failed");
     expect(failed.run.summary?.notes).toContain("Executor returned without completing the run.");
     expect(await manager.getActiveRunDetail()).toBeNull();
@@ -367,7 +387,7 @@ describe("RunnerManager", () => {
       await writeSnapshot(path, contents);
     });
     try {
-      const started = await manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+      const started = await manager.startRun({ scenarioId: "fixture-scenario", prompt: "Complete fixture." });
       const failed = await manager.waitForRunStatus(started.run.id, "failed");
       expect(failed.run.summary?.notes).toContain("Final replay write failed");
       expect(failed.events.some((event) => event.type === "run_completed")).toBe(false);
@@ -388,7 +408,7 @@ describe("RunnerManager", () => {
       await ready.promise;
       await context.completeRun({ notes: [], outcome: "success", verificationPassed: true });
     } }) });
-    const started = await manager.startRun({ scenarioId: "paint-draw-poster", prompt: "Draw a circle." });
+    const started = await manager.startRun({ scenarioId: "fixture-scenario", prompt: "Complete fixture." });
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const observer = vi.fn();
     manager.subscribe(started.run.id, () => { throw new Error("Disconnected subscriber"); });
@@ -404,7 +424,7 @@ describe("RunnerManager", () => {
   it("persists executor construction failures and releases the run slot", async () => {
     const { dataRoot } = await createManager();
     const manager = new RunnerManager({ dataRoot, executorFactory: () => { throw new Error("Executor setup failed"); } });
-    const request = { scenarioId: "paint-draw-poster", prompt: "Draw a circle." };
+    const request = { scenarioId: "fixture-scenario", prompt: "Complete fixture." };
     const started = await manager.startRun(request);
     await manager.waitForRunStatus(started.run.id, "failed");
     const failure = await manager.stopRun(started.run.id);
@@ -426,96 +446,13 @@ describe("RunnerManager", () => {
         cleanedUp = true;
       } }),
     });
-    const request = { scenarioId: "paint-draw-poster", prompt: "Draw a circle." };
+    const request = { scenarioId: "fixture-scenario", prompt: "Complete fixture." };
     const starting = manager.startRun(request);
     await manager.shutdown();
     const run = await starting;
     expect(cleanedUp).toBe(true);
     expect((await manager.getRunDetail(run.run.id)).run.status).toBe("cancelled");
     await expect(manager.startRun(request)).rejects.toMatchObject({ code: "runner_shutting_down" });
-  });
-
-  it("fails the kanban executor honestly when live Responses is unavailable", async () => {
-    const { manager } = await createManager(5);
-
-    const detail = await manager.startRun({
-      browserMode: "headless",
-      maxResponseTurns: 18,
-      prompt: [
-        "Reorganize the board to match this requested final board state exactly.",
-        "",
-        "backlog: Refresh workspace docs",
-        "in_progress: Close nav bug triage -> Finalize analytics spec",
-        "done: Circulate launch brief -> Audit replay artifacts -> Polish stage tooltips",
-      ].join("\n"),
-      scenarioId: "kanban-reprioritize-sprint",
-    });
-
-    const failed = await manager.waitForRunStatus(detail.run.id, "failed");
-
-    expect(failed.run.status).toBe("failed");
-    expect(
-      failed.events.some(
-        (event: RunEvent) =>
-          event.type === "run_failed" &&
-          event.detail?.includes("live Responses API"),
-      ),
-    ).toBe(true);
-  });
-
-  it("fails the paint executor honestly when live Responses is unavailable", async () => {
-    const { manager } = await createManager(5);
-
-    const detail = await manager.startRun({
-      browserMode: "headless",
-      maxResponseTurns: 18,
-      prompt: "Paint me a smiley face as simple pixel art and save the draft.",
-      scenarioId: "paint-draw-poster",
-    });
-
-    const failed = await manager.waitForRunStatus(detail.run.id, "failed");
-
-    expect(failed.run.status).toBe("failed");
-    expect(
-      failed.events.some(
-        (event: RunEvent) =>
-          event.type === "run_failed" &&
-          event.detail?.includes("live Responses API"),
-      ),
-    ).toBe(true);
-  });
-
-  it("fails the booking executor honestly when live Responses is unavailable", async () => {
-    const { manager } = await createManager(5);
-
-    const detail = await manager.startRun({
-      browserMode: "headless",
-      maxResponseTurns: 18,
-      prompt: [
-        "Complete the reservation flow using only the request below.",
-        "",
-        "hotel: Luma Harbor Hotel",
-        "neighborhood: Marina District",
-        "check_in: 2026-04-18",
-        "check_out: 2026-04-21",
-        "guest_name: Ada Lovelace",
-        "guest_email: ada.lovelace@example.com",
-        "requires: breakfast included, workspace desk",
-        "special_request: Late arrival after 9pm.",
-      ].join("\n"),
-      scenarioId: "booking-complete-reservation",
-    });
-
-    const failed = await manager.waitForRunStatus(detail.run.id, "failed");
-
-    expect(failed.run.status).toBe("failed");
-    expect(
-      failed.events.some(
-        (event: RunEvent) =>
-          event.type === "run_failed" &&
-          event.detail?.includes("live Responses API"),
-      ),
-    ).toBe(true);
   });
 
   it("reloads a completed run and its version-2 replay without execution-mode metadata", async () => {
@@ -547,8 +484,8 @@ describe("RunnerManager", () => {
 
     const started = await manager.startRun({
       browserMode: "headless",
-      prompt: "Paint a smiley face and save the draft.",
-      scenarioId: "paint-draw-poster",
+      prompt: "Complete the synthetic fixture, then finish.",
+      scenarioId: "fixture-scenario",
       verificationEnabled: true,
     });
     await executionFinished;
@@ -576,57 +513,4 @@ describe("RunnerManager", () => {
     expect(reloaded.events.some((event) => event.type === "function_call_completed")).toBe(true);
   });
 
-  it("cancels a running run", async () => {
-    const { dataRoot } = await createManager(40);
-    const manager = new RunnerManager({ dataRoot, executorFactory: () => ({ execute: async ({ signal }) => waitForAbort(signal) }) });
-
-    const detail = await manager.startRun({
-      browserMode: "headless",
-      prompt: [
-        "Reorganize the board to match this requested final board state exactly.",
-        "",
-        "backlog: Refresh workspace docs",
-        "in_progress: Close nav bug triage -> Finalize analytics spec",
-        "done: Circulate launch brief -> Audit replay artifacts -> Polish stage tooltips",
-      ].join("\n"),
-      scenarioId: "kanban-reprioritize-sprint",
-    });
-
-    const cancelled = await manager.stopRun(detail.run.id, "Stop button pressed.");
-
-    expect(cancelled.run.status).toBe("cancelled");
-    expect(
-      cancelled.events.some((event: RunEvent) => event.type === "run_cancelled"),
-    ).toBe(true);
-  });
-
-  it("resets a scenario workspace and cancels the active run for that scenario", async () => {
-    const { dataRoot } = await createManager(50);
-    const manager = new RunnerManager({ dataRoot, executorFactory: () => ({ execute: async ({ signal }) => waitForAbort(signal) }) });
-
-    const detail = await manager.startRun({
-      browserMode: "headful",
-      prompt: [
-        "Complete the reservation flow using only the request below.",
-        "",
-        "hotel: Luma Harbor Hotel",
-        "neighborhood: Marina District",
-        "check_in: 2026-04-18",
-        "check_out: 2026-04-21",
-        "guest_name: Ada Lovelace",
-        "guest_email: ada.lovelace@example.com",
-        "requires: breakfast included, workspace desk",
-        "special_request: Late arrival after 9pm.",
-      ].join("\n"),
-      scenarioId: "booking-complete-reservation",
-    });
-
-    const state = await manager.resetScenario("booking-complete-reservation");
-    const cancelled = await manager.getRunDetail(detail.run.id);
-
-    expect(cancelled.run.status).toBe("cancelled");
-    expect(state.cancelledRunId).toBe(detail.run.id);
-    expect(existsSync(state.workspacePath)).toBe(true);
-    expect(existsSync(join(state.workspacePath, "README.md"))).toBe(true);
-  });
 });

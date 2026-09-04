@@ -11,13 +11,7 @@
     "lint": "node scripts/lint.mjs",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "build": "pnpm --filter @cua-sample/replay-schema build && pnpm --filter @cua-sample/scenario-kit build && pnpm --filter @cua-sample/browser-runtime build && pnpm --filter @cua-sample/runner-core build && pnpm --filter @cua-sample/runner build && pnpm --filter @cua-sample/demo-web build",
-    "build:render:runner": "pnpm --filter @cua-sample/replay-schema build && pnpm --filter @cua-sample/scenario-kit build && pnpm --filter @cua-sample/browser-runtime build && pnpm --filter @cua-sample/runner-core build && pnpm --filter @cua-sample/runner build && PLAYWRIGHT_BROWSERS_PATH=0 pnpm exec playwright install chromium",
-    "build:render:web": "pnpm --filter @cua-sample/replay-schema build && pnpm --filter @cua-sample/demo-web build",
-    "start:render:runner": "HOST=0.0.0.0 PLAYWRIGHT_BROWSERS_PATH=0 pnpm --filter @cua-sample/runner start",
-    "start:render:web": "pnpm --filter @cua-sample/demo-web start",
-    "test:live": "pnpm --filter @cua-sample/runner-core test:live",
-    "test:paint:browser": "pnpm --filter @cua-sample/runner-core test:paint:browser",
-    "test": "pnpm --filter @cua-sample/scenario-kit test && pnpm --filter @cua-sample/browser-runtime test && pnpm --filter @cua-sample/runner-core test && pnpm --filter @cua-sample/runner test && pnpm --filter @cua-sample/demo-web test",
+    "test": "pnpm --filter @cua-sample/browser-runtime test && pnpm --filter @cua-sample/runner-core test && pnpm --filter @cua-sample/runner test && pnpm --filter @cua-sample/demo-web test",
     "typecheck": "pnpm --filter @cua-sample/replay-schema typecheck && pnpm --filter @cua-sample/scenario-kit typecheck && pnpm --filter @cua-sample/browser-runtime typecheck && pnpm --filter @cua-sample/runner-core typecheck && pnpm --filter @cua-sample/runner typecheck && pnpm --filter @cua-sample/demo-web typecheck"
   },
   "devDependencies": {

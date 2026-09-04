@@ -1,23 +1,40 @@
-# Contributing to the labs
+# Contributing to the shared labs
 
-The labs are self-contained browser applications. Sample apps copy each template into a fresh workspace for a run.
+Lab templates, catalog data, documentation, and lab-specific tests live here. Runtime adapters live in each app.
 
 ## Add or update a lab
 
-Create or edit a template under `labs/<name>-lab-template/`. Keep its assets local and make the initial state readable from screenshots. Keep the template resettable by copying it into a fresh workspace.
+1. Edit `labs/<name>-lab-template/`. Keep assets local and make the initial state readable from screenshots.
+2. Update [catalog.json](../catalog.json) with the manifest, default prompt, instructions, and verifier data. Keep hotel and card definitions in the template's `app.js` aligned with the catalog.
+3. For a new lab, connect each app's scenario adapter and executor registry, and extend its `replay-schema` enums as needed. Add the scenario to the JavaScript worker's `finalizeScenario`; Python finalization lives in the executor. Keep artifact retention before optional verification and browser cleanup.
+4. Update the [task guide](scenarios.md) and [lab index](README.md). Put lab tests in `tests/shared/` and app integration tests in `tests/integration/javascript/` or `tests/integration/python/`.
 
-Put lab descriptions, controls, task prompts, saved-state behavior, and verification rules in `labs/docs/`. Keep each template's README short and link to its guide here. Update the [lab index](README.md) when adding a lab.
+Verification should read final state through stable, read-only browser accessors. Validate structured prompts before model execution and document what a passing check means.
 
-## Verification and saved artifacts
+## Checks
 
-Expose stable, read-only browser-side accessors for verification. Verify the requested final lab state and include enough observed and expected detail in failures to make replay review useful.
+From the repository root, install the independent lab test package and run its lint and shared browser tests:
 
-Document what gets saved and retained when verification is disabled or a run is interrupted. State the limits of each check so a passing result has a clear meaning.
+```bash
+pnpm --dir labs install --frozen-lockfile
+pnpm --dir labs playwright:install
+pnpm --dir labs check
+```
 
-## Check a change
+On Linux, replace `playwright:install` with `playwright:install:with-deps` to include system libraries. After installing the relevant app's dependencies, run its integration suite:
 
-Exercise the interactions and saved-state behavior affected by the change. Test against a fresh workspace copy.
+```bash
+pnpm --dir labs test:javascript
+pnpm --dir labs test:python
+```
 
-Use the integrating sample app's test commands. The [JavaScript contributing guide](../../javascript-app/docs/contributing.md#checks) lists the current checks; the [paint guide](paint.md#checks) covers its browser suite.
+For shared lab changes, run all three suites. These checks need no API key and do not control the host desktop.
 
-To connect a lab to the JavaScript runner, follow [Add a scenario](../../javascript-app/docs/contributing.md#add-a-scenario).
+Live tests load the relevant app's `.env` and call the OpenAI API. Follow that app's browser/desktop setup first, then run:
+
+```bash
+pnpm --dir labs test:live:javascript
+pnpm --dir labs test:live:python
+```
+
+Python live tests control the real mouse and keyboard. Live tests are excluded from ordinary checks and CI.

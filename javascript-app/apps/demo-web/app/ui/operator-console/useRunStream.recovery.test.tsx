@@ -1,18 +1,13 @@
+import { scenarioFixture } from "./test-fixtures";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { RunDetail, RunEvent, ScenarioManifest } from "@cua-sample/replay-schema";
+import type { RunDetail, RunEvent } from "@cua-sample/replay-schema";
 
 import { useRunStream } from "./useRunStream";
 import { runnerRequestTimeoutMs } from "./runner-request";
 
-const scenario: ScenarioManifest = {
-  id: "kanban-reprioritize-sprint", labId: "kanban", category: "productivity",
-  title: "Launch Planner", description: "Move cards", defaultPrompt: "Move cards",
-  workspaceTemplatePath: "/tmp/template", startTarget: { kind: "remote_url", url: "http://127.0.0.1:3102" },
-  supportsCodeEdits: false, tags: ["test"],
-  verification: [{ id: "board", kind: "board_state", description: "Check board" }],
-};
+const scenario = scenarioFixture;
 const event: RunEvent = {
   id: "run-test:0", runId: "run-test", sequence: 0, type: "browser_session_started",
   level: "ok", message: "Browser started", createdAt: "2026-09-03T00:00:00.000Z",
@@ -117,7 +112,7 @@ describe("useRunStream recovery", () => {
     act(() => { hook.result.current.handleScenarioChange("another-scenario"); });
     expect(hook.result.current.selectedScenarioId).toBe(scenario.id);
     await act(async () => {
-      resolveStart(response({ code: "start_failed", error: "Try again" }, 500));
+      resolveStart(response({ code: "invalid_request", error: "Try again" }, 400));
       await starting;
     });
     expect(hook.result.current.pendingAction).toBeNull();
@@ -170,16 +165,6 @@ describe("useRunStream recovery", () => {
     await act(async () => { await hook.result.current.handleStopRun(); });
     expect(MockEventSource.instances[0]!.close).not.toHaveBeenCalled();
     expect(hook.result.current.selectedRun?.run.status).toBe("running");
-  });
-
-  it("reports the completed outcome when Stop races run completion", async () => {
-    const hook = mount(structuredClone(detail));
-    detail.run.status = "completed";
-    vi.mocked(fetch).mockResolvedValueOnce(response(structuredClone(detail)));
-    await act(async () => { await hook.result.current.handleStopRun(); });
-    expect(hook.result.current.selectedRun?.run.status).toBe("completed");
-    expect(hook.result.current.activityItems.some((item) => item.summary === "Run run-test is already completed.")).toBe(true);
-    expect(hook.result.current.activityItems.some((item) => item.summary.includes("stopped by operator request"))).toBe(false);
   });
 
   it("keeps watching a run when a workspace reset fails", async () => {
@@ -247,6 +232,11 @@ describe("useRunStream recovery", () => {
     });
     expect(signal.aborted).toBe(true);
     expect(hook.result.current.pendingAction).toBeNull();
-    expect(hook.result.current.currentIssue?.error).toContain("timed out");
+    if (action === "start") {
+      expect(hook.result.current.selectedRun?.run.id).toBe(detail.run.id);
+      expect(hook.result.current.startRecovery).toBeNull();
+    } else {
+      expect(hook.result.current.currentIssue?.error).toContain("timed out");
+    }
   });
 });

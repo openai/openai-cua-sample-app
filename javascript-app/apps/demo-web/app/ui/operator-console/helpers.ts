@@ -25,7 +25,7 @@ export const browserHelpText =
 export const turnBudgetHelpText =
   "Caps how many model turns the runner can use before stopping the run. Higher budgets allow longer plans but take more time.";
 export const verificationHelpText =
-  "Runs the scenario's built-in checks after the model stops. Leave this off to treat the model's completed action loop as the success condition.";
+  "Runs the scenario's built-in checks after the model stops. Some checks need a structured prompt; see the shared lab guide for examples. Leave this off to skip outcome verification.";
 export const runnerUnavailableHint =
   "Start `pnpm dev` from `javascript-app`, check the runner terminal, then refresh the page.";
 

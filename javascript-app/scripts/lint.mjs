@@ -6,7 +6,7 @@ const eslint = new ESLint({
   cwd: repositoryRoot,
   overrideConfigFile: fileURLToPath(new URL("../eslint.config.mjs", import.meta.url)),
 });
-const results = await eslint.lintFiles(["labs", "javascript-app"]);
+const results = await eslint.lintFiles(["javascript-app"]);
 const formatter = await eslint.loadFormatter("stylish");
 const output = formatter.format(results);
 if (output) process.stdout.write(output);

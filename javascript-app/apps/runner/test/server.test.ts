@@ -1,9 +1,9 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { get } from "node:http";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   runDetailSchema,
@@ -18,6 +18,27 @@ import { RunnerCoreError, RunnerManager } from "@cua-sample/runner-core";
 import { listScenarios } from "@cua-sample/scenario-kit";
 
 import { createServer } from "../src/server.js";
+
+vi.mock("../../../packages/runner-core/src/executor-registry.js", () => ({
+  createDefaultRunExecutor: () => { throw new Error("Generic HTTP tests must supply an executor."); },
+}));
+
+const fixture = vi.hoisted(() => ({ workspaceTemplatePath: "" }));
+vi.mock("@cua-sample/scenario-kit", () => {
+  const scenario = () => ({
+    id: "fixture-scenario", labId: "paint", category: "creativity", title: "Fixture",
+    description: "Synthetic HTTP test", defaultPrompt: "Complete fixture.",
+    workspaceTemplatePath: fixture.workspaceTemplatePath,
+    startTarget: { kind: "workspace_file", path: "index.html" }, supportsCodeEdits: false,
+    verification: [{ id: "fixture-check", kind: "canvas_state", description: "Synthetic check" }], tags: ["fixture"],
+  });
+  return { listScenarios: () => [scenario()], getScenarioById: (id: string) => id === "fixture-scenario" ? scenario() : undefined };
+});
+beforeAll(async () => {
+  fixture.workspaceTemplatePath = await mkdtemp(join(tmpdir(), "cua-http-template-"));
+  await writeFile(join(fixture.workspaceTemplatePath, "index.html"), "<!doctype html><title>Fixture</title>");
+});
+afterAll(() => rm(fixture.workspaceTemplatePath, { recursive: true, force: true }));
 
 describe("runner server", () => {
   it("reports health", async () => {
@@ -61,14 +82,8 @@ describe("runner server", () => {
         payload: {
           browserMode: "headless",
           maxResponseTurns: 17,
-          prompt: [
-            "Reorganize the board to match this requested final board state exactly.",
-            "",
-            "backlog: Refresh workspace docs",
-            "in_progress: Close nav bug triage -> Finalize analytics spec",
-            "done: Circulate launch brief -> Audit replay artifacts -> Polish stage tooltips",
-          ].join("\n"),
-          scenarioId: "kanban-reprioritize-sprint",
+          prompt: "Complete fixture.",
+          scenarioId: "fixture-scenario",
         },
         url: "/api/runs",
       });
@@ -112,13 +127,13 @@ describe("runner server", () => {
 
       const resetResponse = await app.inject({
         method: "POST",
-        url: "/api/scenarios/kanban-reprioritize-sprint/reset",
+        url: "/api/scenarios/fixture-scenario/reset",
       });
 
       expect(resetResponse.statusCode).toBe(200);
       expect(
         scenarioWorkspaceStateSchema.parse(resetResponse.json()).scenarioId,
-      ).toBe("kanban-reprioritize-sprint");
+      ).toBe("fixture-scenario");
     } finally {
       await app.close();
     }
@@ -135,7 +150,7 @@ describe("runner server", () => {
 
       expect(response.statusCode).toBe(200);
       const scenarios = response.json();
-      expect(scenariosResponseSchema.parse(scenarios)).toHaveLength(3);
+      expect(scenariosResponseSchema.parse(scenarios)).toHaveLength(1);
       for (const scenario of scenarios) {
         expect(scenario).not.toHaveProperty("defaultMode");
       }
@@ -171,8 +186,8 @@ describe("runner server", () => {
         method: "POST",
         payload: {
           mode,
-          prompt: "Paint a smiley face and save the draft.",
-          scenarioId: "paint-draw-poster",
+          prompt: "Complete fixture.",
+          scenarioId: "fixture-scenario",
         },
         url: "/api/runs",
       });
@@ -195,8 +210,8 @@ describe("runner server", () => {
         method: "POST",
         payload: {
           maxResponseTurns: 51,
-          prompt: "Draw a smiley face and save the draft.",
-          scenarioId: "paint-draw-poster",
+          prompt: "Complete fixture.",
+          scenarioId: "fixture-scenario",
         },
         url: "/api/runs",
       });
@@ -259,7 +274,7 @@ describe("runner request boundaries", () => {
     const app = createServer({ manager: { startRun, shutdown: async () => undefined } as unknown as RunnerManager });
     try {
       const response = await app.inject({ method: "POST", url: "/api/runs", payload: {
-        scenarioId: "paint-draw-poster", mode, browserMode: "headless", prompt: "Draw a circle.",
+        scenarioId: "fixture-scenario", mode, browserMode: "headless", prompt: "Complete fixture.",
       } });
       expect(response.statusCode).toBe(400);
       expect(response.json().code).toBe("invalid_request");
@@ -277,7 +292,7 @@ describe("runner request boundaries", () => {
         expect(response.headers["access-control-allow-origin"]).toBe(origin);
       }
       for (const origin of ["https://untrusted.example", "http://localhost:9999", "http://localhost.attacker.example:3000", "null"]) {
-        const response = await app.inject({ method: "POST", url: "/api/runs", headers: { origin }, payload: { scenarioId: "kanban-reprioritize-sprint", prompt: "test" } });
+        const response = await app.inject({ method: "POST", url: "/api/runs", headers: { origin }, payload: { scenarioId: "fixture-scenario", prompt: "test" } });
         expect(response.statusCode).toBe(403);
         expect(response.headers["access-control-allow-origin"]).toBeUndefined();
       }
@@ -411,7 +426,7 @@ it("waits for active executor teardown when the server closes", async () => {
   }) });
   const app = createServer({ dataRoot, manager });
   try {
-    const started = await app.inject({ method: "POST", url: "/api/runs", payload: { scenarioId: "kanban-reprioritize-sprint", prompt: "test shutdown" } });
+    const started = await app.inject({ method: "POST", url: "/api/runs", payload: { scenarioId: "fixture-scenario", prompt: "test shutdown" } });
     expect(started.statusCode).toBe(202);
     let closed = false;
     const closing = app.close().then(() => { closed = true; });

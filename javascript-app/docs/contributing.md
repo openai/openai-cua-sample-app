@@ -1,34 +1,40 @@
-# Contributing
+# Contributing to the JavaScript app
 
-Keep public contracts in `replay-schema`, scenario behavior in `runner-core`, and HTTP and UI layers focused on transport and presentation. See the [setup guide](../README.md) and [architecture](architecture.md) before making changes.
+Follow the [quickstart](../README.md#first-run) first. Run the commands below from `javascript-app/`.
 
-## Add a scenario
+## Development and checks
 
-Choose an existing shared lab template. For template changes, follow the [lab contributing guide](../../labs/docs/contributing.md).
+`pnpm dev` starts both services. For separate logs, use one terminal per service:
 
-When introducing a new lab ID, category, or verification kind, extend the corresponding closed enum (`labIdSchema`, `categorySchema`, or `verificationKindSchema`) in [`replay-schema`](../packages/replay-schema/src/index.ts). Scenarios that reuse existing values need no enum change.
+```bash
+pnpm dev:runner
+pnpm dev:web
+```
 
-1. Define a default prompt and register the manifest in [`scenario-kit/src/scenarios.ts`](../packages/scenario-kit/src/scenarios.ts), including its template path, start target, and verification description.
-2. Add model instructions, prompt parsing, and verification helpers in `packages/runner-core/src/`. Validate required fields before model execution. Put task prompts and verification rules in the [lab task guide](../../labs/docs/scenarios.md).
-3. Add an executor under `packages/runner-core/src/scenarios/` and register it in [`executor-registry.ts`](../packages/runner-core/src/executor-registry.ts).
-4. Add the scenario ID to `finalizeScenario` in [`javascript-worker.ts`](../packages/runner-core/src/javascript-worker.ts). This handler owns artifact retention and optional verification. It runs even when verification is disabled; omitting a case fails the run with `Unsupported scenario`.
-5. Cover the manifest, execution, finalization, and relevant failure or cancellation paths with tests. Add UI tests when the interaction changes.
-
-## Checks
-
-From `javascript-app/`, run:
+Run the app checks:
 
 ```bash
 pnpm check
-pnpm test:paint:browser
 ```
 
-`pnpm check` runs lint, type checks, automated tests, and a production build. Lint also checks the repository-root labs. The [GitHub Actions workflow](../../.github/workflows/javascript-app.yml) runs these checks and the paint browser checks with Chromium; it does not run live API tests.
+This runs lint, type checks, app tests, and a production build. Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, or `pnpm build` individually when needed. These checks do not call the API.
 
-For changes to the Responses integration, opt into the smoke tests with a key in `javascript-app/.env`:
+For lab changes or affected runtime adapters, also run the [shared lab and integration checks](../../labs/docs/contributing.md#checks). Live checks are opt-in and documented there.
+
+After building, start production services in separate terminals:
 
 ```bash
-pnpm test:live
+pnpm --filter @cua-sample/runner start
+pnpm --filter @cua-sample/demo-web start
 ```
 
-This command loads the same runner environment file and sends real API requests. Describe relevant validation in the pull request, including any checks you could not run.
+[CI](../../.github/workflows/javascript-app.yml) runs app checks, lab integration, and production startup. Before release, follow the quickstart from a fresh installation and try a verified run in both headless and visible mode, including Stop. State which checks you ran in the pull request.
+
+## Where to make changes
+
+- **Model and runner settings:** `.env`, using [`.env.example`](../.env.example).
+- **Model/tool interaction:** [`responses-loop.ts`](../packages/runner-core/src/responses-loop.ts).
+- **Runtime and lifecycle:** follow the [code map](architecture.md#code-map).
+- **Lab prompts, tasks, templates, or a new scenario:** follow the [lab contribution guide](../../labs/docs/contributing.md).
+
+Keep public contracts in `replay-schema`, lifecycle and scenario adapters in `runner-core`, and process control in `browser-runtime`. App tests use synthetic scenarios; lab-specific tests belong under `labs/tests/`.

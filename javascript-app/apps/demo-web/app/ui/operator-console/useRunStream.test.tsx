@@ -1,28 +1,12 @@
-import React from "react";
+import { scenarioFixture } from "./test-fixtures";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { RunDetail, RunEvent, ScenarioManifest } from "@cua-sample/replay-schema";
+import type { RunDetail, RunEvent } from "@cua-sample/replay-schema";
 
 import { useRunStream } from "./useRunStream";
 
-const scenario: ScenarioManifest = {
-  category: "productivity",
-  defaultPrompt: "Reorganize the board.",
-  description: "Move cards across columns.",
-  id: "kanban-reprioritize-sprint",
-  labId: "kanban",
-  startTarget: {
-    kind: "remote_url",
-    label: "kanban lab",
-    url: "http://127.0.0.1:3102",
-  },
-  supportsCodeEdits: false,
-  tags: ["productivity"],
-  title: "Launch Planner",
-  verification: [{ description: "Board matches the requested order.", id: "board", kind: "board_state" }],
-  workspaceTemplatePath: "/tmp/kanban-lab-template",
-};
+const scenario = scenarioFixture;
 
 const runDetail: RunDetail = {
   eventStreamUrl: "/api/runs/test-run/events",

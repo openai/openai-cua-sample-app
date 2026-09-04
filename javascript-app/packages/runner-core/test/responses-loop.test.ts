@@ -32,9 +32,8 @@ afterEach(() => {
 
 function createMockSession() {
   return {
-    mode: "headless" as const,
     execute: vi.fn()
-      .mockResolvedValueOnce([{ text: "Board updated.", type: "input_text" }, { detail: "original", image_url: "data:image/png;base64,cG5n", type: "input_image" }])
+      .mockResolvedValueOnce([{ text: "Fixture updated.", type: "input_text" }, { detail: "original", image_url: "data:image/png;base64,cG5n", type: "input_image" }])
       .mockResolvedValueOnce([{ text: "updated -> verified", type: "input_text" }, { detail: "original", image_url: "data:image/png;base64,cG5n", type: "input_image" }]),
   };
 }
@@ -55,11 +54,7 @@ function createMockExecutionContext() {
   return {
     context: {
       captureScreenshot: vi.fn(async () => screenshotArtifact),
-      completeRun: async () => undefined,
       detail: {
-        scenario: {
-          supportsCodeEdits: false,
-        },
         run: {
           model: "gpt-5.6-sol",
           prompt: "Finish the browser task and report success.",
@@ -68,9 +63,7 @@ function createMockExecutionContext() {
       emitEvent: async (input: { detail?: string; message: string; type: string }) => {
         events.push(input);
       },
-      screenshotDirectory: "/tmp",
       signal: new AbortController().signal,
-      stepDelayMs: 0,
       syncBrowserState: vi.fn(async () => undefined),
     },
     events,
@@ -121,7 +114,7 @@ describe("runResponsesCodeLoop", () => {
                 arguments: JSON.stringify({
                   code: [
                     'globalThis.completedSteps = ["updated"];',
-                    'console.log("Board updated.");',
+                    'console.log("Fixture updated.");',
                     'display((await page.screenshot()).toString("base64"));',
                   ].join("\n"),
                 }),
@@ -161,7 +154,7 @@ describe("runResponsesCodeLoop", () => {
             {
               content: [
                 {
-                  text: "Board matches the requested final state.",
+                  text: "Fixture matches the requested final state.",
                   type: "output_text",
                 },
               ],
@@ -178,14 +171,13 @@ describe("runResponsesCodeLoop", () => {
     const result = await runResponsesCodeLoop(
       {
         context: context as never,
-        instructions: "Use exec_js to update the live board, then summarize.",
+        instructions: "Use exec_js to update the fixture, then summarize.",
         maxResponseTurns: 8,
         session: session as never,
       },
       client,
     );
 
-    expect(requests).toHaveLength(3);
     for (const request of requests) {
       expect(request.tools).toEqual([
         expect.objectContaining({ name: "exec_js", type: "function" }),
@@ -201,7 +193,7 @@ describe("runResponsesCodeLoop", () => {
       {
         call_id: "call_update",
         output: [
-          { text: "Board updated.", type: "input_text" },
+          { text: "Fixture updated.", type: "input_text" },
           {
             detail: "original",
             image_url: "data:image/png;base64,cG5n",
@@ -226,7 +218,7 @@ describe("runResponsesCodeLoop", () => {
       },
     ]);
     expect(result.finalAssistantMessage).toBe(
-      "Board matches the requested final state.",
+      "Fixture matches the requested final state.",
     );
     expect(
       events

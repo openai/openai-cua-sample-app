@@ -1,3 +1,3 @@
 # Sketch Studio template
 
-Repository documentation: [paint guide](../docs/paint.md).
+Repository documentation: [drawing and saving guide](../docs/paint.md).

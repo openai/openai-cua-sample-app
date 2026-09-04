@@ -1,3 +1,4 @@
+import { getLabInstructions, labCatalog } from "@cua-sample/scenario-kit";
 import { type BrowserSession } from "@cua-sample/browser-runtime";
 
 export type BookingRequest = {
@@ -31,23 +32,7 @@ export type BookingConfirmation =
     }
   | null;
 
-const hotelCatalog = {
-  "ember lane hotel": {
-    hotelId: "ember_lane",
-    hotelName: "Ember Lane Hotel",
-    neighborhood: "Mission Bay",
-  },
-  "luma harbor hotel": {
-    hotelId: "luma_harbor",
-    hotelName: "Luma Harbor Hotel",
-    neighborhood: "Marina District",
-  },
-  "port exchange inn": {
-    hotelId: "port_exchange",
-    hotelName: "Port Exchange Inn",
-    neighborhood: "Embarcadero",
-  },
-} as const;
+const hotelCatalog = labCatalog.booking.hotels;
 
 function normalizePromptLine(line: string) {
   return line.trim();
@@ -138,11 +123,8 @@ export function buildBookingCodeInstructions(currentUrl: string) {
   return [
     "You are operating a persistent Playwright browser session for a gpt-5.6-sol CUA demo harness.",
     "You must use the exec_js tool before you answer.",
-    `The booking app is already open at ${currentUrl}.`,
-    "Use only the operator prompt as the source of truth.",
-    "Apply the requested search filters, select the requested hotel, complete the reservation form, and confirm the booking.",
-    "Only finish when the reservation panel shows the booking as confirmed.",
-    "Reply briefly once the booking is confirmed.",
+    `The lab is already open at ${currentUrl}.`,
+    ...getLabInstructions("booking"),
   ].join("\n");
 }
 

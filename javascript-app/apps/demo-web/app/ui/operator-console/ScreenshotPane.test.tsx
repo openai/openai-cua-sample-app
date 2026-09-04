@@ -1,4 +1,3 @@
-import React from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -43,7 +42,7 @@ describe("ScreenshotPane", () => {
       screenshots,
       selectedBrowser: null,
       selectedRun: null,
-      selectedScenarioTitle: "Launch Planner",
+      selectedScenarioTitle: "Demo App",
       selectedScreenshot: screenshots[1]!,
       selectedScreenshotIndex: 1,
       stageUrl: "http://127.0.0.1/lab",

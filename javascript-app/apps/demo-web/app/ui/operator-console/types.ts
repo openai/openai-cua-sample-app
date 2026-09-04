@@ -43,7 +43,7 @@ export type ActivityItem = {
   time: string;
 };
 
-export type PendingAction = "reset" | "start" | "stop" | null;
+export type PendingAction = "reset" | "start" | "stop" | "check" | null;
 
 export type RunnerIssue = {
   code: string;
@@ -59,6 +59,7 @@ export type ActionButtonsProps = {
   pendingAction: PendingAction;
   resetDisabled: boolean;
   startDisabled: boolean;
+  startLabel?: string;
   stopDisabled: boolean;
 };
 

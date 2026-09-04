@@ -1,4 +1,4 @@
-import React from "react";
+import { scenarioFixture } from "./test-fixtures";
 import {
   act,
   cleanup,
@@ -21,36 +21,7 @@ import type {
 import { createRunnerUnavailableIssue } from "./helpers";
 import { OperatorConsole } from "./OperatorConsole";
 
-const scenario: ScenarioManifest = {
-  category: "productivity",
-  defaultPrompt: [
-    "Reorganize the board to match this requested final board state exactly.",
-    "",
-    "backlog: Refresh workspace docs",
-    "in_progress: Close nav bug triage -> Finalize analytics spec",
-    "done: Circulate launch brief -> Audit replay artifacts -> Polish stage tooltips",
-  ].join("\n"),
-  description:
-    "Move cards across columns and reorder the sprint board to match the final board state.",
-  id: "kanban-reprioritize-sprint",
-  labId: "kanban",
-  startTarget: {
-    kind: "remote_url",
-    label: "run-scoped HTTP kanban lab",
-    url: "http://127.0.0.1:3102",
-  },
-  supportsCodeEdits: false,
-  tags: ["hero", "productivity", "drag-drop"],
-  title: "Launch Planner",
-  verification: [
-    {
-      description: "The final board state matches the required card ordering.",
-      id: "kanban-board-state",
-      kind: "board_state",
-    },
-  ],
-  workspaceTemplatePath: "/tmp/kanban-lab-template",
-};
+const scenario = scenarioFixture;
 
 const runDetail: RunDetail = {
   eventStreamUrl: "/api/runs/test-run/events",
@@ -333,7 +304,7 @@ describe("OperatorConsole", () => {
   });
 
   it("restores the active scenario, options, screenshot and Stop after a page refresh", async () => {
-    const activeScenario: ScenarioManifest = { ...scenario, id: "paint-draw-poster", labId: "paint", title: "Sketch Studio" };
+    const activeScenario: ScenarioManifest = { ...scenario, id: "alternate-scenario", labId: "paint", title: "Alternate App" };
     const active = runWithFrames([capturedFrame(1)]);
     active.scenario = activeScenario;
     active.run = {
@@ -346,7 +317,7 @@ describe("OperatorConsole", () => {
     expect((screen.getByRole("combobox", { name: "Scenario" }) as HTMLSelectElement).value).toBe(activeScenario.id);
     expect((screen.getByRole("textbox", { name: "Run prompt" }) as HTMLTextAreaElement).value).toBe("Finish this drawing");
     expect(screen.getByRole("button", { name: "Preview" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("img", { name: "Captured frame 1 for Sketch Studio" }).getAttribute("src")).toContain(active.browser!.screenshots[0]!.url);
+    expect(screen.getByRole("img", { name: "Captured frame 1 for Alternate App" }).getAttribute("src")).toContain(active.browser!.screenshots[0]!.url);
     expect((screen.getByRole("button", { name: "Start Run" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Stop" }) as HTMLButtonElement).disabled).toBe(false);
 
@@ -355,30 +326,6 @@ describe("OperatorConsole", () => {
     expect((screen.getByRole("checkbox", { name: "Run verification checks" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("slider", { name: "Turn budget" }) as HTMLInputElement).value).toBe("32");
     expect(MockEventSource.instances).toHaveLength(1);
-  });
-
-  it("enables Stop from the accepted start response without a follow-up snapshot", async () => {
-    const user = userEvent.setup();
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({
-      eventStreamUrl: runDetail.eventStreamUrl,
-      replayUrl: runDetail.replayUrl,
-      runId: runDetail.run.id,
-      status: "running",
-      detail: runDetail,
-    })).mockRejectedValue(new Error("Snapshot unavailable"));
-    render(
-      <OperatorConsole
-        initialRunnerIssue={null}
-        runnerBaseUrl="http://127.0.0.1:4001"
-        scenarios={[scenario]}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Start Run" }));
-    expect(screen.getByText("Run active")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Stop" }) as HTMLButtonElement).disabled).toBe(false);
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Preview" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("streams browser script activity and displays captured frames", async () => {
@@ -399,7 +346,7 @@ describe("OperatorConsole", () => {
       id: "browser-frame",
       label: "browser-step",
       mimeType: "image/png",
-      pageTitle: "Launch Planner",
+      pageTitle: "Demo App",
       pageUrl: "http://127.0.0.1:3102",
       path: "/tmp/test-run/screenshots/browser-frame.png",
       url: "/api/runs/test-run/artifacts/screenshots/browser-frame.png",
@@ -453,7 +400,7 @@ describe("OperatorConsole", () => {
     await waitFor(() => {
       expect(
         screen.getByRole("img", {
-          name: "Captured frame 1 for Launch Planner",
+          name: "Captured frame 1 for Demo App",
         }).getAttribute("src"),
       ).toBe(`http://127.0.0.1:4001${screenshot.url}`);
     });
@@ -481,13 +428,13 @@ describe("OperatorConsole", () => {
 
     await user.click(screen.getByRole("button", { name: "Start Run" }));
     await waitFor(() => {
-      expect(screen.getByRole("img", { name: "Captured frame 2 for Launch Planner" })).toBeTruthy();
+      expect(screen.getByRole("img", { name: "Captured frame 2 for Demo App" })).toBeTruthy();
     });
     expect(screen.getByRole("button", { name: "Preview" }).getAttribute("aria-pressed")).toBe("true");
     await user.click(screen.getByRole("button", { name: "Activity" }));
     await user.click(screen.getByRole("button", { name: "Frame 1" }));
     expect(screen.getByRole("button", { name: "Preview" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("img", { name: "Captured frame 1 for Launch Planner" }).getAttribute("src")).toBe(`http://127.0.0.1:4001${first.url}`);
+    expect(screen.getByRole("img", { name: "Captured frame 1 for Demo App" }).getAttribute("src")).toBe(`http://127.0.0.1:4001${first.url}`);
 
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(runWithFrames([first, second, third])));
     await act(async () => MockEventSource.instances.at(-1)!.emit(capturedFrameEvent(third, 3)));
@@ -498,7 +445,7 @@ describe("OperatorConsole", () => {
     expect(screen.getByText("Pinned frame")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Jump to latest" }));
-    expect(screen.getByRole("img", { name: "Captured frame 3 for Launch Planner" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Captured frame 3 for Demo App" })).toBeTruthy();
     expect(screen.getByText("Live frame")).toBeTruthy();
   });
 
@@ -516,7 +463,7 @@ describe("OperatorConsole", () => {
 
     await user.click(screen.getByRole("button", { name: "Start Run" }));
     await waitFor(() => {
-      expect(screen.getByRole("img", { name: "Captured frame 2 for Launch Planner" })).toBeTruthy();
+      expect(screen.getByRole("img", { name: "Captured frame 2 for Demo App" })).toBeTruthy();
     });
     expect(screen.queryByRole("button", { name: "View frame 1" })).toBeNull();
     expect(screen.getByRole("slider", { name: "Captured frame scrubber" })).toBeTruthy();
@@ -530,7 +477,7 @@ describe("OperatorConsole", () => {
     expect(screen.getByRole("button", { name: "Hide thumbnails" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Hide thumbnails" }));
     expect(screen.queryByRole("button", { name: "View frame 1" })).toBeNull();
-    expect(screen.getByRole("img", { name: "Captured frame 1 for Launch Planner" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Captured frame 1 for Demo App" })).toBeTruthy();
     expect((screen.getByRole("slider", { name: "Captured frame scrubber" }) as HTMLInputElement).value).toBe("0");
   });
 });

@@ -28,6 +28,8 @@ export function OperatorConsole({
     currentIssue,
     followActivityFeed,
     handleActivityFeedScroll,
+    handleCheckStart,
+    startRecovery,
     handleJumpToLatestActivity,
     handleJumpToLatestScreenshot,
     handleOpenReplay,
@@ -75,6 +77,7 @@ export function OperatorConsole({
     !selectedScenario ||
     pendingAction !== null ||
     controlsLocked ||
+    startRecovery === "unavailable" ||
     prompt.trim().length === 0;
   const stopDisabled =
     !selectedRun ||
@@ -151,9 +154,30 @@ export function OperatorConsole({
             pendingAction={pendingAction}
             resetDisabled={resetDisabled}
             startDisabled={startDisabled}
+            startLabel={startRecovery === "empty" ? "Start new run" : "Start Run"}
             stopDisabled={stopDisabled}
           />
         </div>
+
+        {startRecovery ? (
+          <section aria-label="Start recovery" className="panel startRecoveryNotice" role="status">
+            <p>
+              {startRecovery === "checking"
+                ? "Checking whether the previous run started…"
+                : startRecovery === "empty"
+                  ? "Previous start is unconfirmed. No active run was found. Check again, or start a new run."
+                  : "Previous start is unconfirmed. The runner’s current state could not be checked."}
+            </p>
+            <button
+              className="secondaryButton"
+              disabled={pendingAction !== null}
+              onClick={() => void handleCheckStart()}
+              type="button"
+            >
+              {startRecovery === "checking" ? "Checking…" : "Check again"}
+            </button>
+          </section>
+        ) : null}
 
         <nav aria-label="Workspace panels" className="workspacePanelNav">
           {(["controls", "preview", "activity"] as const).map((panel) => (

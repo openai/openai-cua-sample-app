@@ -1,17 +1,13 @@
+import { scenarioFixture } from "./ui/operator-console/test-fixtures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { RunDetail, ScenarioManifest } from "@cua-sample/replay-schema";
+import type { RunDetail } from "@cua-sample/replay-schema";
 
 import HomePage from "./page";
 
-const scenario: ScenarioManifest = {
-  id: "paint-draw-poster", labId: "paint", category: "creativity", title: "Sketch Studio",
-  description: "Draw and save", defaultPrompt: "Draw a poster", workspaceTemplatePath: "/tmp/paint",
-  startTarget: { kind: "remote_url", url: "http://127.0.0.1:3103" }, supportsCodeEdits: false,
-  tags: ["drawing"], verification: [{ id: "save", kind: "canvas_state", description: "Verify the save" }],
-};
+const scenario = scenarioFixture;
 const active: RunDetail = {
   run: { id: "active-run", scenarioId: scenario.id, labId: scenario.labId, browserMode: "headless",
-    model: "test-model", prompt: "Draw a cat", status: "running", startedAt: "2026-09-03T00:00:00.000Z" },
+    model: "test-model", prompt: "Complete the alternate task.", status: "running", startedAt: "2026-09-03T00:00:00.000Z" },
   scenario, workspacePath: "/tmp/active-run", events: [],
   eventStreamUrl: "/api/runs/active-run/events", replayUrl: "/api/runs/active-run/replay",
 };

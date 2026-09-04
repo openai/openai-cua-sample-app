@@ -86,6 +86,40 @@ function toRunnerIssue(
   return createFallbackIssue(fallbackMessage, fallbackHint);
 }
 
+async function requestJson<T>(
+  url: string,
+  parser: { parse: (value: unknown) => T },
+  init: RequestInit | undefined,
+  fallbackIssue: RunnerIssue,
+) {
+  let response: Response;
+  let payload: unknown;
+
+  try {
+    ({ response, payload } = await requestRunnerJson(url, init));
+  } catch (error) {
+    throw new RunnerApiError(
+      createRunnerUnavailableIssue(
+        error instanceof Error ? error.message : undefined,
+      ),
+      0,
+    );
+  }
+
+  if (!response.ok) {
+    throw new RunnerApiError(
+      parseRunnerIssue(payload) ?? fallbackIssue,
+      response.status,
+    );
+  }
+
+  return parser.parse(payload);
+}
+
+type ActionRequest = { controller: AbortController; generation: number };
+
+type StartRecovery = "checking" | "empty" | "unavailable" | null;
+
 export function useRunStream({
   initialRun = null,
   initialRunnerIssue,
@@ -114,6 +148,11 @@ export function useRunStream({
   const [followLatestScreenshot, setFollowLatestScreenshot] = useState(true);
   const [followActivityFeed, setFollowActivityFeed] = useState(true);
   const [actionIssue, setActionIssue] = useState<RunnerIssue | null>(null);
+  const [startRecovery, setStartRecovery] = useState<StartRecovery>(null);
+
+  const actionGenerationRef = useRef(0);
+  const actionRequestRef = useRef<ActionRequest | null>(null);
+  const viewGenerationRef = useRef(0);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const activityFeedRef = useRef<HTMLDivElement | null>(null);
@@ -171,42 +210,12 @@ export function useRunStream({
     }
   }
 
-  async function requestJson<T>(
-    url: string,
-    parser: { parse: (value: unknown) => T },
-    init: RequestInit | undefined,
-    fallbackIssue: RunnerIssue,
-  ) {
-    let response: Response;
-    let payload: unknown;
-
-    try {
-      ({ response, payload } = await requestRunnerJson(url, init));
-    } catch (error) {
-      throw new RunnerApiError(
-        createRunnerUnavailableIssue(
-          error instanceof Error ? error.message : undefined,
-        ),
-        0,
-      );
-    }
-
-    if (!response.ok) {
-      throw new RunnerApiError(
-        parseRunnerIssue(payload) ?? fallbackIssue,
-        response.status,
-      );
-    }
-
-    return parser.parse(payload);
-  }
-
   const fetchRunDetail = useCallback(
-    async (runId: string) =>
+    async (runId: string, signal: AbortSignal) =>
       requestJson(
         `${runnerBaseUrl}/api/runs/${runId}`,
         runDetailSchema,
-        undefined,
+        { signal },
         createFallbackIssue(
           `Run detail request failed for ${runId}.`,
           "Refresh the page or start a new run.",
@@ -216,10 +225,14 @@ export function useRunStream({
   );
 
   useEffect(() => {
+    setPendingAction(null);
     return () => {
+      actionGenerationRef.current += 1;
+      actionRequestRef.current?.controller.abort();
+      actionRequestRef.current = null;
       closeEventStream();
     };
-  }, []);
+  }, [runnerBaseUrl]);
 
   useEffect(() => {
     setSelectedScreenshotId(null);
@@ -302,6 +315,7 @@ export function useRunStream({
     }
 
     let disposed = false;
+    const controller = new AbortController();
     let refreshing = false;
     let refreshAgain = false;
 
@@ -314,9 +328,10 @@ export function useRunStream({
         return;
       }
       refreshing = true;
-      void fetchRunDetail(selectedRunId)
+      const generation = viewGenerationRef.current;
+      void fetchRunDetail(selectedRunId, controller.signal)
         .then((detail) => {
-          if (disposed) return;
+          if (disposed || generation !== viewGenerationRef.current) return;
           setActiveRun((current) =>
             current?.run.id === selectedRunId && current.run.status === "running"
               ? detail
@@ -385,6 +400,7 @@ export function useRunStream({
 
     return () => {
       disposed = true;
+      controller.abort();
       window.clearInterval(refreshTimer);
       source?.close();
       if (eventSourceRef.current === source) eventSourceRef.current = null;
@@ -392,10 +408,11 @@ export function useRunStream({
   }, [fetchRunDetail, runnerBaseUrl, selectedEventStreamUrl, selectedRunId, selectedRunStatus, streamLogs]);
 
   const handleScenarioChange = (scenarioId: string) => {
-    if (controlsLocked) {
+    if (controlsLocked || actionRequestRef.current) {
       return;
     }
 
+    viewGenerationRef.current += 1;
     const nextScenario =
       scenarios.find((scenario) => scenario.id === scenarioId) ?? null;
 
@@ -432,17 +449,100 @@ export function useRunStream({
     window.open(`${runnerBaseUrl}${selectedRun.replayUrl}`, "_blank");
   };
 
+  function beginAction(action: Exclude<PendingAction, null>) {
+    if (actionRequestRef.current) return null;
+    const request = {
+      controller: new AbortController(),
+      generation: ++actionGenerationRef.current,
+    };
+    actionRequestRef.current = request;
+    setPendingAction(action);
+    return request;
+  }
+
+  function isCurrentAction(request: ActionRequest) {
+    return actionRequestRef.current === request &&
+      request.generation === actionGenerationRef.current &&
+      !request.controller.signal.aborted;
+  }
+
+  function finishAction(request: ActionRequest) {
+    if (!isCurrentAction(request)) return;
+    actionRequestRef.current = null;
+    setPendingAction(null);
+  }
+
+  function adoptRun(detail: RunDetail) {
+    viewGenerationRef.current += 1;
+    setActiveRun(detail);
+    setRunEvents(detail.events);
+    setSelectedScenarioId(detail.run.scenarioId);
+    setBrowserMode(detail.run.browserMode);
+    setVerificationEnabled(detail.run.verificationEnabled ?? false);
+    setMaxResponseTurns(detail.run.maxResponseTurns ?? defaultMaxResponseTurns);
+    setPrompt(detail.run.prompt);
+    setWorkspaceState(null);
+    setStartRecovery(null);
+    setActionIssue(null);
+  }
+
+  async function reconcileStart(request: ActionRequest) {
+    setStartRecovery("checking");
+    setPendingAction("check");
+    try {
+      const detail = await requestJson(
+        `${runnerBaseUrl}/api/runs/active`,
+        runDetailSchema.nullable(),
+        { signal: request.controller.signal },
+        createFallbackIssue("The runner's current state could not be checked."),
+      );
+      if (!isCurrentAction(request)) return;
+      if (detail) {
+        adoptRun(detail);
+        appendManualTranscript(createManualTranscript(
+          "control", "runner", `Recovered run ${detail.run.id}.`,
+        ));
+      } else {
+        // An empty active lookup cannot tell whether the previous run finished
+        // or whether its start request has not reached admission yet.
+        setStartRecovery("empty");
+      }
+    } catch (error) {
+      if (!isCurrentAction(request)) return;
+      setStartRecovery("unavailable");
+      appendManualLog(createManualLog(
+        "run.recovery_unavailable",
+        formatRunnerIssueMessage(toRunnerIssue(error, "The runner's current state could not be checked.")),
+        "warn",
+      ));
+    }
+  }
+
+  const handleCheckStart = async () => {
+    const request = beginAction("check");
+    if (!request) return;
+    try {
+      await reconcileStart(request);
+    } finally {
+      finishAction(request);
+    }
+  };
+
   const handleStartRun = async () => {
-    if (!runnerOnline || !selectedScenario || prompt.trim().length === 0) {
+    if (!runnerOnline || !selectedScenario || controlsLocked ||
+      startRecovery === "unavailable" || prompt.trim().length === 0) {
       return;
     }
 
-    setPendingAction("start");
+    const request = beginAction("start");
+    if (!request) return;
+    setStartRecovery(null);
     setManualLogs([]);
     setManualTranscript([]);
     setRunEvents([]);
     setActionIssue(null);
     closeEventStream();
+    let startAccepted = false;
 
     try {
       const started = await requestJson(
@@ -461,17 +561,17 @@ export function useRunStream({
             "Content-Type": "application/json",
           },
           method: "POST",
+          signal: request.controller.signal,
         },
         createFallbackIssue(
           "Run start failed.",
           "Check the runner logs and confirm the scenario request is valid.",
         ),
       );
-      const detail = started.detail ?? await fetchRunDetail(started.runId);
-
-      setActiveRun(detail);
-      setRunEvents(detail.events);
-      setWorkspaceState(null);
+      startAccepted = true;
+      const detail = started.detail ?? await fetchRunDetail(started.runId, request.controller.signal);
+      if (!isCurrentAction(request)) return;
+      adoptRun(detail);
       appendManualTranscript(
         createManualTranscript(
           "control",
@@ -480,6 +580,13 @@ export function useRunStream({
         ),
       );
     } catch (error) {
+      if (!isCurrentAction(request)) return;
+      const ambiguous = startAccepted || !(error instanceof RunnerApiError) ||
+        error.status === 0 || error.status === 408 || error.status === 409 || error.status >= 500;
+      if (ambiguous) {
+        await reconcileStart(request);
+        return;
+      }
       const issue = toRunnerIssue(
         error,
         "Failed to start run.",
@@ -498,7 +605,7 @@ export function useRunStream({
         ),
       );
     } finally {
-      setPendingAction(null);
+      finishAction(request);
     }
   };
 
@@ -507,7 +614,8 @@ export function useRunStream({
       return;
     }
 
-    setPendingAction("stop");
+    const request = beginAction("stop");
+    if (!request) return;
 
     try {
       const detail = await requestJson(
@@ -515,6 +623,7 @@ export function useRunStream({
         runDetailSchema,
         {
           method: "POST",
+          signal: request.controller.signal,
         },
         createFallbackIssue(
           "Run stop failed.",
@@ -522,6 +631,8 @@ export function useRunStream({
         ),
       );
 
+      if (!isCurrentAction(request)) return;
+      viewGenerationRef.current += 1;
       setActiveRun(detail);
       setRunEvents(detail.events);
       setActionIssue(null);
@@ -535,6 +646,7 @@ export function useRunStream({
         ),
       );
     } catch (error) {
+      if (!isCurrentAction(request)) return;
       const issue = toRunnerIssue(
         error,
         "Failed to stop run.",
@@ -546,7 +658,7 @@ export function useRunStream({
         createManualLog("run.stop_failed", formatRunnerIssueMessage(issue), "error"),
       );
     } finally {
-      setPendingAction(null);
+      finishAction(request);
     }
   };
 
@@ -555,7 +667,8 @@ export function useRunStream({
       return;
     }
 
-    setPendingAction("reset");
+    const request = beginAction("reset");
+    if (!request) return;
 
     try {
       const state = await requestJson(
@@ -563,6 +676,7 @@ export function useRunStream({
         scenarioWorkspaceStateSchema,
         {
           method: "POST",
+          signal: request.controller.signal,
         },
         createFallbackIssue(
           "Workspace reset failed.",
@@ -570,6 +684,8 @@ export function useRunStream({
         ),
       );
 
+      if (!isCurrentAction(request)) return;
+      viewGenerationRef.current += 1;
       setWorkspaceState(state);
       setActionIssue(null);
       appendManualLog(
@@ -588,7 +704,9 @@ export function useRunStream({
       );
 
       if (state.cancelledRunId) {
-        const cancelledDetail = await fetchRunDetail(state.cancelledRunId);
+        const cancelledDetail = await fetchRunDetail(state.cancelledRunId, request.controller.signal);
+        if (!isCurrentAction(request)) return;
+        viewGenerationRef.current += 1;
         setActiveRun(cancelledDetail);
         setRunEvents(cancelledDetail.events);
       } else if (!selectedRun || selectedRun.run.status !== "running") {
@@ -596,6 +714,7 @@ export function useRunStream({
         setRunEvents([]);
       }
     } catch (error) {
+      if (!isCurrentAction(request)) return;
       const issue = toRunnerIssue(
         error,
         "Failed to reset workspace.",
@@ -611,7 +730,7 @@ export function useRunStream({
         ),
       );
     } finally {
-      setPendingAction(null);
+      finishAction(request);
     }
   };
 
@@ -699,6 +818,8 @@ export function useRunStream({
     followActivityFeed,
     followLatestScreenshot,
     handleActivityFeedScroll,
+    handleCheckStart,
+    startRecovery,
     handleJumpToLatestActivity,
     handleJumpToLatestScreenshot,
     handleOpenReplay,

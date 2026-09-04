@@ -1,16 +1,10 @@
+import { getLabInstructions, labCatalog } from "@cua-sample/scenario-kit";
 import { type BrowserSession } from "@cua-sample/browser-runtime";
 import { type KanbanBoardState } from "@cua-sample/scenario-kit";
 
-export const kanbanColumnOrder = ["backlog", "in_progress", "done"] as const;
+export const kanbanColumnOrder = labCatalog.kanban.columnOrder as Array<keyof KanbanBoardState>;
 
-const cardTitleToId = {
-  "audit replay artifacts": "replay_audit",
-  "circulate launch brief": "launch_brief",
-  "close nav bug triage": "bug_triage",
-  "finalize analytics spec": "analytics_spec",
-  "polish stage tooltips": "tooltips",
-  "refresh workspace docs": "workspace_docs",
-} as const;
+const cardTitleToId = labCatalog.kanban.cardTitleToId;
 
 const cardIds = new Set(Object.values(cardTitleToId));
 type KanbanCardId = (typeof cardTitleToId)[keyof typeof cardTitleToId];
@@ -99,9 +93,7 @@ export function parseKanbanTargetBoardState(prompt: string): KanbanBoardState {
       [
         "Kanban prompt must define backlog, in_progress, and done lines.",
         "Example:",
-        'backlog: Refresh workspace docs',
-        'in_progress: Close nav bug triage -> Finalize analytics spec',
-        'done: Circulate launch brief -> Audit replay artifacts -> Polish stage tooltips',
+        labCatalog.kanban.verificationPrompt,
       ].join(" "),
     );
   }
@@ -132,10 +124,8 @@ export function buildKanbanCodeInstructions(currentUrl: string) {
   return [
     "You are operating a persistent Playwright browser session for a gpt-5.6-sol CUA demo harness.",
     "You must use the exec_js tool before you answer.",
-    `The kanban app is already open at ${currentUrl}.`,
-    "Use only the operator prompt as the source of truth.",
-    "Rearrange the live board so every column matches the requested column membership and exact card order.",
-    "Reply briefly once the board matches the requested final state.",
+    `The lab is already open at ${currentUrl}.`,
+    ...getLabInstructions("kanban"),
   ].join("\n");
 }
 
