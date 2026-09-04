@@ -19,7 +19,7 @@ async def session_factory(tmp_path, monkeypatch):
     async def headless(cls, command, **kwargs):
         # Production remains headful-only. This test runs the same owned Chromium
         # and CDP code with a headless flag, without initializing PyAutoGUI.
-        return await spawn([command[0], "--headless=new", *command[1:]], **kwargs)
+        return await spawn([command[0], "--headless=new", "--no-sandbox", *command[1:]], **kwargs)
     monkeypatch.setattr(OwnedProcess, "spawn", classmethod(headless))
     resources = []
     async def create(lab_id):
