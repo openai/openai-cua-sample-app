@@ -1,0 +1,19 @@
+{
+  "name": "@cua-sample/demo-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@cua-sample/replay-schema": "workspace:*",
+    "next": "15.5.24",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

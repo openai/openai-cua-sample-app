@@ -1,0 +1,140 @@
+{
+  "scenarios": [
+    {
+      "id": "kanban-reprioritize-sprint",
+      "labId": "kanban",
+      "category": "productivity",
+      "title": "Launch Planner",
+      "description": "Move cards across columns and reorder the sprint board to match the final board state written in the operator prompt.",
+      "defaultPrompt": "Reorganize the board to make everything as done.",
+      "startTarget": {
+        "kind": "remote_url",
+        "label": "run-scoped HTTP kanban lab",
+        "url": "http://127.0.0.1:3102"
+      },
+      "supportsCodeEdits": false,
+      "verification": [
+        {
+          "id": "kanban-board-state",
+          "kind": "board_state",
+          "description": "The final board state matches the required card ordering and column placement."
+        }
+      ],
+      "tags": [
+        "hero",
+        "productivity",
+        "drag-drop"
+      ],
+      "templateDirectory": "kanban-lab-template",
+      "instructions": [
+        "Use only the operator prompt as the source of truth.",
+        "Rearrange the live board so every column matches the requested column membership and exact card order.",
+        "Reply briefly once the board matches the requested final state."
+      ]
+    },
+    {
+      "id": "paint-draw-poster",
+      "labId": "paint",
+      "category": "creativity",
+      "title": "Sketch Studio",
+      "description": "Draw and edit raster artwork with brushes, shapes, text, layers, and a saved draft.",
+      "startTarget": {
+        "kind": "remote_url",
+        "label": "run-scoped HTTP paint lab",
+        "url": "http://127.0.0.1:3103"
+      },
+      "supportsCodeEdits": false,
+      "verification": [
+        {
+          "id": "paint-canvas-state",
+          "kind": "canvas_state",
+          "description": "The saved draft is nonblank and matches the current document layers and rendered pixels."
+        }
+      ],
+      "tags": [
+        "hero",
+        "creativity",
+        "canvas"
+      ],
+      "templateDirectory": "paint-lab-template",
+      "instructions": [
+        "Use the operator prompt as the source of truth. Draw through the visible application controls. Do not generate an image externally, write canvas pixels through page.evaluate, or call page-internal drawing, document, or save functions.",
+        "The app has a real raster canvas. Tools on the left include brush, pencil, eraser, fill, eyedropper, line, rectangle, ellipse, text, selection, and hand.",
+        "Tool settings are above the canvas. Colors and layers are on the right. Open the panels button if the inspector is collapsed. Use Fit at the bottom if you lose the canvas.",
+        "Shapes are drawn by dragging. Choose Fill or Outline in the shape settings. Hold Shift for a circle or square. The fill bucket fills connected pixels on the active layer.",
+        "For text, select Text, click the canvas, type, and press Enter or Apply text. Shift+Enter adds a new line.",
+        "Use Undo or the eraser to correct mistakes. Save draft at the top saves the full document; wait until the interface says Saved draft.",
+        "Do not answer until the artwork has been saved. Reply briefly after saving."
+      ],
+      "defaultPrompt": "Draw a yellow smiley face with black eyes and a curved smile, then save the draft."
+    },
+    {
+      "id": "booking-complete-reservation",
+      "labId": "booking",
+      "category": "commerce",
+      "title": "Northstar Stays",
+      "description": "Search inventory, apply the requested filters, complete the reservation form, and land on a matching local confirmation using only the operator prompt.",
+      "startTarget": {
+        "kind": "remote_url",
+        "label": "run-scoped HTTP booking lab",
+        "url": "http://127.0.0.1:3104"
+      },
+      "supportsCodeEdits": false,
+      "verification": [
+        {
+          "id": "booking-record",
+          "kind": "booking_record",
+          "description": "The local confirmation record and applied filters match the hotel, guest, dates, and requirements in the operator prompt."
+        }
+      ],
+      "tags": [
+        "hero",
+        "commerce",
+        "forms"
+      ],
+      "templateDirectory": "booking-lab-template",
+      "instructions": [
+        "Use only the operator prompt as the source of truth.",
+        "Apply the requested search filters, select the requested hotel, complete the reservation form, and confirm the booking.",
+        "Only finish when the reservation panel shows the booking as confirmed.",
+        "Reply briefly once the booking is confirmed."
+      ],
+      "defaultPrompt": "Book the Luma Harbor Hotel from 4/18 to 4/21 for Ada Lovelace (ada.lovelace@example.com). Ensure breakfast is included and request a late arrival after 9pm."
+    }
+  ],
+  "booking": {
+    "hotels": {
+      "ember lane hotel": {
+        "hotelId": "ember_lane",
+        "hotelName": "Ember Lane Hotel",
+        "neighborhood": "Mission Bay"
+      },
+      "luma harbor hotel": {
+        "hotelId": "luma_harbor",
+        "hotelName": "Luma Harbor Hotel",
+        "neighborhood": "Marina District"
+      },
+      "port exchange inn": {
+        "hotelId": "port_exchange",
+        "hotelName": "Port Exchange Inn",
+        "neighborhood": "Embarcadero"
+      }
+    }
+  },
+  "kanban": {
+    "columnOrder": [
+      "backlog",
+      "in_progress",
+      "done"
+    ],
+    "cardTitleToId": {
+      "audit replay artifacts": "replay_audit",
+      "circulate launch brief": "launch_brief",
+      "close nav bug triage": "bug_triage",
+      "finalize analytics spec": "analytics_spec",
+      "polish stage tooltips": "tooltips",
+      "refresh workspace docs": "workspace_docs"
+    },
+    "verificationPrompt": "backlog: Refresh workspace docs\nin_progress: Close nav bug triage -> Finalize analytics spec\ndone: Circulate launch brief -> Audit replay artifacts -> Polish stage tooltips"
+  }
+}

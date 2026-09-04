@@ -1,173 +1,44 @@
-# GPT-5.6 CUA Sample App
+# Computer Use Sample Apps
 
-TypeScript sample app for browser-focused computer-use workflows with GPT-5.6. The repo includes:
+An agent is more useful when it can put a plan into practice. Computer use gives it access to the controls in a browser or desktop app, so it can edit, arrange, and create things on your behalf.
 
-- `apps/demo-web`: a Next.js operator console for starting runs and reviewing screenshots, events, and replay artifacts
-- `apps/runner`: a Fastify runner that manages mutable workspaces, browser sessions, SSE, and replay bundles
-- `packages/*`: shared scenario, runtime, and contract packages that make it easy to add new labs later
+In these samples, the model drives those controls by writing code. It can group related actions, repeat a routine, and save variables for later steps. The sample app runs the code and returns text and screenshots; the model uses that feedback to decide what to do next.
 
-The legacy Python sample does not ship in this release branch. Keep that history on a separate `v1` or `legacy` branch.
+Try it on a project board, a drawing canvas, or a mock hotel booking site. Each sample includes a Responses API loop and a console where you can follow the run, inspect its screenshots, and review the saved replay. Use the examples to learn the pattern, then adapt it to your own application.
 
-## What This Repo Demonstrates
+## First run
 
-- how to integrate the Responses API from one canonical place: `packages/runner-core/src/responses-loop.ts`
-- how to drive browser labs through a persistent Playwright JavaScript REPL using `exec_js`
-- how to define scenario manifests, launch isolated run workspaces, and verify outcomes
-- how to build an operator-facing console that is understandable even when the runner is offline or a run fails
+Both samples run the same local labs:
 
-## Prerequisites
+- [JavaScript + Playwright](javascript-app/README.md#first-run) executes JavaScript in headless or visible Chromium.
+- [Python + PyAutoGUI](python-app/README.md#quickstart) executes Python to control the visible desktop's mouse and keyboard.
 
-- Node.js `22.20.0`
-- pnpm `10.26.0`
-- Playwright Chromium browser install
-
-## First Run
+Both need **Node.js 22.20.0**, **pnpm 10.26.0**, and an **OpenAI API key** with access to the configured model. The Python sample also needs **Python 3.10+**, a graphical desktop, and screen-capture and input permissions.
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/openai/openai-cua-sample-app.git
 cd openai-cua-sample-app
-corepack enable
-pnpm install
-cp .env.example .env
 ```
 
-Edit `.env` and set at least this environment variable:
+Each quickstart covers installation, API-key configuration, and startup. Install and run each sample from its own directory; each has its own dependencies, configuration, and run data. The repository root is not a pnpm workspace.
 
-```bash
-OPENAI_API_KEY=your_key_here
+Once the console is running, choose a scenario, edit its prompt, and select **Start Run**. Use **Stop** to interrupt a run. All three scenarios make real API calls. See the [lab task guide](labs/docs/scenarios.md) for example prompts.
+
+## Repository layout
+
+```text
+javascript-app/   JavaScript action runtime, runner, console, and app tests
+python-app/       Python action runtime, runner, console, and app tests
+labs/             Shared templates, task data, documentation, and lab tests
 ```
 
-The runner reads the repo-root `.env` automatically when you start it through the provided scripts. The web app uses its built-in defaults; if you need to override `NEXT_PUBLIC_*` settings, add them in `apps/demo-web/.env.local`.
+Each run uses a fresh copy of a lab template. See the [lab guide](labs/docs/README.md) for tasks and verification, and [lab checks](labs/docs/contributing.md#checks) when changing the labs. App development instructions live in the [JavaScript](javascript-app/docs/contributing.md) and [Python](python-app/docs/contributing.md) guides.
 
-If `pnpm install` prints an `Ignored build scripts` warning for optional packages such as `sharp` or `esbuild`, you can ignore it for local development in this repo. A clean clone still installs, builds, and starts successfully without approving those scripts.
+## Safety and limitations
 
-Install the Playwright browser:
+- Use the included labs or other environments you control. Generated code runs with your user permissions; these samples do not provide an operating-system security sandbox.
+- Python controls the real desktop. Use a dedicated session, keep the intended window in front, and read its [interruption behavior](python-app/README.md#interruption-and-recovery).
+- Keep API keys in local configuration. Environment files and generated run data are excluded from Git.
+- Keep the runner on its default loopback address for local development.
 
-```bash
-pnpm playwright:install
-```
-
-On Linux, install Playwright OS dependencies as well:
-
-```bash
-pnpm playwright:install:with-deps
-```
-
-If Playwright later reports missing system libraries, rerun the `with-deps` command above and follow any OS package prompts it prints.
-
-Start both apps together:
-
-```bash
-pnpm dev
-```
-
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000), choose a scenario, keep `Headless` selected, and start a run.
-
-The console fits the window, with run actions at the top and controls and activity scrolling in their own panels. Below 960px, use **Controls**, **Preview**, and **Activity** to switch panels without losing your draft or selected frame. The timeline slider stays visible; **Show thumbnails** expands the frame strip.
-
-## Local Development
-
-Run the services separately if you want independent logs:
-
-```bash
-pnpm dev:runner
-RUNNER_BASE_URL=http://127.0.0.1:4001 pnpm dev:web
-```
-
-Common checks:
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm check
-```
-
-Live smoke tests stay opt-in and secret-gated:
-
-```bash
-OPENAI_API_KEY=your_key_here pnpm test:live
-```
-
-## Browser Execution
-
-Every run uses a persistent Playwright JavaScript REPL exposed through `exec_js`. The model scripts the live browser session, and the runner records tool activity, screenshots, and scenario verification results. Browser visibility remains configurable as `headless` or `headful`.
-
-## API And Replay Changes
-
-Execution mode has been removed from the API. Omit `mode` when calling `POST /api/runs`; requests containing `mode: "code"`, `mode: "native"`, or any other unknown field receive HTTP 400. Run records no longer include `mode`, and scenario manifests no longer include `defaultMode`.
-
-New replay bundles use version `2` and contain function-call events from the REPL. Existing saved replay files remain untouched. This release does not migrate old bundles or support displaying historical native runs.
-
-## Official Scenarios
-
-- `kanban-reprioritize-sprint` (`kanban`): teaches stateful drag-and-drop verification against a target board state derived from the operator prompt
-- `paint-draw-poster` (`paint`): Sketch Studio, a raster editor for drawing with tools, layers, text, and verifiable saved artwork
-- `booking-complete-reservation` (`booking`): teaches multi-step browsing and form completion with verification against a local confirmation record
-
-More detail lives in [docs/scenarios.md](docs/scenarios.md).
-
-## Sketch Studio
-
-The paint lab opens a 1024 × 768 raster document with brush/pencil, eraser, fill, eyedropper, shapes, text, rectangular selection, up to eight layers, undo/redo, and zoom/pan. The model operates its visible controls through the same persistent Playwright REPL as the other labs.
-
-**Save draft** stores a version-2 save record containing the artwork and layers in IndexedDB. Reload recovery works within the same lab origin and browser context; a new run starts fresh. **Export PNG** downloads the current artwork without editor chrome and does not update the saved draft.
-
-After normal model completion, the runner retains the last saved draft as `artwork/draft.png` and `artwork/draft.sketch.json` inside the run workspace, before optional verification and teardown. Capture also runs when verification is off, and the file paths appear in run events and the summary. No saved draft means no retained paint artifacts. Invalid image data or filesystem write errors fail the run. Cancelled or interrupted runs may end before capture.
-
-Optional paint verification checks that a nonblank saved document matches the current layers and rendered pixels. Visual review is still needed to assess whether the artwork depicts the requested subject.
-
-Try: “Draw a yellow smiley face with black eyes and a curved smile, then save the draft.” See the [paint lab guide](labs/paint-lab-template/README.md) for controls and persistence details. The live paint smoke test covers both headless and visible Chromium.
-
-## Repo Map
-
-- `apps/demo-web`
-  The operator console UI
-- `apps/runner`
-  The HTTP runner, SSE endpoints, and artifact serving layer
-- `packages/replay-schema`
-  Shared request, response, replay, and error contracts
-- `packages/scenario-kit`
-  Public scenario manifests and prompt defaults
-- `packages/browser-runtime`
-  Playwright session abstraction
-- `packages/runner-core`
-  Orchestration, Responses loop, scenario executors, and verification
-- `labs`
-  Static lab templates copied into run-scoped workspaces
-- `docs`
-  Architecture, scenarios, and contribution guidance
-
-## Environment Variables
-
-Runner:
-
-- `OPENAI_API_KEY`
-- `HOST` (default `127.0.0.1`)
-- `PORT` (default `4001`)
-- `CUA_DEFAULT_MODEL` (default `gpt-5.6-sol`)
-- `CUA_RESPONSES_MODE` (`auto`, `fallback`, or `live`)
-
-Web:
-
-- `RUNNER_BASE_URL` (default `http://127.0.0.1:4001`)
-- `NEXT_PUBLIC_CUA_DEFAULT_MODEL` (default `gpt-5.6-sol`)
-- `NEXT_PUBLIC_CUA_DEFAULT_MAX_RESPONSE_TURNS` (default `24`)
-
-See [.env.example](.env.example) for a minimal local template.
-
-## Safety And Limitations
-
-- Computer use remains high risk. Do not point this sample at authenticated, financial, medical, or otherwise high-stakes environments.
-- This repo is intentionally browser-focused. Workspace patching and file-editing scenarios are out of scope for the OSS release branch.
-- The public scenarios are local labs designed for deterministic verification. They are not intended as proofs of general web autonomy.
-
-## Release Validation Checklist
-
-- clean clone on a fresh machine
-- setup succeeds from this README alone
-- `pnpm dev`
-- one successful headless run
-- one successful headful run
-- one intentional failure that shows the new runner guidance cleanly
+Licensed under the [MIT License](LICENSE).

@@ -1,0 +1,27 @@
+{
+  "name": "cua-sample-labs",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.26.0",
+  "scripts": {
+    "test": "vitest run --project shared",
+    "test:javascript": "vitest run --project javascript",
+    "test:python": "vitest run --project python",
+    "test:live:javascript": "node --env-file-if-exists=../javascript-app/.env node_modules/vitest/vitest.mjs run --config vitest.live.config.ts --project javascript",
+    "test:live:python": "node --env-file-if-exists=../python-app/.env node_modules/vitest/vitest.mjs run --config vitest.live.config.ts --project python",
+    "playwright:install": "playwright install chromium",
+    "playwright:install:with-deps": "playwright install --with-deps chromium",
+    "lint": "eslint . --max-warnings=0",
+    "check": "pnpm lint && pnpm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "playwright": "1.58.2",
+    "typescript": "^5.8.2",
+    "vitest": "3.2.7",
+    "@eslint/js": "^9.23.0",
+    "eslint": "^9.23.0",
+    "globals": "^16.0.0",
+    "typescript-eslint": "^8.29.0"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@cua-sample/runner-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts src/javascript-worker.ts --format esm --dts --clean",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cua-sample/browser-runtime": "workspace:*",
+    "@cua-sample/replay-schema": "workspace:*",
+    "@cua-sample/scenario-kit": "workspace:*",
+    "openai": "^6.25.0"
+  }
+}

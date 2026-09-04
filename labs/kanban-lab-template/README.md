@@ -1,5 +1,3 @@
-# Kanban Lab Template
+# Launch Planner template
 
-Run-scoped HTTP productivity lab for reordering a sprint board to match a target plan.
-
-Planned hero scenario: `kanban-reprioritize-sprint`
+Repository documentation: [task and verification guide](../docs/scenarios.md#launch-planner--kanban).
