@@ -1,4 +1,10 @@
 import { defineConfig } from "vitest/config";
-import { runtimeProject } from "./test-projects.js";
 
-export default defineConfig({ test: { projects: [runtimeProject("javascript", true), runtimeProject("python", true)] } });
+export default defineConfig({
+  test: {
+    include: ["tests/live/**/*.test.ts"],
+    fileParallelism: false,
+    testTimeout: 130_000,
+    hookTimeout: 30_000,
+  },
+});

@@ -236,7 +236,7 @@ test("Text commits raster pixels in one transaction and cancellation leaves no m
   tools.cancelText();
   assert(!pixels(doc.active.canvas).some(Boolean), "Cancelled text remained");
 });
-test("Translucent PNGs round-trip with matching hashes and 1024 × 768 export pixels", async () => {
+test("Saved translucent PNGs round-trip with matching hashes and 1024 × 768 pixels", async () => {
   const doc = new PaintDocument();
   fillLayer(doc, "rgba(62,173,217,0.37)", 100, 120, 340, 180);
   doc.addLayer();
@@ -267,8 +267,8 @@ test("Translucent PNGs round-trip with matching hashes and 1024 × 768 export pi
     roundTrip.compositePixelHash === saved.compositePixelHash,
     "Composite changed after reload",
   );
-  const exported = await decodePng(saved.compositePng, 1024, 768);
-  equal(pixel(exported, 0, 0), [255, 255, 255, 255], "PNG background");
+  const composite = await decodePng(saved.compositePng, 1024, 768);
+  equal(pixel(composite, 0, 0), [255, 255, 255, 255], "PNG background");
   assert(saved.paintedPixelCount > 0, "Missing artwork");
   assert(!restored.history.dirty, "Restored draft marked dirty");
 });

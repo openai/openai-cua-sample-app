@@ -1,62 +1,56 @@
-# JavaScript / Playwright sample app
+# JavaScript / Playwright Sample App
 
-A computer-use sample with the Responses API. The model calls `exec_js` to execute JavaScript in a persistent Playwright browser session. A TypeScript runner manages execution, and a Next.js console shows activity and screenshots.
+The model calls `exec_js` to run JavaScript in a persistent Playwright session. It can inspect pages, use locators, and control the browser. The server and agent loop are written in TypeScript.
 
-## First run
+## Quickstart
 
-You need Node.js **22.20.0**, pnpm **10.26.0**, and an API key with access to the model configured in [`.env.example`](.env.example).
+Follow the [JavaScript quickstart](../README.md#javascript--playwright-quickstart) in the root guide. On Linux, use `pnpm playwright:install:with-deps` if Chromium needs system libraries.
 
-[Clone the repository](../README.md#first-run), then run from its root:
+The browser starts in **Headless** mode. Choose **Visible** under **Advanced settings** to watch it work.
 
-```bash
-cd javascript-app
-corepack enable
-pnpm install --frozen-lockfile
-cp .env.example .env
+## Code Walkthrough
+
+Both this app and the [Python sample](../python-app/README.md#code-walkthrough) follow the same five stages:
+
+1. **Define the tool.** [`buildCodeToolDefinitions`](src/responses-loop.ts#L122) declares `exec_js`, a function that accepts a `code` string, and describes the available Playwright objects and output helpers.
+2. **Request a response.** [`runResponsesCodeLoop`](src/responses-loop.ts#L262) sends the task, instructions, and tool definition to the Responses API. The model can return generated JavaScript in a `function_call`.
+3. **Execute the code.** The [worker](src/javascript-worker.ts#L43) runs it with `browser`, `context`, `page`, and `Buffer` available. The browser session stays alive between calls. Each code block runs in an async function; use `globalThis` to retain variables between calls. Each run starts fresh.
+4. **Return observations.** `console.log()` produces text and `display()` produces images. The [loop](src/responses-loop.ts#L314) returns these as `function_call_output` with the original `call_id`, so the model can inspect the result and choose its next action.
+5. **Continue or finish.** The next request includes those results and `previous_response_id`. Commentary continues the loop; a final answer finishes it when no tool calls remain. The worker preserves execution state independently of the API conversation.
+
+For example, to inspect the current browser page, the model might return:
+
+```json
+{
+  "type": "function_call",
+  "name": "exec_js",
+  "call_id": "call_1",
+  "arguments": "{\"code\":\"display((await page.screenshot()).toString('base64'));\"}"
+}
 ```
 
-Edit `.env` and set your API key:
+After executing the code, the runner sends this item in the next request's `input` array. The PNG bytes are abbreviated here:
 
-```bash
-OPENAI_API_KEY=your_key_here
+```json
+{
+  "type": "function_call_output",
+  "call_id": "call_1",
+  "output": [
+    {
+      "type": "input_image",
+      "image_url": "data:image/png;base64,<PNG_BYTES>",
+      "detail": "original"
+    }
+  ]
+}
 ```
 
-Install Chromium:
+Follow the [architecture guide](docs/architecture.md#supporting-modules) for the HTTP server, worker connection, run lifecycle, and shared components.
 
-```bash
-pnpm playwright:install
-```
+## Interruption and Recovery
 
-On Linux, use `pnpm playwright:install:with-deps` to install Chromium's system libraries too.
+**Stop** interrupts the run and waits for the worker, browser, and lab server to close. Ordinary script errors return to the model so it can correct them. Each code call has a 60-second deadline; exceeding it ends the run. The separate worker lets the runner terminate blocked JavaScript.
 
-Start the runner and console:
+Refreshing the console reconnects to an active run. If a Start response is unconfirmed, **Check again** checks for an active run without submitting another. **Ctrl+C** stops the app; wait for shutdown before launching either backend again.
 
-```bash
-pnpm dev
-```
-
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000), choose a scenario, edit its prompt if needed, and select **Start Run**. The default is **Headless**; choose **Visible** under **Advanced settings** to watch Chromium. Runs send real API requests.
-
-Review screenshots and activity in the console. **Stop** ends the run. Refreshing the page restores an active run.
-
-Verification is off by default. To enable it, select **Run verification checks** under **Advanced settings**. Kanban and Booking require the structured prompts in the [lab task guide](../labs/docs/scenarios.md); the supplied freeform prompts work with verification off. The guide explains what each check verifies.
-
-## Configuration
-
-Runner settings belong in `.env` or the runner's shell. The provided development and production scripts load `.env`; shell variables take precedence. See [`.env.example`](.env.example) for runner settings.
-
-Next.js does not load this app-level `.env`. Web overrides belong in `apps/demo-web/.env.local` or the web process's shell:
-
-- `RUNNER_BASE_URL`: defaults to `http://127.0.0.1:4001`. Change it if you change the runner's port.
-- `NEXT_PUBLIC_CUA_DEFAULT_MODEL`: leave unset to use the runner's default model.
-- `NEXT_PUBLIC_CUA_DEFAULT_MAX_RESPONSE_TURNS`: defaults to `24`.
-
-Restart services after configuration changes; rebuild the production web app after changing `NEXT_PUBLIC_*` values.
-
-## Understand and change the sample
-
-Start with the [architecture guide](docs/architecture.md) for the API loop, runtime, and package map. The [contribution guide](docs/contributing.md) covers development commands, checks, and production startup. Shared lab checks are documented in the [lab contribution guide](../labs/docs/contributing.md#checks).
-
-Each run uses a fresh lab copy under `data/workspaces/<run-id>/`. Events, replay data, and screenshots are saved under `data/runs/<run-id>/`.
-
-Generated JavaScript runs with your user permissions. Keep the runner on loopback and use environments you control; see the [safety and limitations](../README.md#safety-and-limitations).
+See [contributing](docs/contributing.md) for tests and production startup, and the root guide for [safety and limitations](../README.md#safety-and-limitations).

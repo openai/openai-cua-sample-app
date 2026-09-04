@@ -277,7 +277,6 @@ for (const columnElement of boardElement.querySelectorAll(".columnBody")) {
 }
 
 window.__kanbanLabReady = true;
-window.__kanbanMoveCard = moveCard;
 window.__kanbanReadBoardState = readBoardState;
 
 render();

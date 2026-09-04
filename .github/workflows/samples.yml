@@ -1,0 +1,123 @@
+name: Computer use samples
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: samples-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      OPENAI_API_KEY: ''
+      CUA_LIVE_TESTS: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          version: '0.11.33'
+      - name: Enable pnpm 10.26.0
+        run: corepack enable
+      - name: Install the locked root workspace
+        run: pnpm install --frozen-lockfile
+      - name: Install the locked native Python backend
+        run: pnpm python:install
+      - name: Install JavaScript Chromium and system libraries
+        run: pnpm playwright:install:with-deps
+      - name: Install Python Playwright 1.58.0 Chromium and system libraries
+        run: uv run --project python-app playwright install --with-deps chromium
+      - name: Check JavaScript backend, console, and shared contracts
+        run: pnpm check:js
+      - name: Check Python backend and headless lab behavior
+        env:
+          CUA_BROWSER_TESTS: '1'
+        run: pnpm check:python
+      - name: Check shared lab templates and JavaScript integration
+        run: pnpm check:labs
+      - name: Smoke test production backends sequentially with the shared console
+        env:
+          HOST: 127.0.0.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          launcher_pid=''
+          cleanup() {
+            result=$?
+            trap - EXIT
+            if [ -n "$launcher_pid" ]; then
+              kill -TERM "$launcher_pid" 2>/dev/null || true
+              wait "$launcher_pid" 2>/dev/null || true
+            fi
+            if [ "$result" -ne 0 ]; then cat /tmp/cua-production-*.log; fi
+            exit "$result"
+          }
+          trap cleanup EXIT
+          for backend in javascript python; do
+            if [ "$backend" = javascript ]; then
+              export PORT=4001
+            else
+              export PORT=4041
+            fi
+            export CUA_BACKEND="$backend"
+            export RUNNER_BASE_URL="http://127.0.0.1:$PORT"
+            node scripts/launch.mjs "$backend" --production > "/tmp/cua-production-$backend.log" 2>&1 &
+            launcher_pid=$!
+            curl --fail --retry 30 --retry-connrefused --retry-delay 1 "$RUNNER_BASE_URL/health"
+            node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { execFile } from 'node:child_process';
+          import { promisify } from 'node:util';
+          const base = process.env.RUNNER_BASE_URL;
+          const backend = process.env.CUA_BACKEND;
+          const request = (path) => fetch(`${base}${path}`, { headers: { 'X-CUA-Backend': backend } });
+          const capabilities = await request('/api/capabilities').then(r => r.json());
+          assert.equal(capabilities.backendId, backend);
+          assert.equal(capabilities.codeTool, backend === 'python' ? 'exec_py' : 'exec_js');
+          const scenarios = await request('/api/scenarios').then(r => r.json());
+          assert.equal(scenarios.length, 3);
+          assert(scenarios.every(scenario => scenario.defaultPrompt && scenario.workspaceTemplatePath));
+          assert.equal(await request('/api/runs/active').then(r => r.json()), null);
+          const mismatch = await fetch(`${base}/api/scenarios`, {
+            headers: { 'X-CUA-Backend': backend === 'python' ? 'javascript' : 'python' },
+          });
+          assert.equal(mismatch.status, 409);
+          const other = backend === 'python' ? 'javascript' : 'python';
+          const otherPort = other === 'python' ? 4041 : 4001;
+          await assert.rejects(promisify(execFile)(process.execPath,
+            ['scripts/launch.mjs', other, '--production'], {
+              timeout: 10_000,
+              env: { ...process.env, PORT: String(otherPort), RUNNER_BASE_URL: `http://127.0.0.1:${otherPort}` },
+            }), error => error.code === 1 && !error.killed);
+          const stillRunning = await request('/api/capabilities').then(r => r.json());
+          assert.equal(stillRunning.instanceId, capabilities.instanceId);
+          JS
+            curl --fail --retry 30 --retry-connrefused --retry-delay 1 http://127.0.0.1:3000/ > /tmp/cua-console.html
+            node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const html = readFileSync('/tmp/cua-console.html', 'utf8');
+          assert(html.includes(process.env.CUA_BACKEND === 'python' ? 'Python / PyAutoGUI' : 'JavaScript / Playwright'));
+          assert(html.includes('Runner Online'));
+          JS
+            kill -TERM "$launcher_pid"
+            wait "$launcher_pid" || true
+            launcher_pid=''
+          done

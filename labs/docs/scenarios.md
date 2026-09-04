@@ -1,23 +1,22 @@
 # Lab tasks
 
-These tasks work in both the [JavaScript](../../javascript-app/README.md) and [Python](../../python-app/README.md) apps.
+These tasks work in both the [JavaScript](../../javascript-app/README.md) and [Python](../../python-app/README.md) apps. Describe the desired result in ordinary language; no special prompt format is required.
 
-Verification is off by default. When enabled, it checks final lab state independently of the model's final message. Use the structured Kanban and Booking prompts below; their free-form defaults work with verification off.
+**Run finished** means execution ended normally. Use the model response, screenshot timeline, and **Replay JSON** to inspect what happened and judge whether the task was accomplished.
 
 ## Launch Planner — Kanban
 
 Scenario ID: `kanban-reprioritize-sprint`.
 
-Rearrange the board. Verification checks exact card membership and order in each column.
+Move cards between columns and change their order. For example:
 
 ```text
-Reorganize the board to match this final state exactly.
-backlog: Refresh workspace docs
-in_progress: Close nav bug triage -> Finalize analytics spec
-done: Circulate launch brief -> Audit replay artifacts -> Polish stage tooltips
+Leave Refresh workspace docs in Backlog. Put Close nav bug triage followed by
+Finalize analytics spec in In progress. Put Circulate launch brief, Audit replay
+artifacts, and Polish stage tooltips in Done, in that order.
 ```
 
-With verification enabled, all three columns must be present and every known card must appear exactly once. Use `backlog:` for an empty column. Invalid card lists are rejected before the model runs.
+Inspect the final board screenshot for the requested column membership and order.
 
 ## Sketch Studio — Paint
 
@@ -27,24 +26,18 @@ Scenario ID: `paint-draw-poster`.
 Draw a yellow smiley face with black eyes and a curved smile, then save the draft.
 ```
 
-Verification checks a consistent, nonblank saved document. Visual review determines whether the drawing matches the requested subject. See the [paint guide](paint.md) for drawing and saving.
+Inspect the final screenshot and model response to judge the drawing. The saved draft stays in browser storage for the current lab session. See the [paint guide](paint.md) for drawing and saving.
 
 ## Northstar Stays — Booking
 
 Scenario ID: `booking-complete-reservation`.
 
-Filter inventory and complete a reservation. Verification checks the applied filters and local confirmation against the request.
+Filter inventory and complete a reservation. For example:
 
 ```text
-Complete the reservation flow using this request.
-hotel: Luma Harbor Hotel
-neighborhood: Marina District
-check_in: 2026-04-18
-check_out: 2026-04-21
-guest_name: Ada Lovelace
-guest_email: ada.lovelace@example.com
-requires: breakfast included, workspace desk
-special_request: Late arrival after 9pm.
+Book the Luma Harbor Hotel in the Marina District from April 18 to April 21,
+2026 for Ada Lovelace (ada.lovelace@example.com). Filter for breakfast included
+and a workspace desk. Request a late arrival after 9pm, then confirm the booking.
 ```
 
-This is a local simulation; it does not book a real hotel.
+Inspect the confirmation screenshot for the hotel, guest, dates, and special request. This is a local simulation; it does not book a real hotel.

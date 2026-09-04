@@ -12,14 +12,8 @@ Use **Toggle panels** if the color/layer controls are hidden, and **Fit** to bri
 
 **Save draft** stores the layered document in browser storage. Wait for **Saved draft**. It restores after a reload in the same lab origin and browser context; a new run starts fresh. A failed save leaves the document unsaved.
 
-**Export PNG** downloads the current artwork at 1024 × 768. It does not save the layered draft.
+## Inspecting the result
 
-After normal model completion, both runners retain the last saved draft as `artwork/draft.sketch.json` and `artwork/draft.png` in the run workspace, even when verification is off. The activity log and successful run summary show the paths.
-
-No saved draft means no retained files. Invalid image data or file-write errors fail the run. Cancellation or interruption can prevent capture. The JSON is available for inspection; there is no project-file import UI.
-
-## Verification
-
-Both apps check that the saved document matches the current layers and pixels, the saved layer images combine to the saved artwork, and the visible result is nonblank. Unsaved changes or a missing draft fail verification. Visual review is still needed to judge whether the artwork matches the prompt.
+Inspect the final screenshot and model response to judge whether the drawing matches the prompt. Use the screenshot timeline and **Replay JSON** to review the run. **Run finished** reports normal execution and cleanup, not a grade for the drawing.
 
 See [contributing](contributing.md#checks) to run the checks or change the lab. The editor source is in [`editor/`](../paint-lab-template/editor/).

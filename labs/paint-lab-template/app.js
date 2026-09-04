@@ -3,7 +3,6 @@ import { Renderer } from "./editor/renderer.js";
 import { Tools } from "./editor/tools.js";
 import { clamp } from "./editor/geometry.js";
 import {
-  downloadPng,
   loadDraft,
   removeDraft,
   restoreDocument,
@@ -421,12 +420,6 @@ function action(name) {
     tools.cancelText();
     return;
   }
-  if (name === "export") {
-    tools.commitText();
-    downloadPng(doc);
-    notify("PNG exported at 1024 × 768 pixels.");
-    return;
-  }
   if (name === "fit") {
     renderer.fit();
     tools.overlay();
@@ -791,7 +784,7 @@ try {
   }
 } catch (error) {
   notify(
-    `Could not restore the saved draft: ${error.message}. You can start a new drawing or export your work.`,
+    `Could not restore the saved draft: ${error.message}. You can start a new drawing.`,
   );
 } finally {
   setBusy(false);

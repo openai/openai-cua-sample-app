@@ -1,0 +1,604 @@
+[
+  {
+    "name": "minimal start",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face."
+    },
+    "valid": true
+  },
+  {
+    "name": "all start options",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face.",
+      "model": "fixture-model",
+      "browserMode": "headful",
+      "maxResponseTurns": 50
+    },
+    "valid": true
+  },
+  {
+    "name": "reject start unexpected",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face.",
+      "unexpected": true
+    },
+    "valid": false
+  },
+  {
+    "name": "reject start maxResponseTurns",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face.",
+      "maxResponseTurns": 51
+    },
+    "valid": false
+  },
+  {
+    "name": "reject removed verificationEnabled option",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face.",
+      "verificationEnabled": false
+    },
+    "valid": false
+  },
+  {
+    "name": "reject start prompt",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": ""
+    },
+    "valid": false
+  },
+  {
+    "name": "reject start browserMode",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face.",
+      "browserMode": "desktop"
+    },
+    "valid": false
+  },
+  {
+    "name": "browser preview screenshot",
+    "schema": "browserScreenshotArtifactSchema",
+    "value": {
+      "id": "screenshot-1",
+      "capturedAt": "2026-09-04T00:00:00.000Z",
+      "label": "preview",
+      "mimeType": "image/png",
+      "pageUrl": "http://127.0.0.1:3103/",
+      "path": "/tmp/run/screenshots/001.png",
+      "url": "/api/runs/run-1/artifacts/screenshots/001.png"
+    },
+    "valid": true
+  },
+  {
+    "name": "desktop screenshot coordinates",
+    "schema": "browserScreenshotArtifactSchema",
+    "value": {
+      "id": "screenshot-1",
+      "capturedAt": "2026-09-04T00:00:00.000Z",
+      "label": "preview",
+      "mimeType": "image/png",
+      "pageUrl": "http://127.0.0.1:3103/",
+      "path": "/tmp/run/screenshots/001.png",
+      "url": "/api/runs/run-1/artifacts/screenshots/001.png",
+      "source": "code_tool",
+      "imageWidth": 1440,
+      "imageHeight": 900
+    },
+    "valid": true
+  },
+  {
+    "name": "reject invalid screenshot dimensions",
+    "schema": "browserScreenshotArtifactSchema",
+    "value": {
+      "id": "screenshot-1",
+      "capturedAt": "2026-09-04T00:00:00.000Z",
+      "label": "preview",
+      "mimeType": "image/png",
+      "pageUrl": "http://127.0.0.1:3103/",
+      "path": "/tmp/run/screenshots/001.png",
+      "url": "/api/runs/run-1/artifacts/screenshots/001.png",
+      "imageWidth": 0
+    },
+    "valid": false
+  },
+  {
+    "name": "progress event",
+    "schema": "runEventSchema",
+    "value": {
+      "id": "event-1",
+      "runId": "run-1",
+      "sequence": 0,
+      "type": "run_progress",
+      "level": "pending",
+      "message": "Model progress",
+      "createdAt": "2026-09-04T00:00:00Z"
+    },
+    "valid": true
+  },
+  {
+    "name": "reject negative sequence",
+    "schema": "runEventSchema",
+    "value": {
+      "id": "event-1",
+      "runId": "run-1",
+      "sequence": -1,
+      "type": "run_progress",
+      "level": "pending",
+      "message": "Model progress",
+      "createdAt": "2026-09-04T00:00:00Z"
+    },
+    "valid": false
+  },
+  {
+    "name": "reject unknown event",
+    "schema": "runEventSchema",
+    "value": {
+      "id": "event-1",
+      "runId": "run-1",
+      "sequence": 0,
+      "type": "made_up",
+      "level": "pending",
+      "message": "Model progress",
+      "createdAt": "2026-09-04T00:00:00Z"
+    },
+    "valid": false
+  },
+  {
+    "name": "reject timestamp without UTC",
+    "schema": "runEventSchema",
+    "value": {
+      "id": "event-1",
+      "runId": "run-1",
+      "sequence": 0,
+      "type": "run_progress",
+      "level": "pending",
+      "message": "Model progress",
+      "createdAt": "2026-09-04T00:00:00"
+    },
+    "valid": false
+  },
+  {
+    "name": "javascript capabilities",
+    "schema": "backendCapabilitiesSchema",
+    "value": {
+      "backendId": "javascript",
+      "codeTool": "exec_js",
+      "browserModes": [
+        "headless",
+        "headful"
+      ],
+      "defaults": {
+        "browserMode": "headless",
+        "model": "fixture-model",
+        "maxResponseTurns": 24
+      },
+      "instanceId": "fixture-instance"
+    },
+    "valid": true
+  },
+  {
+    "name": "python capabilities",
+    "schema": "backendCapabilitiesSchema",
+    "value": {
+      "backendId": "python",
+      "codeTool": "exec_py",
+      "browserModes": [
+        "headful"
+      ],
+      "defaults": {
+        "browserMode": "headful",
+        "model": "fixture-model",
+        "maxResponseTurns": 24
+      },
+      "instanceId": "fixture-instance"
+    },
+    "valid": true
+  },
+  {
+    "name": "reject Python headless capability",
+    "schema": "backendCapabilitiesSchema",
+    "value": {
+      "backendId": "python",
+      "codeTool": "exec_py",
+      "browserModes": [
+        "headless",
+        "headful"
+      ],
+      "defaults": {
+        "browserMode": "headful",
+        "model": "fixture-model",
+        "maxResponseTurns": 24
+      },
+      "instanceId": "fixture-instance"
+    },
+    "valid": false
+  },
+  {
+    "name": "structured error",
+    "schema": "runnerErrorResponseSchema",
+    "value": {
+      "code": "backend_mismatch",
+      "error": "Backend does not match.",
+      "hint": "Restart the console."
+    },
+    "valid": true
+  },
+  {
+    "name": "version 3 saved replay",
+    "schema": "replayBundleSchema",
+    "value": {
+      "version": 3,
+      "run": {
+        "id": "run-1",
+        "scenarioId": "paint-draw-poster",
+        "labId": "paint",
+        "browserMode": "headful",
+        "model": "fixture-model",
+        "prompt": "Draw a smiley face.",
+        "status": "completed",
+        "startedAt": "2026-09-04T00:00:00Z",
+        "maxResponseTurns": 24,
+        "summary": {
+          "notes": [
+            "Agent execution finished."
+          ],
+          "stepCount": 1,
+          "screenshotCount": 0
+        }
+      },
+      "scenario": {
+        "id": "paint-draw-poster",
+        "labId": "paint",
+        "category": "creativity",
+        "title": "Sketch Studio",
+        "description": "Draw and edit raster artwork with brushes, shapes, text, layers, and a saved draft.",
+        "tags": [
+          "hero",
+          "creativity",
+          "canvas"
+        ],
+        "defaultPrompt": "Draw a yellow smiley face with black eyes and a curved smile, then save the draft.",
+        "workspaceTemplatePath": "/tmp/labs/paint-lab-template"
+      },
+      "events": [
+        {
+          "id": "event-1",
+          "runId": "run-1",
+          "sequence": 0,
+          "type": "run_progress",
+          "level": "pending",
+          "message": "Model progress",
+          "createdAt": "2026-09-04T00:00:00Z"
+        }
+      ],
+      "artifacts": {
+        "eventsPath": "/tmp/run/eventsPath",
+        "replayPath": "/tmp/run/replayPath",
+        "runPath": "/tmp/run/runPath",
+        "screenshotsDirectory": "/tmp/run/screenshotsDirectory",
+        "workspacePath": "/tmp/run/workspacePath"
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "reject unsupported replay version",
+    "schema": "replayBundleSchema",
+    "value": {
+      "version": 99,
+      "run": {
+        "id": "run-1",
+        "scenarioId": "paint-draw-poster",
+        "labId": "paint",
+        "browserMode": "headful",
+        "model": "fixture-model",
+        "prompt": "Draw a smiley face.",
+        "status": "completed",
+        "startedAt": "2026-09-04T00:00:00Z",
+        "maxResponseTurns": 24
+      },
+      "scenario": {
+        "id": "paint-draw-poster",
+        "labId": "paint",
+        "category": "creativity",
+        "title": "Sketch Studio",
+        "description": "Draw and edit raster artwork with brushes, shapes, text, layers, and a saved draft.",
+        "tags": [
+          "hero",
+          "creativity",
+          "canvas"
+        ],
+        "defaultPrompt": "Draw a yellow smiley face with black eyes and a curved smile, then save the draft.",
+        "workspaceTemplatePath": "/tmp/labs/paint-lab-template"
+      },
+      "events": [
+        {
+          "id": "event-1",
+          "runId": "run-1",
+          "sequence": 0,
+          "type": "run_progress",
+          "level": "pending",
+          "message": "Model progress",
+          "createdAt": "2026-09-04T00:00:00Z"
+        }
+      ],
+      "artifacts": {
+        "eventsPath": "/tmp/run/eventsPath",
+        "replayPath": "/tmp/run/replayPath",
+        "runPath": "/tmp/run/runPath",
+        "screenshotsDirectory": "/tmp/run/screenshotsDirectory",
+        "workspacePath": "/tmp/run/workspacePath"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "integer JSON number",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face.",
+      "maxResponseTurns": 24.0
+    },
+    "valid": true
+  },
+  {
+    "name": "reject fractional turns",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face.",
+      "maxResponseTurns": 24.5
+    },
+    "valid": false
+  },
+  {
+    "name": "reject boolean turns",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face.",
+      "maxResponseTurns": true
+    },
+    "valid": false
+  },
+  {
+    "name": "reject explicit null model",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face.",
+      "model": null
+    },
+    "valid": false
+  },
+  {
+    "name": "reject snake case request",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenario_id": "paint-draw-poster",
+      "prompt": "Draw a smiley face."
+    },
+    "valid": false
+  },
+  {
+    "name": "reject non ISO timestamp separator",
+    "schema": "runEventSchema",
+    "value": {
+      "id": "event-1",
+      "runId": "run-1",
+      "sequence": 0,
+      "type": "run_progress",
+      "level": "pending",
+      "message": "Model progress",
+      "createdAt": "2026-09-04 00:00:00Z"
+    },
+    "valid": false
+  },
+  {
+    "name": "javascript visible default and launch identity",
+    "schema": "backendCapabilitiesSchema",
+    "value": {
+      "backendId": "javascript",
+      "codeTool": "exec_js",
+      "browserModes": [
+        "headless",
+        "headful"
+      ],
+      "defaults": {
+        "browserMode": "headful",
+        "model": "fixture-model",
+        "maxResponseTurns": 24
+      },
+      "instanceId": "launch-123"
+    },
+    "valid": true
+  },
+  {
+    "name": "reject unsupported Python default browser",
+    "schema": "backendCapabilitiesSchema",
+    "value": {
+      "backendId": "python",
+      "codeTool": "exec_py",
+      "browserModes": [
+        "headful"
+      ],
+      "defaults": {
+        "browserMode": "headless",
+        "model": "fixture-model",
+        "maxResponseTurns": 24
+      },
+      "instanceId": "fixture-instance"
+    },
+    "valid": false
+  },
+  {
+    "name": "reject JavaScript Python tool",
+    "schema": "backendCapabilitiesSchema",
+    "value": {
+      "backendId": "javascript",
+      "codeTool": "exec_py",
+      "browserModes": [
+        "headless",
+        "headful"
+      ],
+      "defaults": {
+        "browserMode": "headless",
+        "model": "fixture-model",
+        "maxResponseTurns": 24
+      },
+      "instanceId": "fixture-instance"
+    },
+    "valid": false
+  },
+  {
+    "name": "reject Python JavaScript tool",
+    "schema": "backendCapabilitiesSchema",
+    "value": {
+      "backendId": "python",
+      "codeTool": "exec_js",
+      "browserModes": [
+        "headful"
+      ],
+      "defaults": {
+        "browserMode": "headful",
+        "model": "fixture-model",
+        "maxResponseTurns": 24
+      },
+      "instanceId": "fixture-instance"
+    },
+    "valid": false
+  },
+  {
+    "name": "reject empty supported browser modes",
+    "schema": "backendCapabilitiesSchema",
+    "value": {
+      "backendId": "python",
+      "codeTool": "exec_py",
+      "browserModes": [],
+      "defaults": {
+        "browserMode": "headful",
+        "model": "fixture-model",
+        "maxResponseTurns": 24
+      },
+      "instanceId": "fixture-instance"
+    },
+    "valid": false
+  },
+  {
+    "name": "reject empty launch identity",
+    "schema": "backendCapabilitiesSchema",
+    "value": {
+      "backendId": "javascript",
+      "codeTool": "exec_js",
+      "browserModes": [
+        "headless",
+        "headful"
+      ],
+      "defaults": {
+        "browserMode": "headless",
+        "model": "fixture-model",
+        "maxResponseTurns": 24
+      },
+      "instanceId": ""
+    },
+    "valid": false
+  },
+  {
+    "name": "reject legacy version 2 replay",
+    "schema": "replayBundleSchema",
+    "value": {
+      "version": 2,
+      "run": {
+        "id": "run-1",
+        "scenarioId": "paint-draw-poster",
+        "labId": "paint",
+        "browserMode": "headful",
+        "model": "fixture-model",
+        "prompt": "Draw a smiley face.",
+        "status": "completed",
+        "startedAt": "2026-09-04T00:00:00Z",
+        "maxResponseTurns": 24,
+        "verificationEnabled": false
+      },
+      "scenario": {
+        "id": "paint-draw-poster",
+        "labId": "paint",
+        "category": "creativity",
+        "title": "Sketch Studio",
+        "description": "Draw and edit raster artwork with brushes, shapes, text, layers, and a saved draft.",
+        "verification": [
+          {
+            "id": "paint-canvas-state",
+            "kind": "canvas_state",
+            "description": "The saved draft is nonblank and matches the current document layers and rendered pixels."
+          }
+        ],
+        "tags": [
+          "hero",
+          "creativity",
+          "canvas"
+        ],
+        "defaultPrompt": "Draw a yellow smiley face with black eyes and a curved smile, then save the draft.",
+        "workspaceTemplatePath": "/tmp/labs/paint-lab-template"
+      },
+      "events": [
+        {
+          "id": "event-1",
+          "runId": "run-1",
+          "sequence": 0,
+          "type": "run_progress",
+          "level": "pending",
+          "message": "Model progress",
+          "createdAt": "2026-09-04T00:00:00Z"
+        }
+      ],
+      "artifacts": {
+        "eventsPath": "/tmp/run/eventsPath",
+        "replayPath": "/tmp/run/replayPath",
+        "runPath": "/tmp/run/runPath",
+        "screenshotsDirectory": "/tmp/run/screenshotsDirectory",
+        "workspacePath": "/tmp/run/workspacePath"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "reject enabled removed verification option",
+    "schema": "startRunRequestSchema",
+    "value": {
+      "scenarioId": "paint-draw-poster",
+      "prompt": "Draw a smiley face.",
+      "verificationEnabled": true
+    },
+    "valid": false
+  },
+  {
+    "name": "reject removed verification event",
+    "schema": "runEventSchema",
+    "value": {
+      "id": "event-1",
+      "runId": "run-1",
+      "sequence": 0,
+      "type": "verification_completed",
+      "level": "pending",
+      "message": "Model progress",
+      "createdAt": "2026-09-04T00:00:00Z"
+    },
+    "valid": false
+  }
+]

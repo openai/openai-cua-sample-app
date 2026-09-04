@@ -1,40 +1,50 @@
-# Contributing to the JavaScript app
+# Contributing to the JavaScript backend
 
-Follow the [quickstart](../README.md#first-run) first. Run the commands below from `javascript-app/`.
+Follow the [quickstart](../README.md#quickstart). All commands below run from the repository root; The JavaScript backend, the shared console, contracts, and lab tests use one pnpm workspace and lockfile.
 
 ## Development and checks
 
-`pnpm dev` starts both services. For separate logs, use one terminal per service:
-
 ```bash
-pnpm dev:runner
-pnpm dev:web
+pnpm dev:js
+pnpm check:js
 ```
 
-Run the app checks:
+`check:js` runs lint, typechecks, JavaScript and console tests, contract fixtures, and a production build. `check:labs` runs shared lab engine and browser integration tests. These checks do not call the live API or control the host desktop.
+
+Useful focused commands:
 
 ```bash
-pnpm check
+pnpm --filter @cua-sample/runner test
+pnpm --filter @cua-sample/console test
+pnpm check:labs
 ```
 
-This runs lint, type checks, app tests, and a production build. Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, or `pnpm build` individually when needed. These checks do not call the API.
+Run `pnpm check` after installing Python dependencies and both browser distributions to check both backends and shared labs. [CI](../../.github/workflows/samples.yml) uses one root install, runs ordinary checks with no API key, and smoke-tests production startup with JavaScript followed by Python.
 
-For lab changes or affected runtime adapters, also run the [shared lab and integration checks](../../labs/docs/contributing.md#checks). Live checks are opt-in and documented there.
-
-After building, start production services in separate terminals:
+## Production and shutdown
 
 ```bash
-pnpm --filter @cua-sample/runner start
-pnpm --filter @cua-sample/demo-web start
+pnpm build
+pnpm start:js
 ```
 
-[CI](../../.github/workflows/javascript-app.yml) runs app checks, lab integration, and production startup. Before release, follow the quickstart from a fresh installation and try a verified run in both headless and visible mode, including Stop. State which checks you ran in the pull request.
+The runner uses **4001** and the shared console **3000** by default. Configuration is the same as development. Use **Ctrl+C** and wait for cleanup before launching Python. Both backend entrypoints hold the exclusive **4050** lease, including when started outside the root launcher. Bare `pnpm dev` prints the supported launch choices; it does not start both backends.
+
+## Live checks
+
+After configuring `.env` and installing Chromium, explicitly run:
+
+```bash
+pnpm --filter cua-sample-labs test:live
+```
+
+This suite calls the real Responses API and exercises the shared labs. It is excluded from ordinary CI. For browser/lifecycle changes, also start `pnpm dev:js`, complete each of the three [lab tasks](../../labs/docs/scenarios.md), and try Stop in headless and visible modes. Describe which checks and operating systems you actually exercised in the pull request.
 
 ## Where to make changes
 
-- **Model and runner settings:** `.env`, using [`.env.example`](../.env.example).
-- **Model/tool interaction:** [`responses-loop.ts`](../packages/runner-core/src/responses-loop.ts).
-- **Runtime and lifecycle:** follow the [code map](architecture.md#code-map).
-- **Lab prompts, tasks, templates, or a new scenario:** follow the [lab contribution guide](../../labs/docs/contributing.md).
+- Model/tool interaction lives in [`responses-loop.ts`](../src/responses-loop.ts); the [architecture map](architecture.md#supporting-modules) locates lifecycle and worker code.
+- Shared UI changes belong in [`console`](../../console/), with capability-specific controls and regression tests for both backends.
+- Public wire changes belong in [`contracts`](../../contracts/). Update matching Python models and fixtures, then run `pnpm --filter @cua-sample/contracts test` and `pnpm check:python`.
+- Lab prompts, templates, task examples, and automated lab checks follow the [lab contribution guide](../../labs/docs/contributing.md).
 
-Keep public contracts in `replay-schema`, lifecycle and scenario adapters in `runner-core`, and process control in `browser-runtime`. App tests use synthetic scenarios; lab-specific tests belong under `labs/tests/`.
+Keep app-unit tests synthetic. Lab-specific integration tests belong under `labs/tests/`; native Python parity tests belong under `python-app/tests/`.

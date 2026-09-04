@@ -1,0 +1,17 @@
+{
+  "name": "@cua-sample/console",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "next build",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@cua-sample/contracts": "workspace:*",
+    "next": "15.5.24",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
