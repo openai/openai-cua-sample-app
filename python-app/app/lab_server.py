@@ -25,6 +25,7 @@ class WorkspaceLabServer:
         task = asyncio.current_task()
         if task:
             self.tasks.add(task)
+        method = None
         try:
             header = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), 5)
             method, target, _ = header.split(b"\r\n", 1)[0].decode("ascii").split(" ", 2)
@@ -42,7 +43,7 @@ class WorkspaceLabServer:
             await self.respond(writer, 200, payload, mime, head=method == "HEAD")
         except (ValueError, OSError, asyncio.TimeoutError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):
             if not writer.is_closing():
-                await self.respond(writer, 404, b'{"error":"Lab asset not found"}', "application/json")
+                await self.respond(writer, 404, b'{"error":"Lab asset not found"}', "application/json", head=method == "HEAD")
         finally:
             writer.close()
             self.connections.discard(writer)
