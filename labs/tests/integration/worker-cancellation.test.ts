@@ -5,7 +5,7 @@ import { createServer, get, request, type IncomingMessage } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
 import type { RunDetail, RunEvent, StartRunResponse } from "@cua-sample/contracts";
@@ -123,7 +123,7 @@ describe("worker cancellation over HTTP", () => {
     let events: ReturnType<typeof openEvents> | undefined;
     try {
       child = fork(fileURLToPath(new URL("./fixtures/worker-server.ts", import.meta.url)), [], {
-        execArgv: ["--import", createRequire(new URL("../../../package.json", import.meta.url)).resolve("tsx")],
+        execArgv: ["--import", pathToFileURL(createRequire(new URL("../../../package.json", import.meta.url)).resolve("tsx")).href],
         env: { ...process.env, CUA_TEST_DATA_ROOT: dataRoot, OPENAI_API_KEY: "integration-test-key", OPENAI_BASE_URL: `${mockAddress}/v1` },
         stdio: ["ignore", "pipe", "pipe", "ipc"],
       });
