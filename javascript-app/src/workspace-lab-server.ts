@@ -48,7 +48,7 @@ export async function startWorkspaceLabServer(
     try {
       const assetPath = resolveWorkspaceAssetPath(
         workspacePath,
-        new URL(request.url ?? "/", "http://127.0.0.1").pathname,
+        decodeURIComponent(new URL(request.url ?? "/", "http://127.0.0.1").pathname),
       );
 
       if (!(await stat(assetPath)).isFile()) {
