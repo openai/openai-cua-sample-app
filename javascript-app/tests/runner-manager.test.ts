@@ -508,3 +508,42 @@ describe("RunnerManager", () => {
   });
 
 });
+
+
+describe("subscriber event isolation", () => {
+  it.each(["synchronous", "deferred", "throwing"])("isolates %s mutations from run history and other subscribers", async (mode) => {
+    const { dataRoot } = await createManager();
+    const ready = deferred();
+    const manager = new RunnerManager({ dataRoot, executorFactory: () => ({ execute: async (context) => {
+      await ready.promise;
+      await context.emitEvent({ type: "run_progress", message: "Original progress", level: "ok" });
+      await context.completeRun({ notes: [] });
+    } }) });
+    const started = await manager.startRun({ scenarioId: "fixture-scenario", prompt: "Complete fixture." });
+    const observed: RunEvent[] = [];
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    manager.subscribe(started.run.id, (event) => {
+      const corrupt = () => {
+        event.message = "Subscriber-local edit";
+        event.sequence = 999;
+        event.runId = "unrelated-run";
+      };
+      if (mode === "deferred") queueMicrotask(corrupt);
+      else corrupt();
+      if (mode === "throwing") throw new Error("Synthetic subscriber failure");
+    });
+    manager.subscribe(started.run.id, (event) => observed.push(structuredClone(event)));
+    try {
+      ready.resolve();
+      const completed = await waitForRunStatus(manager, started.run.id, "completed");
+      const replay = await manager.getReplayBundle(started.run.id);
+      expect(observed.map(event => event.type)).toEqual(["run_progress", "run_completed"]);
+      expect(observed[0]?.message).toBe("Original progress");
+      expect(observed.map(event => event.sequence)).toEqual([2, 3]);
+      expect(completed.events).toEqual(replay.events);
+      expect(completed.events.map(event => event.sequence)).toEqual([0, 1, 2, 3]);
+      expect(completed.events.every(event => event.runId === started.run.id)).toBe(true);
+      expect(observed).toEqual(completed.events.slice(2));
+    } finally { ready.resolve(); await manager.shutdown(); log.mockRestore(); }
+  });
+});
