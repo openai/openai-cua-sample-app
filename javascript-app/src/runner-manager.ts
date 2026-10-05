@@ -666,18 +666,7 @@ export class RunnerManager {
       // The separate run record and event log may be ahead after a write fails.
       const replayBundle = await this.getReplayBundle(runId);
       const run = runRecordSchema.parse(replayBundle.run);
-      const scenario = getScenarioById(run.scenarioId);
-
-      if (!scenario) {
-        throw new RunnerCoreError(
-          `Run ${runId} references unknown scenario ${run.scenarioId}.`,
-          {
-            code: "unknown_scenario",
-            hint: "The run references a scenario that is not registered in this build.",
-            statusCode: 500,
-          },
-        );
-      }
+      const scenario = replayBundle.scenario;
 
       return runDetailSchema.parse({
         browser: replayBundle.browser,
