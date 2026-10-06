@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 
 import { type JavaScriptSession } from "./browser/javascript-process.js";
+import { maxCodeBytes } from "./browser/protocol.js";
 
 import { RunnerCoreError } from "./errors.js";
 import type { RunExecutionContext } from "./scenario-runtime.js";
@@ -222,6 +223,9 @@ export function classifyResponse(response: ResponsesApiResponse) {
         !("code" in args) || typeof args.code !== "string" ||
         Object.keys(args).some(key => key !== "code")) {
         throw invalidResponse("exec_js requires a code string and no other arguments.");
+      }
+      if (args.code.trim() && Buffer.byteLength(args.code) > maxCodeBytes) {
+        throw invalidResponse("JavaScript code must be at most 64 KiB.");
       }
       callIds.add(call.call_id);
       calls.push(call);
