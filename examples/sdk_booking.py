@@ -145,11 +145,10 @@ def run(client: OpenAI, prompt: str, model: str):
                 max_steps=20,
             )
             print(response.output_text)
-            print("Booking status:", page.get_by_test_id("booking-status").inner_text())
-            print("Hotel:", page.get_by_test_id("confirmation-hotel").inner_text())
-            print("Guest:", page.get_by_test_id("confirmation-guest").inner_text())
-            print("Dates:", page.get_by_test_id("confirmation-dates").inner_text())
-            print("Request:", page.get_by_test_id("confirmation-request").inner_text())
+            screenshot = ROOT / "data" / "sdk-booking.png"
+            screenshot.parent.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(screenshot), full_page=True)
+            print(f"Final page screenshot: {screenshot}")
         finally:
             toolset.close()
 

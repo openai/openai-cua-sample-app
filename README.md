@@ -35,7 +35,7 @@ uv run examples/sdk_booking.py
 
 This Python example uses the SDK's `ComputerToolset` to run the Responses loop. A Playwright driver takes screenshots and applies mouse and keyboard actions in a new headless Chromium context. The script starts its own local server for the fake booking lab. It blocks service workers and intercepts page requests to other sites. It closes the browser and server when the run ends. Runs make real OpenAI API calls and use your API credits; they do not control your desktop or open your personal browser session.
 
-The script prints the model's answer and the booking fields from the page. Compare those fields with the requested reservation: a model answer alone does not prove it succeeded. Set `--prompt` to try a different booking or `--model` to use another model with computer use. The defaults come from the same catalog and configuration as both apps. This script installs its pinned SDK separately with uv, so the console apps keep their own dependencies.
+The script prints the model's answer and saves a picture of the final page to `data/sdk-booking.png`. Open it and compare the visible booking with your request; the answer alone does not prove success. Each run replaces the picture. Set `--prompt` to try a different booking or `--model` to use another model with computer use. The defaults come from the same catalog and configuration as both apps. This script installs its pinned SDK separately with uv, so the console apps keep their own dependencies.
 
 ## JavaScript / Playwright Quickstart
 
