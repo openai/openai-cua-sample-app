@@ -92,15 +92,6 @@ importers:
         specifier: ^3.24.2
         version: 3.25.76
 
-  examples:
-    dependencies:
-      openai:
-        specifier: 7.33.0
-        version: 7.33.0(ws@8.21.3)(zod@3.25.76)
-      playwright:
-        specifier: 1.58.0
-        version: 1.58.0
-
   javascript-app:
     dependencies:
       '@cua-sample/contracts':
@@ -115,6 +106,15 @@ importers:
       playwright:
         specifier: ^1.55.0
         version: 1.58.2
+
+  javascript-app/examples:
+    dependencies:
+      openai:
+        specifier: 7.33.0
+        version: 7.33.0(ws@8.21.3)(zod@3.25.76)
+      playwright:
+        specifier: 1.58.0
+        version: 1.58.0
 
   labs:
     devDependencies:

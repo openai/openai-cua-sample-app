@@ -6,11 +6,11 @@ import { parseArgs } from "node:util";
 import OpenAI, { ComputerToolset, type ComputerDriver } from "openai";
 import { chromium, type Browser, type Page } from "playwright";
 
-import defaults from "../contracts/defaults.json" with { type: "json" };
-import { startWorkspaceLabServer } from "../javascript-app/src/workspace-lab-server.ts";
-import catalog from "../labs/catalog.json" with { type: "json" };
+import defaults from "../../contracts/defaults.json" with { type: "json" };
+import { startWorkspaceLabServer } from "../src/workspace-lab-server.ts";
+import catalog from "../../labs/catalog.json" with { type: "json" };
 
-const root = resolve(import.meta.dirname, "..");
+const root = resolve(import.meta.dirname, "../..");
 const keyNames: Record<string, string> = {
   CTRL: "Control", CONTROL: "Control", CMD: "Meta", COMMAND: "Meta", META: "Meta",
   ALT: "Alt", OPTION: "Alt", SHIFT: "Shift", ENTER: "Enter", RETURN: "Enter",
@@ -71,7 +71,7 @@ const { values } = parseArgs({
   options: { prompt: { type: "string" }, model: { type: "string" }, help: { type: "boolean" } },
 });
 if (values.help) {
-  console.log("Usage: pnpm --dir examples start [--prompt TEXT] [--model MODEL]");
+  console.log("Usage: pnpm --dir javascript-app/examples start [--prompt TEXT] [--model MODEL]");
   process.exit(0);
 }
 const booking = catalog.scenarios.find((scenario) => scenario.labId === "booking");

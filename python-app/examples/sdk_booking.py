@@ -17,7 +17,7 @@ from pathlib import Path
 from openai import ComputerDriver, ComputerToolset, OpenAI
 from playwright.sync_api import Page, sync_playwright
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 KEY_NAMES = {
     "CTRL": "Control", "CONTROL": "Control", "CMD": "Meta", "COMMAND": "Meta",
     "META": "Meta", "ALT": "Alt", "OPTION": "Alt", "SHIFT": "Shift",
