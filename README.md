@@ -23,19 +23,28 @@ Both apps read the root `.env`; shell variables take precedence. You can save th
 
 Run either quickstart below from the repository root. Once it starts, open the [console](http://127.0.0.1:3000), choose a scenario, edit its prompt, and select **Start Run**. Runs make real API calls. Use **Stop** to interrupt a run; use **Ctrl+C** and wait for shutdown before switching apps.
 
-## SDK computer-use example
+## SDK computer-use examples
 
-You can also use the [OpenAI SDK computer-use helper](https://developers.openai.com/api/docs/guides/tools-computer-use#use-the-sdk) with the booking lab. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run from the repository root:
+Use the [OpenAI SDK computer-use helper](https://developers.openai.com/api/docs/guides/tools-computer-use#use-the-sdk) with the same booking lab in Node.js or Python. Clone the repository, export `OPENAI_API_KEY`, and run these commands from the repository root:
+
+**Node.js**
 
 ```bash
-export OPENAI_API_KEY="your_api_key_here"
+pnpm install --frozen-lockfile
+pnpm --dir examples exec playwright install chromium-headless-shell
+pnpm --dir examples start
+```
+
+**Python** (requires [uv](https://docs.astral.sh/uv/getting-started/installation/))
+
+```bash
 uv run --with playwright==1.58.0 playwright install chromium-headless-shell
 uv run examples/sdk_booking.py
 ```
 
-This Python example uses the SDK's `ComputerToolset` to run the Responses loop. A Playwright driver takes screenshots and applies mouse and keyboard actions in a new headless Chromium context. The script starts its own local server for the fake booking lab. It blocks service workers and intercepts page requests to other sites. It closes the browser and server when the run ends. Runs make real OpenAI API calls and use your API credits; they do not control your desktop or open your personal browser session.
+Both examples use `ComputerToolset` to run the Responses loop. A Playwright driver takes screenshots and applies mouse and keyboard actions in a new headless Chromium context. Each example starts a local server for the fake booking lab, blocks service workers and page requests to other sites, and closes the browser and server when the run ends. Runs make real OpenAI API calls and use your API credits; they do not control your desktop or open your personal browser session.
 
-The script prints the model's answer and saves a picture of the final page to `data/sdk-booking.png`. Open it and compare the visible booking with your request; the answer alone does not prove success. Each run replaces the picture. Set `--prompt` to try a different booking or `--model` to use another model with computer use. The defaults come from the same catalog and configuration as both apps. This script installs its pinned SDK separately with uv, so the console apps keep their own dependencies.
+Each example prints the model's answer and saves the final page to `data/sdk-booking.png`. Open it and compare the visible booking with your request; the answer alone does not prove success. Each run replaces the picture. Set `--prompt` to try a different booking or `--model` to use another model with computer use. Both examples use the same default task and model as the apps, but keep their SDK dependencies separate.
 
 ## JavaScript / Playwright Quickstart
 

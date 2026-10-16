@@ -9,7 +9,7 @@
     "dev:python": "node scripts/launch.mjs python",
     "start:js": "node scripts/launch.mjs javascript --production",
     "start:python": "node scripts/launch.mjs python --production",
-    "lint": "eslint console javascript-app contracts scripts --max-warnings=0",
+    "lint": "eslint console javascript-app contracts examples scripts --max-warnings=0",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --filter !cua-sample-labs test && node --test scripts/*.test.mjs",
     "build": "pnpm -r --if-present build",

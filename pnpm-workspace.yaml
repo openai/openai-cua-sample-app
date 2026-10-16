@@ -2,4 +2,5 @@ packages:
   - console
   - javascript-app
   - contracts
+  - examples
   - labs
