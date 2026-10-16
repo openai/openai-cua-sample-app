@@ -23,6 +23,20 @@ Both apps read the root `.env`; shell variables take precedence. You can save th
 
 Run either quickstart below from the repository root. Once it starts, open the [console](http://127.0.0.1:3000), choose a scenario, edit its prompt, and select **Start Run**. Runs make real API calls. Use **Stop** to interrupt a run; use **Ctrl+C** and wait for shutdown before switching apps.
 
+## SDK computer-use example
+
+You can also use the [OpenAI SDK computer-use helper](https://developers.openai.com/api/docs/guides/tools-computer-use#use-the-sdk) with the booking lab. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run from the repository root:
+
+```bash
+export OPENAI_API_KEY="your_api_key_here"
+uv run --with playwright==1.58.0 playwright install chromium-headless-shell
+uv run examples/sdk_booking.py
+```
+
+This Python example uses the SDK's `ComputerToolset` to run the Responses loop. A Playwright driver takes screenshots and applies mouse and keyboard actions in a new headless Chromium context. The script starts its own local server for the fake booking lab. It blocks service workers and intercepts page requests to other sites. It closes the browser and server when the run ends. Runs make real OpenAI API calls and use your API credits; they do not control your desktop or open your personal browser session.
+
+The script prints the model's answer and the booking fields from the page. Compare those fields with the requested reservation: a model answer alone does not prove it succeeded. Set `--prompt` to try a different booking or `--model` to use another model with computer use. The defaults come from the same catalog and configuration as both apps. This script installs its pinned SDK separately with uv, so the console apps keep their own dependencies.
+
 ## JavaScript / Playwright Quickstart
 
 The JavaScript agent uses Playwright locators, screenshots, and browser controls in a persistent session, with a TypeScript server and agent loop. See the [JavaScript README](javascript-app/README.md) for the code walkthrough and recovery guidance.
