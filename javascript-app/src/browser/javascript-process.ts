@@ -1,5 +1,6 @@
 import { fork } from "node:child_process";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 
 import {
@@ -81,7 +82,7 @@ export async function launchJavaScriptSession(options: Options): Promise<JavaScr
     child = fork(options.workerPath, [], {
       // Do not inherit the runner's --env-file arguments.
       execArgv: options.workerPath.endsWith(".ts")
-        ? ["--import", createRequire(import.meta.url).resolve("tsx")]
+        ? ["--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href]
         : [],
       env: childEnvironment,
       stdio: ["ignore", "pipe", "pipe", "ipc"],
