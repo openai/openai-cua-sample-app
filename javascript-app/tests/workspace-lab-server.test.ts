@@ -40,13 +40,15 @@ afterEach(async () => {
 });
 
 async function createServer(content: string | Buffer = "<h1>Lab</h1>") {
-  const workspacePath = await mkdtemp(join(tmpdir(), "cua-lab-server-test-"));
-  cleanups.push(() => rm(workspacePath, { force: true, recursive: true }));
+  const directory = await mkdtemp(join(tmpdir(), "cua-lab-server-test-"));
+  cleanups.push(() => rm(directory, { force: true, recursive: true }));
+  const workspacePath = join(directory, "workspace");
+  await mkdir(workspacePath);
   await writeFile(join(workspacePath, "index.html"), content);
   await mkdir(join(workspacePath, "assets"));
   const server = await startWorkspaceLabServer({ workspacePath });
   cleanups.push(server.close);
-  return server;
+  return { ...server, workspacePath };
 }
 
 function get(url: string, path = "/") {
@@ -71,6 +73,28 @@ describe("workspace lab asset serving", () => {
     expect(await get(server.urlFor())).toEqual({ status: 200, body: "<h1>Lab</h1>" });
     expect((await get(server.urlFor(), "/missing.css")).status).toBe(404);
   });
+
+  it.each(["my poster.svg", "café.svg", "100%.svg", "literal%20name.svg"])(
+    "serves the encoded asset filename %s",
+    async (name) => {
+      const server = await createServer();
+      await writeFile(join(server.workspacePath, "assets", name), "<svg></svg>");
+      expect(await get(server.urlFor(), `/assets/${encodeURIComponent(name)}?v=1`)).toEqual({
+        status: 200,
+        body: "<svg></svg>",
+      });
+    },
+  );
+
+  it.each(["/..%2foutside.txt", "/..%5coutside.txt", "/assets/%", "/assets/%ZZ"])(
+    "rejects an invalid encoded asset path %s without terminating the server",
+    async (path) => {
+      const server = await createServer();
+      await writeFile(join(server.workspacePath, "..", "outside.txt"), "outside the workspace");
+      expect((await get(server.urlFor(), path)).status).toBe(404);
+      expect((await get(server.urlFor())).status).toBe(200);
+    },
+  );
 
   it.each(["/assets", "/index.html/..//"])(
     "rejects directory request %s without terminating the server",
