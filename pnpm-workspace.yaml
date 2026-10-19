@@ -1,5 +1,6 @@
 packages:
   - console
   - javascript-app
+  - javascript-app/examples
   - contracts
   - labs

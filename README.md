@@ -23,6 +23,29 @@ Both apps read the root `.env`; shell variables take precedence. You can save th
 
 Run either quickstart below from the repository root. Once it starts, open the [console](http://127.0.0.1:3000), choose a scenario, edit its prompt, and select **Start Run**. Runs make real API calls. Use **Stop** to interrupt a run; use **Ctrl+C** and wait for shutdown before switching apps.
 
+## SDK computer-use examples
+
+Use the [OpenAI SDK computer-use helper](https://developers.openai.com/api/docs/guides/tools-computer-use#use-the-sdk) with the same booking lab in Node.js or Python. Clone the repository, export `OPENAI_API_KEY`, and run these commands from the repository root:
+
+**[Node.js](javascript-app/examples/sdk_booking.ts)**
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --dir javascript-app/examples exec playwright install chromium-headless-shell
+pnpm --dir javascript-app/examples start
+```
+
+**[Python](python-app/examples/sdk_booking.py)** (requires [uv](https://docs.astral.sh/uv/getting-started/installation/))
+
+```bash
+uv run --with playwright==1.58.0 playwright install chromium-headless-shell
+uv run python-app/examples/sdk_booking.py
+```
+
+Both examples use `ComputerToolset` to run the Responses loop. A Playwright driver takes screenshots and applies mouse and keyboard actions in a new headless Chromium context. Each example starts a local server for the fake booking lab, blocks service workers and page requests to other sites, and closes the browser and server when the run ends. Runs make real OpenAI API calls and use your API credits; they do not control your desktop or open your personal browser session.
+
+Each example prints the model's answer and saves the final page to `data/sdk-booking.png`. Open it and compare the visible booking with your request; the answer alone does not prove success. Each run replaces the picture. Set `--prompt` to try a different booking or `--model` to use another model with computer use. Both examples use the same default task and model as the apps, but keep their SDK dependencies separate.
+
 ## JavaScript / Playwright Quickstart
 
 The JavaScript agent uses Playwright locators, screenshots, and browser controls in a persistent session, with a TypeScript server and agent loop. See the [JavaScript README](javascript-app/README.md) for the code walkthrough and recovery guidance.
@@ -57,6 +80,7 @@ pnpm dev:python
 |   |   |-- runner-manager.ts          Run lifecycle and saved artifacts
 |   |   `-- lab-catalog.ts             Shared lab catalog access
 |   |-- docs/                          Architecture and contributing guides
+|   |-- examples/                      SDK computer-use booking example
 |   `-- tests/                         JavaScript tests
 |-- labs/
 |   |-- catalog.json                   Scenario defaults and task prompts
@@ -74,6 +98,7 @@ pnpm dev:python
 |   |   |-- runner.py                  Run lifecycle and saved artifacts
 |   |   `-- lab_catalog.py             Shared lab catalog access
 |   |-- docs/                          Architecture and contributing guides
+|   |-- examples/                      SDK computer-use booking example
 |   `-- tests/                         Python tests
 `-- scripts/
     `-- launch.mjs                     Starts one app and the shared console
