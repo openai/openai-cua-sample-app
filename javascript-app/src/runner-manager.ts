@@ -317,6 +317,9 @@ export class RunnerManager {
       });
     }
 
+    // A reset must include a start that already owns the run slot.
+    while (this.startingRun) await sleep(10);
+
     let cancelledRunId: string | undefined;
 
     for (const activeRunId of this.activeRunIds) {
