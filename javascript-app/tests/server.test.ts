@@ -382,7 +382,7 @@ describe("runner request boundaries", () => {
     } finally { await app.close(); }
   });
 
-  it.each(["before subscription", "during the fresh snapshot"])("includes completion %s exactly once and closes SSE", async (timing) => {
+  it.each(["before subscription", "during the fresh snapshot", "during replay"])("includes completion %s exactly once and closes SSE", async (timing) => {
     const scenario = listScenarios()[0]!;
     const started: RunEvent = { id: "race:0", runId: "race", sequence: 0, type: "run_started", level: "ok", message: "Started", createdAt: "2026-09-03T00:00:00.000Z" };
     const completed: RunEvent = { ...started, id: "race:1", sequence: 1, type: "run_completed", message: "Done" };
@@ -410,6 +410,46 @@ describe("runner request boundaries", () => {
       const events = body.trim().split("\n\n").map((frame) => JSON.parse(frame.slice(6)));
       expect(events.map((event: RunEvent) => event.type)).toEqual(["run_started", "run_completed"]);
       expect(unsubscribe).toHaveBeenCalledOnce();
+    } finally { await app.close(); }
+  });
+
+  it("delivers events arriving while earlier replay events are being written", async () => {
+    const scenario = listScenarios()[0]!;
+    const started: RunEvent = { id: "race:0", runId: "race", sequence: 0, type: "run_started", level: "ok", message: "Started", createdAt: "2026-09-03T00:00:00.000Z" };
+    const progress: RunEvent = { ...started, id: "race:1", sequence: 1, type: "run_progress", message: "In progress" };
+    const completed: RunEvent = { ...started, id: "race:2", sequence: 2, type: "run_completed", message: "Done" };
+    const initial = runDetailSchema.parse({
+      run: { id: "race", scenarioId: scenario.id, labId: scenario.labId, browserMode: "headless", model: "test", maxResponseTurns: 24, prompt: "test", status: "running", startedAt: started.createdAt },
+      scenario, workspacePath: "/tmp/race", eventStreamUrl: "/api/runs/race/events", replayUrl: "/api/runs/race/replay", events: [started, progress],
+    });
+    let listener: ((event: RunEvent) => void) | undefined;
+    const unsubscribe = vi.fn();
+    const getRunDetail = vi.fn().mockResolvedValue(initial);
+
+    const app = createServer({ manager: {
+      getRunDetail,
+      subscribe: (_runId: string, callback: (event: RunEvent) => void) => { listener = callback; return unsubscribe; },
+      shutdown: async () => undefined,
+    } as unknown as RunnerManager });
+
+    let injected = false;
+    app.addHook("onRequest", async (_req, reply) => {
+      const originalWrite = reply.raw.write.bind(reply.raw);
+      reply.raw.write = ((chunk: unknown, ...args: unknown[]) => {
+        if (!injected && typeof chunk === "string" && chunk.includes("run_started")) {
+          injected = true;
+          // While started is being written during replay, live completed event arrives
+          listener?.(completed);
+        }
+        return (originalWrite as (c: unknown, ...a: unknown[]) => boolean)(chunk, ...args);
+      }) as typeof reply.raw.write;
+    });
+
+    try {
+      const response = await app.inject({ method: "GET", url: "/api/runs/race/events" });
+      const body = response.body;
+      const events = body.trim().split("\n\n").map((frame) => JSON.parse(frame.slice(6)));
+      expect(events.map((event: RunEvent) => event.type)).toEqual(["run_started", "run_progress", "run_completed"]);
     } finally { await app.close(); }
   });
 });
