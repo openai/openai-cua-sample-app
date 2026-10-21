@@ -201,10 +201,10 @@ def create_app(*, manager: RunnerManager | None = None, settings: Settings | Non
                         return
                 if snapshot["run"]["status"] != "running":
                     return
-                while not shutdown.is_set():
-                    event_task = asyncio.create_task(queue.get())
-                    shutdown_task = asyncio.create_task(shutdown.wait())
-                    try:
+                event_task = asyncio.create_task(queue.get())
+                shutdown_task = asyncio.create_task(shutdown.wait())
+                try:
+                    while not shutdown.is_set():
                         done, _ = await asyncio.wait((event_task, shutdown_task), timeout=15,
                                                      return_when=asyncio.FIRST_COMPLETED)
                         if event_task in done:
@@ -214,14 +214,17 @@ def create_app(*, manager: RunnerManager | None = None, settings: Settings | Non
                                 yield "data: " + json.dumps(event, ensure_ascii=False) + "\n\n"
                                 if event["type"] in ("run_completed", "run_cancelled", "run_failed"):
                                     return
+                            event_task = asyncio.create_task(queue.get())
                         elif shutdown_task in done:
                             return
                         else:
+                            # Retain the queue read while a heartbeat is being sent:
+                            # it may receive an event before iteration resumes.
                             yield ": keepalive\n\n"
-                    finally:
-                        event_task.cancel()
-                        shutdown_task.cancel()
-                        await asyncio.gather(event_task, shutdown_task, return_exceptions=True)
+                finally:
+                    event_task.cancel()
+                    shutdown_task.cancel()
+                    await asyncio.gather(event_task, shutdown_task, return_exceptions=True)
             finally:
                 if unsubscribe:
                     unsubscribe()
