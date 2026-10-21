@@ -286,6 +286,11 @@ export function createServer(options: CreateServerOptions = {}) {
         sendEvent(event);
       }
       replaying = false;
+      while (buffered.length > 0) {
+        buffered.sort((left, right) => left.sequence - right.sequence);
+        const event = buffered.shift()!;
+        sendEvent(event);
+      }
       if (detail.run.status !== "running") {
         cleanup();
         reply.raw.end();
