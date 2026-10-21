@@ -151,3 +151,37 @@ async def test_readiness_does_not_release_input_without_executing(tmp_path):
     helper.write_text("raise RuntimeError('must not run')")
     session = await runtime(release_helper_path=helper)
     await session.close()
+
+
+async def test_deadline_covers_worker_that_never_reads_input(tmp_path):
+    worker = tmp_path / "blocked_input.py"
+    worker.write_text(
+        "import json, sys, time\n"
+        "print(json.dumps({'ready': True, 'platform': sys.platform}), flush=True)\n"
+        "time.sleep(60)\n"
+    )
+    marker = tmp_path / "released"
+    helper = tmp_path / "release.py"
+    helper.write_text(
+        f"from pathlib import Path; Path({str(marker)!r}).write_text('released')\n"
+        "print('{\"released\": true}', flush=True)\n"
+    )
+    session = await launch_python_runtime(
+        worker_path=worker,
+        release_helper_path=helper,
+        execution_timeout_ms=100,
+    )
+    # The code fits the 64 KiB limit, while JSON's Unicode escapes fill the pipe
+    # and the transport write buffer before the worker reads any request.
+    operation = asyncio.create_task(session.execute("#" + "😀" * 16000))
+    try:
+        done, _ = await asyncio.wait((operation,), timeout=2)
+        assert operation in done, "The execution deadline did not cover writing the request"
+        with pytest.raises(PythonRuntimeError, match="exceeded 100ms"):
+            await operation
+        assert session.child.process.returncode is not None
+        assert marker.read_text() == "released"
+    finally:
+        operation.cancel()
+        await asyncio.gather(operation, return_exceptions=True)
+        await session.close()
