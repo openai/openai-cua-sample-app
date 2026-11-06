@@ -185,3 +185,26 @@ async def test_deadline_covers_worker_that_never_reads_input(tmp_path):
         operation.cancel()
         await asyncio.gather(operation, return_exceptions=True)
         await session.close()
+
+
+async def test_write_and_read_share_one_execution_deadline(monkeypatch):
+    session = await runtime(execution_timeout_ms=300)
+    write = session.child.write
+    receive = session._receive
+
+    async def delayed_write(data):
+        await asyncio.sleep(0.2)
+        return await write(data)
+
+    async def delayed_receive(*args):
+        await asyncio.sleep(0.2)
+        return await receive(*args)
+
+    monkeypatch.setattr(session.child, "write", delayed_write)
+    monkeypatch.setattr(session, "_receive", delayed_receive)
+    try:
+        with pytest.raises(PythonRuntimeError, match="exceeded 300ms"):
+            await asyncio.wait_for(session.execute("print('finished')"), 2)
+        assert session.child.process.returncode is not None
+    finally:
+        await session.close()
