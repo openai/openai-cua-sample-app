@@ -194,11 +194,22 @@ export async function runWorkspaceLabBrowserFlow(
       notes: result.notes,
     });
   } finally {
-    try {
-      await session?.close();
-    } finally {
-      await labServer.close();
-    }
+    await closeWorkspaceResources(session, labServer);
+  }
+}
+
+async function closeWorkspaceResources(
+  session: JavaScriptSession | undefined,
+  labServer: { close: () => Promise<void> },
+) {
+  const failures: unknown[] = [];
+  try { await session?.close(); } catch (error) { failures.push(error); }
+  try { await labServer.close(); } catch (error) { failures.push(error); }
+  if (failures.length > 0) {
+    throw new RunnerCoreError(
+      `Run cleanup failed: ${failures.map(error => error instanceof Error ? error.message : String(error)).join("; ")}`,
+      { code: "cleanup_failed", hint: "Check that the run's browser and lab server have stopped before retrying." },
+    );
   }
 }
 

@@ -295,11 +295,13 @@ export class RunnerManager {
     // Do not advertise cancellation until browser and worker teardown has finished.
     try {
       await context.execution;
-      await this.publishTerminalRun(context, {
-        notes: [reason], status: "cancelled",
-      }, {
-        detail: reason, level: "warn", message: "Run cancelled before completion.", type: "run_cancelled",
-      });
+      if (context.detail.run.status === "running") {
+        await this.publishTerminalRun(context, {
+          notes: [reason], status: "cancelled",
+        }, {
+          detail: reason, level: "warn", message: "Run cancelled before completion.", type: "run_cancelled",
+        });
+      }
       return structuredClone(context.detail);
     } finally {
       this.activeRunIds.delete(context.detail.run.id);
@@ -455,7 +457,8 @@ export class RunnerManager {
         type: "run_completed",
       });
     } catch (error) {
-      if (context.abortController.signal.aborted) return;
+      const cleanupFailed = error instanceof RunnerCoreError && error.code === "cleanup_failed";
+      if (context.abortController.signal.aborted && !cleanupFailed) return;
       context.finalizing = true;
       await this.failRun(context, error);
     } finally {
