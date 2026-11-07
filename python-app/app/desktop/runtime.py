@@ -138,8 +138,16 @@ class PythonRuntime:
             self._sequence += 1
             self._input_may_be_held = True
             request = json.dumps({"id": self._sequence, "operation": "execute", "code": code}) + "\n"
-            await await_active(self.child.write(request.encode()), signal or self.signal)
-            value = await self._receive(self._sequence, self.execution_timeout_ms, signal)
+            async def exchange() -> dict[str, Any]:
+                await await_active(self.child.write(request.encode()), signal or self.signal)
+                return await self._receive(self._sequence, self.execution_timeout_ms, signal)
+
+            try:
+                value = await asyncio.wait_for(exchange(), self.execution_timeout_ms / 1000)
+            except asyncio.TimeoutError as error:
+                raise PythonRuntimeError(
+                    f"Python execution exceeded {self.execution_timeout_ms}ms. Start a new run."
+                ) from error
             assert_active(self.signal)
             assert_active(signal)
             return {"output": read_output(value)}
