@@ -119,7 +119,7 @@ class RunnerManager:
         if run_id in self.contexts:
             return copy.deepcopy(self.contexts[run_id].detail)
         replay = await self.storage.read_replay(run_id)
-        return validate_wire(RunDetail, {"run": replay["run"], "scenario": self.scenario(replay["run"]["scenarioId"]),
+        return validate_wire(RunDetail, {"run": replay["run"], "scenario": replay["scenario"],
                                         "workspacePath": replay["artifacts"]["workspacePath"], "events": replay["events"],
                                         "eventStreamUrl": f"/api/runs/{run_id}/events", "replayUrl": f"/api/runs/{run_id}/replay",
                                         **({"browser": replay["browser"]} if "browser" in replay else {})})

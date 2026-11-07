@@ -269,3 +269,35 @@ async def test_exact_model_image_metadata(manager_factory):
     image = final["browser"]["screenshots"][0]
     assert Path(image["path"]).read_bytes() == b"abc"
     assert (image["source"], image["imageWidth"], image["imageHeight"]) == ("code_tool", 100, 50)
+
+
+@pytest.mark.parametrize("catalog_change", ["modified", "removed", "unchanged"])
+async def test_reopened_run_uses_its_saved_scenario(manager_factory, catalog_change):
+    manager = manager_factory(idle)
+    detail = await manager.start_run(request())
+    run_id = detail["run"]["id"]
+    final = await manager.stop_run(run_id)
+    replay = await manager.get_replay_bundle(run_id)
+    assert replay["scenario"] == final["scenario"]
+
+    catalog = manager.scenarios
+    if catalog_change == "modified":
+        catalog = [{**scenario, "title": "Changed title", "description": "Changed description",
+                    "defaultPrompt": "Different task", "tags": ["changed"]} for scenario in catalog]
+    elif catalog_change == "removed":
+        catalog = []
+    reopened = RunnerManager(manager.storage.root, scenarios=catalog, executor=idle)
+    try:
+        loaded = await reopened.get_run_detail(run_id)
+        assert loaded["scenario"] == final["scenario"]
+        assert loaded["run"] == final["run"]
+        assert loaded["events"] == final["events"]
+        loaded["scenario"]["tags"].append("local mutation")
+        assert (await reopened.get_run_detail(run_id))["scenario"] == replay["scenario"]
+        assert (await reopened.stop_run(run_id))["scenario"] == replay["scenario"]
+        if catalog_change == "removed":
+            with pytest.raises(RunnerCoreError) as caught:
+                await reopened.start_run(request())
+            assert caught.value.code == "unknown_scenario"
+    finally:
+        await reopened.shutdown()
