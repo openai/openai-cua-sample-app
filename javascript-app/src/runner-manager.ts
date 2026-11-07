@@ -606,7 +606,7 @@ export class RunnerManager {
   private notifySubscribers(context: InternalRunContext, event: RunEvent) {
     for (const subscriber of context.subscribers) {
       try {
-        subscriber(event);
+        subscriber(structuredClone(event));
       } catch (error) {
         console.error(`Run event subscriber failed for ${context.detail.run.id}:`, error);
       }
