@@ -205,3 +205,77 @@ async def test_unsupported_saved_replay_returns_409_without_modifying_history(ap
         assert response.status_code == 409
         assert response.json()["code"] == "unsupported_replay_version"
         assert replay_path.read_bytes() == original
+
+
+@pytest.mark.parametrize("terminal", [False, True])
+async def test_sse_keeps_events_received_while_yielding_keepalive(api, monkeypatch, terminal):
+    app, manager, _ = api
+    detail = await manager.start_run({"scenarioId": "paint-draw-poster", "prompt": "Draw"})
+    run_id = detail["run"]["id"]
+    endpoint = next(route.endpoint for route in app.routes if getattr(route, "path", "") == "/api/runs/{run_id}/events")
+    response = await endpoint(run_id)
+    stream = response.body_iterator
+    waits = []
+    original_wait = asyncio.wait
+
+    async def fast_keepalive(tasks, *, timeout=None, return_when=asyncio.ALL_COMPLETED):
+        if timeout == 15:
+            waits.append(tuple(tasks))
+            timeout = 0.001
+        return await original_wait(tasks, timeout=timeout, return_when=return_when)
+
+    monkeypatch.setattr(asyncio, "wait", fast_keepalive)
+    try:
+        for event in detail["events"]:
+            frame = await anext(stream)
+            assert json.loads(frame.removeprefix("data: ")) == event
+        assert await asyncio.wait_for(anext(stream), 1) == ": keepalive\n\n"
+
+        # Suspend body iteration, as a slow client does while the heartbeat sends.
+        # The pending queue read can consume the next event during that interval.
+        if terminal:
+            stopped = await manager.stop_run(run_id)
+            expected = stopped["events"][-1]
+        else:
+            await manager.emit_event(manager.contexts[run_id], {"type": "run_progress", "message": "during heartbeat", "level": "ok"})
+            expected = manager.contexts[run_id].detail["events"][-1]
+        event_task = next(task for task in waits[-1] if task.get_coro().__qualname__ == "Queue.get")
+        assert await asyncio.wait_for(asyncio.shield(event_task), 1) == expected
+        frame = await asyncio.wait_for(anext(stream), 1)
+        assert frame.startswith("data: "), "The event consumed during the heartbeat was discarded"
+        assert json.loads(frame.removeprefix("data: ")) == expected
+        if terminal:
+            with pytest.raises(StopAsyncIteration):
+                await asyncio.wait_for(anext(stream), 1)
+    finally:
+        await stream.aclose()
+    assert not manager.contexts[run_id].subscribers
+    assert all(task.done() for pair in waits for task in pair)
+
+
+async def test_sse_repeated_keepalives_close_all_waiters(api, monkeypatch):
+    app, manager, _ = api
+    detail = await manager.start_run({"scenarioId": "paint-draw-poster", "prompt": "Draw"})
+    run_id = detail["run"]["id"]
+    endpoint = next(route.endpoint for route in app.routes if getattr(route, "path", "") == "/api/runs/{run_id}/events")
+    response = await endpoint(run_id)
+    stream = response.body_iterator
+    waits = []
+    original_wait = asyncio.wait
+
+    async def fast_keepalive(tasks, *, timeout=None, return_when=asyncio.ALL_COMPLETED):
+        if timeout == 15:
+            waits.extend(tasks)
+            timeout = 0.001
+        return await original_wait(tasks, timeout=timeout, return_when=return_when)
+
+    monkeypatch.setattr(asyncio, "wait", fast_keepalive)
+    try:
+        for _ in detail["events"]:
+            await anext(stream)
+        for _ in range(3):
+            assert await asyncio.wait_for(anext(stream), 1) == ": keepalive\n\n"
+    finally:
+        await stream.aclose()
+    assert not manager.contexts[run_id].subscribers
+    assert waits and all(task.done() for task in waits)
